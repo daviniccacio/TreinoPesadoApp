@@ -11,64 +11,70 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../lib/supabase';
 
-// Interface para estruturar os dados do favorito vindo do Supabase
-interface FavoriteItem {
+interface HistoryItem {
   id: string;
-  exercise_id: string;
+  weight_used: string;
+  sets_completed: number;
+  completed_at: string;
   exercises: {
-    id: string;
     name: string;
-    sets: number;
-    reps: string;
-    weight: string;
     category_id: string;
   };
 }
 
-export default function FavoritesScreen() {
+export default function HistoryScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
-  const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
+  const [history, setHistory] = useState<HistoryItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
-  // O useFocusEffect é executado SEMPRE que esta tela ganha o foco do usuário
   useFocusEffect(
     useCallback(() => {
-      fetchFavorites();
+      fetchHistory();
     }, [])
   );
 
-  // Busca a lista atualizada de favoritos no Supabase
-  async function fetchFavorites() {
+  async function fetchHistory() {
     try {
       setLoading(true);
 
       const { data, error } = await supabase
-        .from('favorites')
+        .from('workout_history')
         .select(`
           id,
-          exercise_id,
+          weight_used,
+          sets_completed,
+          completed_at,
           exercises (
-            id,
             name,
-            sets,
-            reps,
-            weight,
             category_id
           )
-        `);
+        `)
+        .order('completed_at', { ascending: false });
 
       if (error) {
-        console.error('Erro ao buscar favoritos:', error.message);
+        console.error('Erro ao buscar histórico:', error.message);
       } else if (data) {
-        setFavorites(data as unknown as FavoriteItem[]);
+        setHistory(data as unknown as HistoryItem[]);
       }
     } catch (err) {
       console.error('Erro de conexão:', err);
     } finally {
       setLoading(false);
     }
+  }
+
+  // Função auxiliar para formatar a data recebida no formato ISO
+  function formatDate(isoDateString: string) {
+    const date = new Date(isoDateString);
+    return date.toLocaleDateString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
   }
 
   return (
@@ -84,62 +90,62 @@ export default function FavoritesScreen() {
         </TouchableOpacity>
 
         <Text className="text-xl font-extrabold text-[#1b1b1d]">
-          Meus Favoritos
+          Histórico de Treinos
         </Text>
 
         <View className="w-10" />
       </View>
 
-      {/* Lista de Favoritos */}
+      {/* Lista de Registros */}
       {loading ? (
         <View className="flex-1 justify-center items-center">
           <ActivityIndicator size="large" color="#0058bc" />
           <Text className="mt-3 text-[#414755] font-medium">
-            Carregando favoritos...
+            Carregando histórico...
           </Text>
         </View>
       ) : (
         <ScrollView className="flex-1 px-5 pt-4" showsVerticalScrollIndicator={false}>
-          {favorites.length === 0 ? (
+          {history.length === 0 ? (
             <View className="py-16 items-center">
-              <Ionicons name="heart-dislike-outline" size={48} color="#a0a5b1" />
+              <Ionicons name="time-outline" size={48} color="#a0a5b1" />
               <Text className="text-[#414755] font-semibold text-center mt-3 text-base">
-                Nenhum exercício favoritado ainda.
+                Nenhum treino concluído ainda.
               </Text>
               <Text className="text-[#808591] text-xs text-center mt-1">
-                Toque no ícone de coração em qualquer exercício para salvá-lo aqui.
+                Conclua exercícios para acompanhar seu progresso aqui.
               </Text>
             </View>
           ) : (
-            favorites.map((item) => (
-              <TouchableOpacity
+            history.map((item) => (
+              <View
                 key={item.id}
-                onPress={() => router.push(`/exercise/${item.exercises.id}`)}
                 className="bg-[#f0edef] p-4 rounded-2xl mb-3 flex-row items-center justify-between"
-                activeOpacity={0.8}
               >
                 <View className="flex-1 mr-3">
-                  <Text className="text-xs font-bold text-[#0058bc] uppercase mb-1">
-                    {item.exercises.category_id}
-                  </Text>
+                  <View className="flex-row items-center justify-between mb-1">
+                    <Text className="text-xs font-bold text-[#0058bc] uppercase">
+                      {item.exercises?.category_id}
+                    </Text>
+                    <Text className="text-xs text-[#808591]">
+                      {formatDate(item.completed_at)}
+                    </Text>
+                  </View>
+
                   <Text className="text-base font-bold text-[#1b1b1d] mb-1">
-                    {item.exercises.name}
+                    {item.exercises?.name}
                   </Text>
+
                   <View className="flex-row items-center gap-3">
                     <Text className="text-xs text-[#414755]">
-                      <Text className="font-bold text-[#0058bc]">{item.exercises.sets}</Text> séries
+                      <Text className="font-bold text-[#0058bc]">{item.sets_completed}</Text> séries
                     </Text>
                     <Text className="text-xs text-[#414755]">
-                      <Text className="font-bold text-[#0058bc]">{item.exercises.reps}</Text> reps
-                    </Text>
-                    <Text className="text-xs text-[#414755]">
-                      <Text className="font-bold text-[#0058bc]">{item.exercises.weight}</Text>
+                      Carga: <Text className="font-bold text-[#0058bc]">{item.weight_used}</Text>
                     </Text>
                   </View>
                 </View>
-
-                <Ionicons name="chevron-forward" size={18} color="#0058bc" />
-              </TouchableOpacity>
+              </View>
             ))
           )}
 

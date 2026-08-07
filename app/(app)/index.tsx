@@ -10,7 +10,7 @@ import {
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { supabase } from '../../lib/supabase'; // Caminho ajustado para a pasta app/(app)/
+import { supabase } from '../../lib/supabase';
 
 // Definição do tipo para a Categoria
 interface Category {
@@ -63,12 +63,26 @@ export default function HomeScreen() {
           </Text>
         </View>
 
-        <TouchableOpacity 
-          className="w-10 h-10 rounded-full bg-[#f0edef] items-center justify-center"
-          activeOpacity={0.7}
-        >
-          <Ionicons name="notifications-outline" size={20} color="#1b1b1d" />
-        </TouchableOpacity>
+        {/* Atalhos de Navegação no Cabeçalho */}
+        <View className="flex-row items-center gap-2">
+          {/* Botão de Histórico */}
+          <TouchableOpacity
+            onPress={() => router.push('/history')}
+            className="w-10 h-10 rounded-full bg-[#f0edef] items-center justify-center"
+            activeOpacity={0.7}
+          >
+            <Ionicons name="time-outline" size={20} color="#1b1b1d" />
+          </TouchableOpacity>
+
+          {/* Botão de Favoritos */}
+          <TouchableOpacity
+            onPress={() => router.push('/favorites')}
+            className="w-10 h-10 rounded-full bg-[#f0edef] items-center justify-center"
+            activeOpacity={0.7}
+          >
+            <Ionicons name="heart-outline" size={20} color="#1b1b1d" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Lista de Categorias */}
