@@ -1,0 +1,4 @@
+- [] Criar plano de fazer seu próprio treino
+- [] Pensar algo para funcionar como assinatura mensal
+- [] Modo escuro
+- [] Design para academia
