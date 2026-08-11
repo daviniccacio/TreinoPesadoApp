@@ -16,7 +16,7 @@ import { supabase } from '../../../lib/supabase';
 import { getExerciseGif } from '../../../lib/exerciseGifs';
 
 /**
- * Interface que define a estrutura de dados do Exercício vindo do Supabase.
+ * Estrutura de dados do Exercício vindo do Supabase.
  */
 interface ExerciseDetail {
   id: string;
@@ -25,29 +25,29 @@ interface ExerciseDetail {
   reps: string;
   weight: string;
   category_id: string;
-  gif_key?: string; // Chave mapeada para o arquivo .gif local
+  gif_key?: string;
 }
 
 export default function ExerciseDetailScreen() {
-  // Mantém a tela ligada durante a execução do treino
+  // Mantém a tela ligada durante o treino
   useKeepAwake();
 
-  // Hooks de navegação e safe area
+  // Hooks de navegação e layout
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
-  // Estados dos Dados
+  // Estados
   const [exercise, setExercise] = useState<ExerciseDetail | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [isFavorite, setIsFavorite] = useState<boolean>(false);
   const [savingHistory, setSavingHistory] = useState<boolean>(false);
 
-  // Estados do Cronômetro de Descanso (em segundos)
+  // Estados do Cronômetro de Descanso
   const [timer, setTimer] = useState<number>(60);
   const [isTimerActive, setIsTimerActive] = useState<boolean>(false);
 
-  // Lógica do temporizador
+  // Temporizador de descanso
   useEffect(() => {
     let interval: ReturnType<typeof setInterval> | null = null;
 
@@ -64,7 +64,7 @@ export default function ExerciseDetailScreen() {
     };
   }, [isTimerActive, timer]);
 
-  // Carrega os dados assim que a tela abre com o ID do exercício
+  // Carrega os dados do exercício ao abrir a tela
   useEffect(() => {
     if (id) {
       fetchExerciseDetails();
@@ -73,7 +73,7 @@ export default function ExerciseDetailScreen() {
   }, [id]);
 
   /**
-   * Busca os detalhes do exercício no banco de dados Supabase
+   * Busca os detalhes do exercício no Supabase
    */
   async function fetchExerciseDetails() {
     try {
@@ -97,7 +97,7 @@ export default function ExerciseDetailScreen() {
   }
 
   /**
-   * Verifica se o exercício atual já foi marcado como favorito pelo usuário
+   * Verifica se o exercício é favorito
    */
   async function checkIfFavorite() {
     try {
@@ -114,7 +114,7 @@ export default function ExerciseDetailScreen() {
   }
 
   /**
-   * Adiciona ou remove o exercício dos favoritos
+   * Alterna o estado de favorito
    */
   async function toggleFavorite() {
     try {
@@ -138,7 +138,7 @@ export default function ExerciseDetailScreen() {
   }
 
   /**
-   * Registra a conclusão do exercício na tabela workout_history do Supabase
+   * Registra a conclusão do exercício no Supabase
    */
   async function handleFinishExercise() {
     if (!exercise) return;
@@ -165,12 +165,30 @@ export default function ExerciseDetailScreen() {
     }
   }
 
+  /**
+   * Lógica de retorno para a tela da Categoria correspondente
+   */
+  function handleGoBack() {
+    // 1. Prioridade: Se soubermos o ID da categoria do exercício, navegamos direto para ela
+    if (exercise?.category_id) {
+      router.push(`/category/${exercise.category_id}`);
+    } 
+    // 2. Se por algum motivo não houver ID da categoria, tenta voltar no histórico
+    else if (router.canGoBack()) {
+      router.back();
+    } 
+    // 3. Caso contrário, redireciona para a tela inicial
+    else {
+      router.replace('/');
+    }
+  }
+
   return (
     <View className="flex-1 bg-white" style={{ paddingTop: insets.top }}>
-      {/* 1. Cabeçalho Superior */}
+      {/* Cabeçalho */}
       <View className="flex-row items-center justify-between px-5 py-3 border-b border-[#f0edef]">
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={handleGoBack}
           className="w-10 h-10 rounded-full bg-[#f0edef] items-center justify-center"
           activeOpacity={0.7}
         >
@@ -194,7 +212,7 @@ export default function ExerciseDetailScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* 2. Conteúdo Principal */}
+      {/* Conteúdo */}
       {loading ? (
         <View className="flex-1 justify-center items-center">
           <ActivityIndicator size="large" color="#0058bc" />
@@ -202,11 +220,10 @@ export default function ExerciseDetailScreen() {
       ) : exercise ? (
         <ScrollView
           className="flex-1 px-5 pt-4"
-          // Evita que o botão final fique escondido atrás da barra de navegação inferior
           contentContainerStyle={{ paddingBottom: 120 }}
           showsVerticalScrollIndicator={false}
         >
-          {/* Título do Exercício e Badge da Categoria */}
+          {/* Título e Grupo */}
           <View className="mb-4">
             <Text className="text-2xl font-extrabold text-[#1b1b1d] mb-2">
               {exercise.name}
@@ -219,7 +236,7 @@ export default function ExerciseDetailScreen() {
             </View>
           </View>
 
-          {/* Card do GIF de Execução */}
+          {/* GIF de Execução */}
           <View className="w-full h-72 bg-white rounded-3xl overflow-hidden mb-6 items-center justify-center p-2 border border-[#e2dfe1] shadow-sm">
             <Image
               source={getExerciseGif(exercise.gif_key)}
@@ -228,7 +245,7 @@ export default function ExerciseDetailScreen() {
             />
           </View>
 
-          {/* Cards de Métricas (Séries, Reps, Carga) */}
+          {/* Métricas */}
           <View className="flex-row justify-between mb-6">
             <View className="w-[31%] bg-[#f8f9fa] p-4 rounded-2xl items-center border border-[#e2dfe1]">
               <Ionicons name="layers-outline" size={22} color="#0058bc" />
@@ -255,7 +272,7 @@ export default function ExerciseDetailScreen() {
             </View>
           </View>
 
-          {/* Bloco do Cronômetro de Descanso */}
+          {/* Cronômetro */}
           <View className="bg-[#f8f9fa] p-5 rounded-2xl mb-6 items-center border border-[#e2dfe1]">
             <Text className="text-sm font-bold text-[#414755] mb-1">
               Descanso entre Séries
@@ -268,7 +285,10 @@ export default function ExerciseDetailScreen() {
             <View className="flex-row gap-3 mt-2">
               {!isTimerActive ? (
                 <TouchableOpacity
-                  onPress={() => { setTimer(60); setIsTimerActive(true); }}
+                  onPress={() => {
+                    setTimer(60);
+                    setIsTimerActive(true);
+                  }}
                   className="bg-[#0058bc] px-6 py-3 rounded-xl flex-row items-center shadow-sm"
                   activeOpacity={0.8}
                 >
@@ -277,7 +297,10 @@ export default function ExerciseDetailScreen() {
                 </TouchableOpacity>
               ) : (
                 <TouchableOpacity
-                  onPress={() => { setIsTimerActive(false); setTimer(60); }}
+                  onPress={() => {
+                    setIsTimerActive(false);
+                    setTimer(60);
+                  }}
                   className="bg-[#1b1b1d] px-6 py-3 rounded-xl flex-row items-center"
                   activeOpacity={0.8}
                 >
@@ -288,7 +311,7 @@ export default function ExerciseDetailScreen() {
             </View>
           </View>
 
-          {/* Botão de Registro do Treino */}
+          {/* Botão Concluir */}
           <TouchableOpacity
             onPress={handleFinishExercise}
             disabled={savingHistory}
