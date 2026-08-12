@@ -1,13 +1,13 @@
 import { Tabs } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import { House, Dumbbell, Heart, User } from 'lucide-react-native';
 
 export default function TabsLayout() {
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: '#0058bc', // Cor do app quando o ícone está focado
-        tabBarInactiveTintColor: '#414755', // Cor neutra quando desfocado
+        tabBarActiveTintColor: '#0058bc', // Cor ativa do aplicativo
+        tabBarInactiveTintColor: '#414755', // Cor neutra para abas inativas
         tabBarStyle: {
           borderTopWidth: 1,
           borderTopColor: '#f0edef',
@@ -28,40 +28,40 @@ export default function TabsLayout() {
         options={{
           title: 'Treinos',
           tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons
-              name={focused ? 'home' : 'home-outline'}
+            <House
               size={size}
               color={color}
+              fill={focused ? color : 'none'} // Preenche quando focado
             />
           ),
         }}
       />
 
-      {/* 2. Aba Favoritos */}
+      {/* 2. Aba Meus Treinos */}
+      <Tabs.Screen
+        name="my-workouts"
+        options={{
+          title: 'Meus Treinos',
+          tabBarIcon: ({ color, size, focused }) => (
+            <Dumbbell
+              size={size}
+              color={color}
+              fill={focused ? color : 'none'} // Preenche quando focado
+            />
+          ),
+        }}
+      />
+
+      {/* 3. Aba Favoritos */}
       <Tabs.Screen
         name="favorites"
         options={{
           title: 'Favoritos',
           tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons
-              name={focused ? 'heart' : 'heart-outline'}
+            <Heart
               size={size}
               color={color}
-            />
-          ),
-        }}
-      />
-
-      {/* 3. Aba Histórico */}
-      <Tabs.Screen
-        name="history"
-        options={{
-          title: 'Histórico',
-          tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons
-              name={focused ? 'time' : 'time-outline'}
-              size={size}
-              color={color}
+              fill={focused ? color : 'none'} // Preenche quando focado
             />
           ),
         }}
@@ -73,28 +73,20 @@ export default function TabsLayout() {
         options={{
           title: 'Perfil',
           tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons
-              name={focused ? 'person' : 'person-outline'}
+            <User
               size={size}
               color={color}
+              fill={focused ? color : 'none'} // Preenche quando focado
             />
           ),
         }}
       />
 
-      {/* Esconde as telas internas/dinâmicas da barra de navegação */}
-      <Tabs.Screen
-        name="category/[id]"
-        options={{
-          href: null,
-        }}
-      />
-      <Tabs.Screen
-        name="exercise/[id]"
-        options={{
-          href: null,
-        }}
-      />
+      {/* Rotas ocultas da barra inferior */}
+      <Tabs.Screen name="category/[id]" options={{ href: null }} />
+      <Tabs.Screen name="exercise/[id]" options={{ href: null }} />
+      <Tabs.Screen name="custom-workout/[id]" options={{ href: null }} />
+      <Tabs.Screen name="create-workout" options={{ href: null }} />
     </Tabs>
   );
 }

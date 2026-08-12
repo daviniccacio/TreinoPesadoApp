@@ -5,19 +5,14 @@ import {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
-  Alert,
   Image,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useKeepAwake } from 'expo-keep-awake';
 import { supabase } from '../../../lib/supabase';
 import { getExerciseGif } from '../../../lib/exerciseGifs';
 
-/**
- * Estrutura de dados do Exercício vindo do Supabase.
- */
 interface ExerciseDetail {
   id: string;
   name: string;
@@ -29,42 +24,20 @@ interface ExerciseDetail {
 }
 
 export default function ExerciseDetailScreen() {
-  // Mantém a tela ligada durante o treino
-  useKeepAwake();
+  const { id, from, categoryId, workoutId } = useLocalSearchParams<{
+    id: string;
+    from?: string;
+    categoryId?: string;
+    workoutId?: string;
+  }>();
 
-  // Hooks de navegação e layout
-  const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
-  // Estados
   const [exercise, setExercise] = useState<ExerciseDetail | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [isFavorite, setIsFavorite] = useState<boolean>(false);
-  const [savingHistory, setSavingHistory] = useState<boolean>(false);
 
-  // Estados do Cronômetro de Descanso
-  const [timer, setTimer] = useState<number>(60);
-  const [isTimerActive, setIsTimerActive] = useState<boolean>(false);
-
-  // Temporizador de descanso
-  useEffect(() => {
-    let interval: ReturnType<typeof setInterval> | null = null;
-
-    if (isTimerActive && timer > 0) {
-      interval = setInterval(() => {
-        setTimer((prev) => prev - 1);
-      }, 1000);
-    } else if (timer === 0) {
-      setIsTimerActive(false);
-    }
-
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [isTimerActive, timer]);
-
-  // Carrega os dados do exercício ao abrir a tela
   useEffect(() => {
     if (id) {
       fetchExerciseDetails();
@@ -72,9 +45,6 @@ export default function ExerciseDetailScreen() {
     }
   }, [id]);
 
-  /**
-   * Busca os detalhes do exercício no Supabase
-   */
   async function fetchExerciseDetails() {
     try {
       setLoading(true);
@@ -86,8 +56,6 @@ export default function ExerciseDetailScreen() {
 
       if (!error && data) {
         setExercise(data);
-      } else if (error) {
-        console.error('Erro ao buscar dados no Supabase:', error.message);
       }
     } catch (err) {
       console.error('Erro de conexão:', err);
@@ -96,9 +64,6 @@ export default function ExerciseDetailScreen() {
     }
   }
 
-  /**
-   * Verifica se o exercício é favorito
-   */
   async function checkIfFavorite() {
     try {
       const { data } = await supabase
@@ -113,9 +78,6 @@ export default function ExerciseDetailScreen() {
     }
   }
 
-  /**
-   * Alterna o estado de favorito
-   */
   async function toggleFavorite() {
     try {
       if (isFavorite) {
@@ -138,48 +100,17 @@ export default function ExerciseDetailScreen() {
   }
 
   /**
-   * Registra a conclusão do exercício no Supabase
-   */
-  async function handleFinishExercise() {
-    if (!exercise) return;
-
-    try {
-      setSavingHistory(true);
-
-      const { error } = await supabase.from('workout_history').insert({
-        exercise_id: exercise.id,
-        weight_used: exercise.weight,
-        sets_completed: exercise.sets,
-      });
-
-      if (error) {
-        Alert.alert('Erro', 'Não foi possível registrar o treino.');
-        console.error('Erro ao registrar histórico:', error.message);
-      } else {
-        Alert.alert('Parabéns! 🎉', 'Treino registrado no seu histórico!');
-      }
-    } catch (err) {
-      console.error('Erro de conexão ao salvar histórico:', err);
-    } finally {
-      setSavingHistory(false);
-    }
-  }
-
-  /**
-   * Lógica de retorno para a tela da Categoria correspondente
+   * Lógica de retorno baseada no parâmetro 'from'
    */
   function handleGoBack() {
-    // 1. Prioridade: Se soubermos o ID da categoria do exercício, navegamos direto para ela
-    if (exercise?.category_id) {
-      router.push(`/category/${exercise.category_id}`);
-    } 
-    // 2. Se por algum motivo não houver ID da categoria, tenta voltar no histórico
-    else if (router.canGoBack()) {
+    if (from === 'category' && categoryId) {
+      router.push(`/category/${categoryId}`);
+    } else if (from === 'custom-workout' && workoutId) {
+      router.push(`/custom-workout/${workoutId}`);
+    } else if (router.canGoBack()) {
       router.back();
-    } 
-    // 3. Caso contrário, redireciona para a tela inicial
-    else {
-      router.replace('/');
+    } else {
+      router.replace('/my-workouts');
     }
   }
 
@@ -220,7 +151,7 @@ export default function ExerciseDetailScreen() {
       ) : exercise ? (
         <ScrollView
           className="flex-1 px-5 pt-4"
-          contentContainerStyle={{ paddingBottom: 120 }}
+          contentContainerStyle={{ paddingBottom: 40 }}
           showsVerticalScrollIndicator={false}
         >
           {/* Título e Grupo */}
@@ -236,7 +167,7 @@ export default function ExerciseDetailScreen() {
             </View>
           </View>
 
-          {/* GIF de Execução */}
+          {/* GIF */}
           <View className="w-full h-72 bg-white rounded-3xl overflow-hidden mb-6 items-center justify-center p-2 border border-[#e2dfe1] shadow-sm">
             <Image
               source={getExerciseGif(exercise.gif_key)}
@@ -271,64 +202,6 @@ export default function ExerciseDetailScreen() {
               </Text>
             </View>
           </View>
-
-          {/* Cronômetro */}
-          <View className="bg-[#f8f9fa] p-5 rounded-2xl mb-6 items-center border border-[#e2dfe1]">
-            <Text className="text-sm font-bold text-[#414755] mb-1">
-              Descanso entre Séries
-            </Text>
-
-            <Text className="text-4xl font-extrabold text-[#0058bc] my-2">
-              {timer}s
-            </Text>
-
-            <View className="flex-row gap-3 mt-2">
-              {!isTimerActive ? (
-                <TouchableOpacity
-                  onPress={() => {
-                    setTimer(60);
-                    setIsTimerActive(true);
-                  }}
-                  className="bg-[#0058bc] px-6 py-3 rounded-xl flex-row items-center shadow-sm"
-                  activeOpacity={0.8}
-                >
-                  <Ionicons name="timer-outline" size={18} color="#ffffff" />
-                  <Text className="text-white font-bold ml-2">Iniciar Descanso</Text>
-                </TouchableOpacity>
-              ) : (
-                <TouchableOpacity
-                  onPress={() => {
-                    setIsTimerActive(false);
-                    setTimer(60);
-                  }}
-                  className="bg-[#1b1b1d] px-6 py-3 rounded-xl flex-row items-center"
-                  activeOpacity={0.8}
-                >
-                  <Ionicons name="refresh-outline" size={18} color="#ffffff" />
-                  <Text className="text-white font-bold ml-2">Reiniciar</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          </View>
-
-          {/* Botão Concluir */}
-          <TouchableOpacity
-            onPress={handleFinishExercise}
-            disabled={savingHistory}
-            className="bg-[#10b981] p-4 rounded-2xl items-center flex-row justify-center shadow-sm"
-            activeOpacity={0.8}
-          >
-            {savingHistory ? (
-              <ActivityIndicator color="#ffffff" />
-            ) : (
-              <>
-                <Ionicons name="checkmark-circle-outline" size={22} color="#ffffff" />
-                <Text className="text-white font-bold text-base ml-2">
-                  Concluir e Registrar Treino
-                </Text>
-              </>
-            )}
-          </TouchableOpacity>
         </ScrollView>
       ) : null}
     </View>

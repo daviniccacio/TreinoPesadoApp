@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,16 +7,22 @@ import {
   Image,
   ActivityIndicator,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { Heart, Plus, ChevronRight } from 'lucide-react-native';
 import { supabase } from '../../lib/supabase';
 
-// Definição do tipo para a Categoria
 interface Category {
   id: string;
   title: string;
   image_url: string;
+}
+
+interface CustomWorkout {
+  id: string;
+  title: string;
+  created_at: string;
+  custom_workout_exercises: { id: string }[];
 }
 
 export default function HomeScreen() {
@@ -24,29 +30,69 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
 
   const [categories, setCategories] = useState<Category[]>([]);
+  const [customWorkouts, setCustomWorkouts] = useState<CustomWorkout[]>([]);
+  const [userName, setUserName] = useState<string>('Atleta');
   const [loading, setLoading] = useState<boolean>(true);
 
-  useEffect(() => {
-    fetchCategories();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      loadAllData();
+    }, [])
+  );
+
+  async function loadAllData() {
+    setLoading(true);
+    await Promise.all([fetchUserData(), fetchCategories(), fetchCustomWorkouts()]);
+    setLoading(false);
+  }
+
+  async function fetchUserData() {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const metadata = user.user_metadata || {};
+        const firstName = metadata.first_name || '';
+        if (firstName.trim()) {
+          setUserName(firstName.trim());
+        } else {
+          setUserName('Atleta');
+        }
+      }
+    } catch (err) {
+      console.error('Erro ao buscar dados do usuário:', err);
+    }
+  }
 
   async function fetchCategories() {
     try {
-      setLoading(true);
+      const { data, error } = await supabase.from('categories').select('*');
+      if (!error && data) setCategories(data);
+    } catch (err) {
+      console.error('Erro ao buscar categorias:', err);
+    }
+  }
+
+  async function fetchCustomWorkouts() {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
       const { data, error } = await supabase
-        .from('categories')
-        .select('*');
+        .from('custom_workouts')
+        .select(`
+          id,
+          title,
+          created_at,
+          custom_workout_exercises (id)
+        `)
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
 
-      if (error) {
-        console.error('Erro ao buscar categorias:', error.message);
-      } else if (data) {
-        setCategories(data);
+      if (!error && data) {
+        setCustomWorkouts(data as unknown as CustomWorkout[]);
       }
     } catch (err) {
-      console.error('Erro de conexão com o Supabase:', err);
-    } finally {
-      setLoading(false);
+      console.error('Erro ao buscar treinos customizados:', err);
     }
   }
 
@@ -55,51 +101,85 @@ export default function HomeScreen() {
       {/* Cabeçalho */}
       <View className="px-5 py-4 border-b border-[#f0edef] flex-row justify-between items-center">
         <View>
-          <Text className="text-sm font-semibold text-[#414755]">
-            Bem-vindo de volta!
-          </Text>
           <Text className="text-2xl font-extrabold text-[#1b1b1d]">
-            Treino Pesado
+            Treino Pesado Academia
+          </Text>
+          <Text className="text-sm font-semibold text-[#414755] mt-0.5">
+            Bem-vindo, {userName}!
           </Text>
         </View>
 
-        {/* Atalhos de Navegação no Cabeçalho */}
         <View className="flex-row items-center gap-2">
-          {/* Botão de Histórico */}
-          <TouchableOpacity
-            onPress={() => router.push('/history')}
-            className="w-10 h-10 rounded-full bg-[#f0edef] items-center justify-center"
-            activeOpacity={0.7}
-          >
-            <Ionicons name="time-outline" size={20} color="#1b1b1d" />
-          </TouchableOpacity>
-
-          {/* Botão de Favoritos */}
           <TouchableOpacity
             onPress={() => router.push('/favorites')}
             className="w-10 h-10 rounded-full bg-[#f0edef] items-center justify-center"
             activeOpacity={0.7}
           >
-            <Ionicons name="heart-outline" size={20} color="#1b1b1d" />
+            <Heart size={20} color="#1b1b1d" />
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* Lista de Categorias */}
+      {/* Conteúdo */}
       {loading ? (
         <View className="flex-1 justify-center items-center">
           <ActivityIndicator size="large" color="#0058bc" />
           <Text className="mt-3 text-[#414755] font-medium">
-            Carregando categorias...
+            Carregando seus treinos...
           </Text>
         </View>
       ) : (
-        <ScrollView 
-          className="flex-1 px-5 pt-4" 
-          showsVerticalScrollIndicator={false}
-        >
+        <ScrollView className="flex-1 px-5 pt-4" showsVerticalScrollIndicator={false}>
+          {/* Botão Montar Meu Treino */}
+          <TouchableOpacity
+            onPress={() => router.push('/create-workout')}
+            className="bg-[#0058bc] p-4 rounded-2xl flex-row items-center justify-between mb-6 shadow-sm"
+            activeOpacity={0.8}
+          >
+            <View className="flex-row items-center gap-3">
+              <View className="w-10 h-10 rounded-full bg-white/20 items-center justify-center">
+                <Plus size={24} color="#ffffff" />
+              </View>
+              <View>
+                <Text className="text-white font-bold text-base">Montar Meu Treino</Text>
+                <Text className="text-white/80 text-xs">Crie uma rotina personalizada</Text>
+              </View>
+            </View>
+            <ChevronRight size={20} color="#ffffff" />
+          </TouchableOpacity>
+
+          {/* Treinos Personalizados */}
+          {customWorkouts.length > 0 && (
+            <View className="mb-6">
+              <Text className="text-xl font-bold text-[#1b1b1d] mb-3">
+                Meus Treinos Personalizados
+              </Text>
+              {customWorkouts.map((workout) => (
+                <TouchableOpacity
+                  key={workout.id}
+                  onPress={() => router.push(`/custom-workout/${workout.id}`)}
+                  className="bg-[#f0edef] p-4 rounded-2xl mb-3 flex-row items-center justify-between border border-[#e2dfe1]"
+                  activeOpacity={0.8}
+                >
+                  <View className="flex-1 mr-3">
+                    <Text className="text-base font-bold text-[#1b1b1d] mb-1">
+                      {workout.title}
+                    </Text>
+                    <Text className="text-xs text-[#0058bc] font-bold">
+                      {workout.custom_workout_exercises?.length || 0} exercícios cadastrados
+                    </Text>
+                  </View>
+                  <View className="w-9 h-9 rounded-full bg-white items-center justify-center border border-[#e0dddf]">
+                    <ChevronRight size={18} color="#0058bc" />
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+
+          {/* Grupos Musculares */}
           <Text className="text-xl font-bold text-[#1b1b1d] mb-4">
-            Selecione o Grupo Muscular
+            Grupos Musculares
           </Text>
 
           <View className="flex-row flex-wrap justify-between">
@@ -126,7 +206,7 @@ export default function HomeScreen() {
                     <Text className="text-white/80 text-xs font-medium mr-1">
                       Ver treinos
                     </Text>
-                    <Ionicons name="chevron-forward" size={12} color="#ffffff" />
+                    <ChevronRight size={12} color="#ffffff" />
                   </View>
                 </View>
               </TouchableOpacity>

@@ -12,11 +12,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../lib/supabase';
 
+// Estrutura para as estatísticas do usuário
 interface UserStats {
-  completedWorkouts: number;
+  customWorkoutsCount: number;
   favoriteCount: number;
 }
 
+// Estrutura para os dados do perfil
 interface UserProfileData {
   fullName: string;
   email: string;
@@ -27,8 +29,9 @@ export default function ProfileScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
+  // Estados locais da tela
   const [stats, setStats] = useState<UserStats>({
-    completedWorkouts: 0,
+    customWorkoutsCount: 0,
     favoriteCount: 0,
   });
   const [profile, setProfile] = useState<UserProfileData>({
@@ -38,17 +41,21 @@ export default function ProfileScreen() {
   });
   const [loading, setLoading] = useState<boolean>(true);
 
+  // Recarrega as estatísticas sempre que a tela de perfil ganha foco
   useFocusEffect(
     useCallback(() => {
       fetchUserDataAndStats();
     }, [])
   );
 
+  /**
+   * Busca as informações do usuário autenticado e calcula o resumo de atividades
+   */
   async function fetchUserDataAndStats() {
     try {
       setLoading(true);
 
-      // Obter dados do usuário logado
+      // 1. Obter dados do usuário logado na sessão do Supabase
       const { data: { user } } = await supabase.auth.getUser();
 
       if (user) {
@@ -62,21 +69,23 @@ export default function ProfileScreen() {
           email: user.email || '',
           birthDate: metadata.birth_date || '',
         });
+
+        // 2. Contagem de treinos customizados criados pelo usuário
+        const { count: workoutCount } = await supabase
+          .from('custom_workouts')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', user.id);
+
+        // 3. Contagem de exercícios favoritados pelo usuário
+        const { count: favCount } = await supabase
+          .from('favorites')
+          .select('*', { count: 'exact', head: true });
+
+        setStats({
+          customWorkoutsCount: workoutCount || 0,
+          favoriteCount: favCount || 0,
+        });
       }
-
-      // Contagem de treinos e favoritos
-      const { count: historyCount } = await supabase
-        .from('workout_history')
-        .select('*', { count: 'exact', head: true });
-
-      const { count: favCount } = await supabase
-        .from('favorites')
-        .select('*', { count: 'exact', head: true });
-
-      setStats({
-        completedWorkouts: historyCount || 0,
-        favoriteCount: favCount || 0,
-      });
     } catch (err) {
       console.error('Erro ao carregar perfil:', err);
     } finally {
@@ -84,7 +93,9 @@ export default function ProfileScreen() {
     }
   }
 
-  // Função de logout reforçada com tratamento de exceções
+  /**
+   * Encerra a sessão do usuário com confirmação
+   */
   async function handleSignOut() {
     Alert.alert('Sair da Conta', 'Deseja realmente encerrar a sua sessão?', [
       { text: 'Cancelar', style: 'cancel' },
@@ -112,6 +123,7 @@ export default function ProfileScreen() {
       <View className="px-5 py-4 border-b border-[#f0edef] flex-row justify-between items-center">
         <Text className="text-xl font-extrabold text-[#1b1b1d]">Meu Perfil</Text>
         <TouchableOpacity
+          onPress={() => Alert.alert('Configurações', 'Opções de configurações em breve!')}
           className="w-10 h-10 rounded-full bg-[#f0edef] items-center justify-center"
           activeOpacity={0.7}
         >
@@ -133,7 +145,8 @@ export default function ProfileScreen() {
           </Text>
           {profile.birthDate ? (
             <View className="flex-row items-center mt-2 bg-[#f0edef] px-3 py-1 rounded-full">
-              <Ionicons name="cake-outline" size={14} color="#414755" />
+              {/* Ícone corrigido para calendar-outline (resolve o problema do ?) */}
+              <Ionicons name="calendar-outline" size={14} color="#414755" />
               <Text className="text-xs text-[#414755] ml-1 font-medium">
                 Nascimento: {profile.birthDate}
               </Text>
@@ -141,7 +154,7 @@ export default function ProfileScreen() {
           ) : null}
         </View>
 
-        {/* Bloco de Estatísticas */}
+        {/* Resumo de Atividades */}
         <Text className="text-lg font-bold text-[#1b1b1d] mb-3">Resumo de Atividades</Text>
 
         {loading ? (
@@ -150,17 +163,27 @@ export default function ProfileScreen() {
           </View>
         ) : (
           <View className="flex-row justify-between mb-6">
-            <View className="w-[48%] bg-[#f0edef] p-4 rounded-2xl items-center">
-              <Ionicons name="checkmark-done-circle-outline" size={28} color="#0058bc" />
+            {/* Card 1: Treinos Criados (Navega para a aba Meus Treinos) */}
+            <TouchableOpacity
+              onPress={() => router.push('/custom-workout')}
+              className="w-[48%] bg-[#f0edef] p-4 rounded-2xl items-center border border-[#e2dfe1]"
+              activeOpacity={0.8}
+            >
+              <Ionicons name="barbell-outline" size={28} color="#0058bc" />
               <Text className="text-2xl font-extrabold text-[#1b1b1d] mt-1">
-                {stats.completedWorkouts}
+                {stats.customWorkoutsCount}
               </Text>
               <Text className="text-xs text-[#414755] mt-1 text-center font-medium">
-                Treinos Concluídos
+                Treinos Criados
               </Text>
-            </View>
+            </TouchableOpacity>
 
-            <View className="w-[48%] bg-[#f0edef] p-4 rounded-2xl items-center">
+            {/* Card 2: Exercícios Favoritos (Navega para a aba Favoritos) */}
+            <TouchableOpacity
+              onPress={() => router.push('/favorites')}
+              className="w-[48%] bg-[#f0edef] p-4 rounded-2xl items-center border border-[#e2dfe1]"
+              activeOpacity={0.8}
+            >
               <Ionicons name="heart-outline" size={28} color="#e11d48" />
               <Text className="text-2xl font-extrabold text-[#1b1b1d] mt-1">
                 {stats.favoriteCount}
@@ -168,15 +191,19 @@ export default function ProfileScreen() {
               <Text className="text-xs text-[#414755] mt-1 text-center font-medium">
                 Exercícios Favoritos
               </Text>
-            </View>
+            </TouchableOpacity>
           </View>
         )}
 
-        {/* Menu de Configurações */}
+        {/* Menu de Opções da Conta */}
         <Text className="text-lg font-bold text-[#1b1b1d] mb-3">Opções da Conta</Text>
 
         <View className="bg-[#f0edef] rounded-2xl overflow-hidden mb-6">
-          <TouchableOpacity className="flex-row items-center justify-between p-4 border-b border-[#e2dfe1]">
+          <TouchableOpacity
+            onPress={() => Alert.alert('Editar Perfil', 'Funcionalidade em desenvolvimento.')}
+            className="flex-row items-center justify-between p-4 border-b border-[#e2dfe1]"
+            activeOpacity={0.7}
+          >
             <View className="flex-row items-center gap-3">
               <Ionicons name="create-outline" size={20} color="#1b1b1d" />
               <Text className="font-semibold text-[#1b1b1d]">Editar Perfil</Text>
@@ -184,7 +211,11 @@ export default function ProfileScreen() {
             <Ionicons name="chevron-forward" size={18} color="#414755" />
           </TouchableOpacity>
 
-          <TouchableOpacity className="flex-row items-center justify-between p-4 border-b border-[#e2dfe1]">
+          <TouchableOpacity
+            onPress={() => Alert.alert('Notificações', 'Lembretes em desenvolvimento.')}
+            className="flex-row items-center justify-between p-4 border-b border-[#e2dfe1]"
+            activeOpacity={0.7}
+          >
             <View className="flex-row items-center gap-3">
               <Ionicons name="notifications-outline" size={20} color="#1b1b1d" />
               <Text className="font-semibold text-[#1b1b1d]">Notificações e Lembretes</Text>
@@ -192,7 +223,11 @@ export default function ProfileScreen() {
             <Ionicons name="chevron-forward" size={18} color="#414755" />
           </TouchableOpacity>
 
-          <TouchableOpacity className="flex-row items-center justify-between p-4">
+          <TouchableOpacity
+            onPress={() => Alert.alert('Privacidade', 'Seus dados estão protegidos via Supabase.')}
+            className="flex-row items-center justify-between p-4"
+            activeOpacity={0.7}
+          >
             <View className="flex-row items-center gap-3">
               <Ionicons name="shield-checkmark-outline" size={20} color="#1b1b1d" />
               <Text className="font-semibold text-[#1b1b1d]">Privacidade e Dados</Text>
@@ -201,7 +236,7 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Botão de Sair */}
+        {/* Botão de Sair da Conta */}
         <TouchableOpacity
           onPress={handleSignOut}
           className="bg-[#ffebe8] p-4 rounded-2xl items-center flex-row justify-center mb-10"
