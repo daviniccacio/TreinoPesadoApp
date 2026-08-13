@@ -10,12 +10,16 @@ import {
   Platform,
   ScrollView,
   useColorScheme,
+  Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Dumbbell, Mail, Lock, Eye, EyeOff } from 'lucide-react-native';
+import { Mail, Lock, Eye, EyeOff } from 'lucide-react-native';
 import { supabase } from '../../lib/supabase';
 
+/**
+ * Tela de Login Moderna com identidade visual baseada na cor #59C83A e Modo Escuro
+ */
 export default function LoginScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -64,19 +68,24 @@ export default function LoginScreen() {
     >
       <ScrollView
         contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}
-        className="bg-white dark:bg-zinc-950 px-6"
+        className="bg-white dark:bg-zinc-950 px-6 py-8"
         style={{ paddingTop: insets.top, paddingBottom: insets.bottom }}
         showsVerticalScrollIndicator={false}
       >
-        {/* Cabeçalho Visual */}
-        <View className="items-center mb-8 mt-4">
-          <View className="w-20 h-20 bg-[#0058bc] rounded-3xl items-center justify-center mb-4 border border-[#004bb0]">
-            <Dumbbell size={40} color="#ffffff" />
+        {/* Cabeçalho Visual com a Logo Ampliada e Moderna */}
+        <View className="items-center mb-10">
+          <View className="w-48 h-48 rounded-3xl items-center justify-center overflow-hidden mb-2">
+            <Image
+              source={
+                isDark
+                  ? require('../../assets/logo-treino-pesado.png')
+                  : require('../../assets/logo-treino-pesado-branco.png')
+              }
+              className="w-full h-full"
+              resizeMode="contain"
+            />
           </View>
-          <Text className="text-3xl font-extrabold text-[#1b1b1d] dark:text-white">
-            Treino Pesado
-          </Text>
-          <Text className="text-sm text-[#414755] dark:text-zinc-400 mt-1 text-center font-medium">
+          <Text className="text-sm text-[#71717a] dark:text-zinc-400 text-center font-medium tracking-wide">
             Entre para continuar a sua evolução
           </Text>
         </View>
@@ -84,14 +93,14 @@ export default function LoginScreen() {
         {/* Formulário */}
         <View className="space-y-4">
           {/* Campo de E-mail */}
-          <View>
-            <Text className="text-sm font-semibold text-[#1b1b1d] dark:text-white mb-1.5">
+          <View className="mb-3">
+            <Text className="text-xs font-bold uppercase tracking-wider text-[#71717a] dark:text-zinc-400 mb-2 ml-1">
               E-mail
             </Text>
-            <View className="flex-row items-center bg-[#f0edef] dark:bg-zinc-900 rounded-2xl px-4 py-3.5 border border-[#e2dfe1] dark:border-zinc-800">
-              <Mail size={20} color={isDark ? '#a1a1aa' : '#414755'} />
+            <View className="flex-row items-center bg-[#f8f9fa] dark:bg-zinc-900 rounded-2xl px-4 py-3.5 border border-[#e2dfe1] dark:border-zinc-800">
+              <Mail size={20} color={isDark ? '#59C83A' : '#414755'} />
               <TextInput
-                className="flex-1 ml-3 text-[#1b1b1d] dark:text-white text-base"
+                className="flex-1 ml-3 text-[#1b1b1d] dark:text-white text-base font-medium"
                 placeholder="seu.email@exemplo.com"
                 placeholderTextColor={isDark ? '#71717a' : '#a09da1'}
                 value={email}
@@ -103,14 +112,14 @@ export default function LoginScreen() {
           </View>
 
           {/* Campo de Senha */}
-          <View className="mt-3">
-            <Text className="text-sm font-semibold text-[#1b1b1d] dark:text-white mb-1.5">
+          <View className="mb-3">
+            <Text className="text-xs font-bold uppercase tracking-wider text-[#71717a] dark:text-zinc-400 mb-2 ml-1">
               Senha
             </Text>
-            <View className="flex-row items-center bg-[#f0edef] dark:bg-zinc-900 rounded-2xl px-4 py-3.5 border border-[#e2dfe1] dark:border-zinc-800">
-              <Lock size={20} color={isDark ? '#a1a1aa' : '#414755'} />
+            <View className="flex-row items-center bg-[#f8f9fa] dark:bg-zinc-900 rounded-2xl px-4 py-3.5 border border-[#e2dfe1] dark:border-zinc-800">
+              <Lock size={20} color={isDark ? '#59C83A' : '#414755'} />
               <TextInput
-                className="flex-1 ml-3 text-[#1b1b1d] dark:text-white text-base"
+                className="flex-1 ml-3 text-[#1b1b1d] dark:text-white text-base font-medium"
                 placeholder="Sua senha secreta"
                 placeholderTextColor={isDark ? '#71717a' : '#a09da1'}
                 value={password}
@@ -119,35 +128,41 @@ export default function LoginScreen() {
               />
               <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
                 {showPassword ? (
-                  <EyeOff size={20} color={isDark ? '#a1a1aa' : '#414755'} />
+                  <EyeOff size={20} color={isDark ? '#59C83A' : '#414755'} />
                 ) : (
-                  <Eye size={20} color={isDark ? '#a1a1aa' : '#414755'} />
+                  <Eye size={20} color={isDark ? '#59C83A' : '#414755'} />
                 )}
               </TouchableOpacity>
             </View>
           </View>
 
-          {/* Botão de Envio */}
+          {/* Botão de Envio com a Cor Exata #59C83A */}
           <TouchableOpacity
             onPress={handleLogin}
             disabled={loading}
-            className="bg-[#0058bc] py-4 rounded-2xl items-center mt-6 border border-[#004bb0]"
+            style={{ backgroundColor: '#59C83A' }}
+            className="py-4 rounded-2xl items-center mt-4 shadow-md active:opacity-90"
             activeOpacity={0.8}
           >
             {loading ? (
               <ActivityIndicator color="#ffffff" />
             ) : (
-              <Text className="text-white font-bold text-lg">Entrar</Text>
+              <Text className="text-white font-extrabold text-lg tracking-wide">
+                Entrar
+              </Text>
             )}
           </TouchableOpacity>
 
           {/* Link para Cadastro */}
           <TouchableOpacity
             onPress={() => router.push('/(auth)/register')}
-            className="items-center py-3 mt-2 mb-4"
+            className="items-center py-4 mt-3"
           >
-            <Text className="text-[#0058bc] dark:text-sky-400 font-semibold text-sm">
-              Não tem uma conta? Cadastre-se
+            <Text className="text-sm text-[#71717a] dark:text-zinc-400">
+              Não tem uma conta?{' '}
+              <Text style={{ color: '#59C83A' }} className="font-bold">
+                Cadastre-se
+              </Text>
             </Text>
           </TouchableOpacity>
         </View>

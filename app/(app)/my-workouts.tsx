@@ -8,39 +8,48 @@ import {
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Plus, ChevronRight, Dumbbell } from 'lucide-react-native';
+import { Plus, ChevronRight, Dumbbell, Calendar } from 'lucide-react-native';
 import { supabase } from '../../lib/supabase';
 
-// Estrutura de dados para o Treino Customizado
 interface CustomWorkout {
   id: string;
   title: string;
+  day_of_week?: string;
   created_at: string;
   custom_workout_exercises: { id: string }[];
 }
+
+const DAYS_FILTER = [
+  { id: 'todos', label: 'Todos' },
+  { id: 'segunda', label: 'Seg' },
+  { id: 'terca', label: 'Ter' },
+  { id: 'quarta', label: 'Qua' },
+  { id: 'quinta', label: 'Qui' },
+  { id: 'sexta', label: 'Sex' },
+  { id: 'sabado', label: 'Sáb' },
+  { id: 'domingo', label: 'Dom' },
+];
 
 export default function MyWorkoutsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
-  // Estados locais
   const [customWorkouts, setCustomWorkouts] = useState<CustomWorkout[]>([]);
+  const [selectedDayFilter, setSelectedDayFilter] = useState<string>('todos');
   const [loading, setLoading] = useState<boolean>(true);
 
-  // Recarrega os treinos sempre que a tela ganha foco
   useFocusEffect(
     useCallback(() => {
       fetchCustomWorkouts();
     }, [])
   );
 
-  /**
-   * Busca os treinos personalizados do utilizador logado no Supabase
-   */
   async function fetchCustomWorkouts() {
     try {
       setLoading(true);
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) return;
 
       const { data, error } = await supabase
@@ -48,6 +57,7 @@ export default function MyWorkoutsScreen() {
         .select(`
           id,
           title,
+          day_of_week,
           created_at,
           custom_workout_exercises (id)
         `)
@@ -63,6 +73,12 @@ export default function MyWorkoutsScreen() {
       setLoading(false);
     }
   }
+
+  // Filtra os treinos pelo dia da semana selecionado
+  const filteredWorkouts = customWorkouts.filter((workout) => {
+    if (selectedDayFilter === 'todos') return true;
+    return workout.day_of_week === selectedDayFilter;
+  });
 
   return (
     <View className="flex-1 bg-white dark:bg-zinc-950" style={{ paddingTop: insets.top }}>
@@ -92,9 +108,39 @@ export default function MyWorkoutsScreen() {
           <ChevronRight size={20} color="#ffffff" />
         </TouchableOpacity>
 
+        {/* Filtro por Dia da Semana */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          className="mb-6 flex-row"
+        >
+          {DAYS_FILTER.map((day) => {
+            const isSelected = selectedDayFilter === day.id;
+            return (
+              <TouchableOpacity
+                key={day.id}
+                onPress={() => setSelectedDayFilter(day.id)}
+                className={`py-2 px-4 rounded-xl mr-2 border ${
+                  isSelected
+                    ? 'bg-[#0058bc] border-[#0058bc]'
+                    : 'bg-[#f0edef] dark:bg-zinc-900 border-[#e2dfe1] dark:border-zinc-800'
+                }`}
+              >
+                <Text
+                  className={`text-xs font-bold ${
+                    isSelected ? 'text-white' : 'text-[#414755] dark:text-zinc-400'
+                  }`}
+                >
+                  {day.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+
         {/* Lista de Treinos Criados */}
         <Text className="text-lg font-bold text-[#1b1b1d] dark:text-white mb-3">
-          Seus Treinos Salvos ({customWorkouts.length})
+          Seus Treinos Salvos ({filteredWorkouts.length})
         </Text>
 
         {loading ? (
@@ -104,18 +150,18 @@ export default function MyWorkoutsScreen() {
               Carregando treinos...
             </Text>
           </View>
-        ) : customWorkouts.length === 0 ? (
+        ) : filteredWorkouts.length === 0 ? (
           <View className="bg-[#f8f9fa] dark:bg-zinc-900 p-8 rounded-2xl border border-dashed border-[#e2dfe1] dark:border-zinc-800 items-center my-2">
             <Dumbbell size={40} color="#808591" />
             <Text className="text-[#1b1b1d] dark:text-white font-bold mt-2 text-base">
-              Nenhum treino criado
+              Nenhum treino para este dia
             </Text>
             <Text className="text-[#414755] dark:text-zinc-400 text-xs text-center mt-1">
-              Toque no botão acima para criar seu primeiro treino personalizado.
+              Toque no botão acima para cadastrar um treino personalizado neste dia.
             </Text>
           </View>
         ) : (
-          customWorkouts.map((workout) => (
+          filteredWorkouts.map((workout) => (
             <TouchableOpacity
               key={workout.id}
               onPress={() => router.push(`/custom-workout/${workout.id}`)}
@@ -126,9 +172,19 @@ export default function MyWorkoutsScreen() {
                 <Text className="text-base font-bold text-[#1b1b1d] dark:text-white mb-1">
                   {workout.title}
                 </Text>
-                <Text className="text-xs text-[#0058bc] dark:text-sky-400 font-bold">
-                  {workout.custom_workout_exercises?.length || 0} exercícios
-                </Text>
+                <View className="flex-row items-center gap-2">
+                  <Text className="text-xs text-[#0058bc] dark:text-sky-400 font-bold">
+                    {workout.custom_workout_exercises?.length || 0} exercícios
+                  </Text>
+                  {workout.day_of_week ? (
+                    <View className="bg-[#0058bc]/10 dark:bg-sky-400/10 px-2 py-0.5 rounded-md flex-row items-center gap-1">
+                      <Calendar size={10} color="#0058bc" />
+                      <Text className="text-[10px] font-bold text-[#0058bc] dark:text-sky-400 uppercase">
+                        {workout.day_of_week}
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
               </View>
               <View className="w-9 h-9 rounded-full bg-white dark:bg-zinc-800 items-center justify-center border border-[#e0dddf] dark:border-zinc-700">
                 <ChevronRight size={18} color="#0058bc" />

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -11,7 +11,7 @@ import {
   FlatList,
   useColorScheme,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   ArrowLeft,
@@ -36,6 +36,16 @@ interface SelectedExercise extends BaseExercise {
   weight: string;
 }
 
+const DAYS_OF_WEEK = [
+  { id: 'segunda', label: 'Seg' },
+  { id: 'terca', label: 'Ter' },
+  { id: 'quarta', label: 'Qua' },
+  { id: 'quinta', label: 'Qui' },
+  { id: 'sexta', label: 'Sex' },
+  { id: 'sabado', label: 'Sáb' },
+  { id: 'domingo', label: 'Dom' },
+];
+
 export default function CreateWorkoutScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -44,12 +54,23 @@ export default function CreateWorkoutScreen() {
   const isDark = colorScheme === 'dark';
 
   const [workoutTitle, setWorkoutTitle] = useState<string>('');
+  const [selectedDay, setSelectedDay] = useState<string>('segunda');
   const [availableExercises, setAvailableExercises] = useState<BaseExercise[]>([]);
   const [selectedExercises, setSelectedExercises] = useState<SelectedExercise[]>([]);
 
   const [loading, setLoading] = useState<boolean>(false);
   const [modalVisible, setModalVisible] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
+
+  // Reseta o formulário sempre que a tela ganha foco para evitar dados residuais
+  useFocusEffect(
+    useCallback(() => {
+      setWorkoutTitle('');
+      setSelectedDay('segunda');
+      setSelectedExercises([]);
+      setSearchQuery('');
+    }, [])
+  );
 
   useEffect(() => {
     fetchAvailableExercises();
@@ -119,9 +140,16 @@ export default function CreateWorkoutScreen() {
       } = await supabase.auth.getUser();
       if (!user) throw new Error('Usuário não autenticado.');
 
+      // Insere o treino salvando o dia da semana selecionado
       const { data: workoutData, error: workoutError } = await supabase
         .from('custom_workouts')
-        .insert([{ user_id: user.id, title: workoutTitle.trim() }])
+        .insert([
+          {
+            user_id: user.id,
+            title: workoutTitle.trim(),
+            day_of_week: selectedDay,
+          },
+        ])
         .select()
         .single();
 
@@ -141,7 +169,7 @@ export default function CreateWorkoutScreen() {
 
       if (itemsError) throw itemsError;
 
-      Alert.alert('Sucesso! 🎉', 'Seu treino customizado foi criado!');
+      Alert.alert('Sucesso! 🎉', 'Seu treino foi salvo no dia selecionado!');
       router.back();
     } catch (err: any) {
       console.error('Erro ao salvar treino:', err);
@@ -188,17 +216,48 @@ export default function CreateWorkoutScreen() {
 
       <ScrollView className="flex-1 px-5 pt-4" showsVerticalScrollIndicator={false}>
         {/* Nome do Treino */}
-        <View className="mb-6">
+        <View className="mb-4">
           <Text className="text-sm font-bold text-[#1b1b1d] dark:text-white mb-2">
             Nome do Treino
           </Text>
           <TextInput
             className="bg-[#f0edef] dark:bg-zinc-900 px-4 py-3 rounded-2xl text-[#1b1b1d] dark:text-white font-medium text-base border border-[#e2dfe1] dark:border-zinc-800"
-            placeholder="Ex: Treino A - Peito e Tríceps"
+            placeholder="Ex: Pernas, Panturrilha e Abdômen"
             placeholderTextColor={isDark ? '#71717a' : '#a09da1'}
             value={workoutTitle}
             onChangeText={setWorkoutTitle}
           />
+        </View>
+
+        {/* Seletor de Dia da Semana */}
+        <View className="mb-6">
+          <Text className="text-sm font-bold text-[#1b1b1d] dark:text-white mb-2">
+            Dia da Semana
+          </Text>
+          <View className="flex-row justify-between">
+            {DAYS_OF_WEEK.map((day) => {
+              const isSelected = selectedDay === day.id;
+              return (
+                <TouchableOpacity
+                  key={day.id}
+                  onPress={() => setSelectedDay(day.id)}
+                  className={`py-2 px-3 rounded-xl border ${
+                    isSelected
+                      ? 'bg-[#0058bc] border-[#0058bc]'
+                      : 'bg-[#f0edef] dark:bg-zinc-900 border-[#e2dfe1] dark:border-zinc-800'
+                  }`}
+                >
+                  <Text
+                    className={`text-xs font-bold ${
+                      isSelected ? 'text-white' : 'text-[#414755] dark:text-zinc-400'
+                    }`}
+                  >
+                    {day.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
         </View>
 
         {/* Exercícios Selecionados */}
