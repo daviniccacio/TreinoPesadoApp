@@ -1,20 +1,34 @@
+import React from 'react';
+import { useColorScheme } from 'react-native';
 import { Tabs } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { House, Dumbbell, Heart, User } from 'lucide-react-native';
 
 export default function TabsLayout() {
+  // Captura as margens de segurança do sistema do celular
+  const insets = useSafeAreaInsets();
+
+  // Detecta se o dispositivo está no modo claro ou escuro
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
+
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: '#0058bc', // Cor ativa do aplicativo
-        tabBarInactiveTintColor: '#414755', // Cor neutra para abas inativas
+        // Cor do ícone e texto da aba selecionada
+        tabBarActiveTintColor: isDark ? '#38bdf8' : '#0058bc',
+        // Cor do ícone e texto das abas não selecionadas
+        tabBarInactiveTintColor: isDark ? '#a1a1aa' : '#414755',
         tabBarStyle: {
           borderTopWidth: 1,
-          borderTopColor: '#f0edef',
+          borderTopColor: isDark ? '#27272a' : '#f0edef',
           elevation: 0,
-          height: 60,
-          paddingBottom: 8,
+          // Calcula a altura dinâmica somando a margem inferior de segurança
+          height: 60 + insets.bottom,
+          paddingBottom: 8 + insets.bottom,
           paddingTop: 8,
+          backgroundColor: isDark ? '#09090b' : '#ffffff',
         },
         tabBarLabelStyle: {
           fontSize: 12,
@@ -28,11 +42,7 @@ export default function TabsLayout() {
         options={{
           title: 'Treinos',
           tabBarIcon: ({ color, size, focused }) => (
-            <House
-              size={size}
-              color={color}
-              fill={focused ? color : 'none'} // Preenche quando focado
-            />
+            <House size={size} color={color} fill={focused ? color : 'none'} />
           ),
         }}
       />
@@ -43,11 +53,7 @@ export default function TabsLayout() {
         options={{
           title: 'Meus Treinos',
           tabBarIcon: ({ color, size, focused }) => (
-            <Dumbbell
-              size={size}
-              color={color}
-              fill={focused ? color : 'none'} // Preenche quando focado
-            />
+            <Dumbbell size={size} color={color} fill={focused ? color : 'none'} />
           ),
         }}
       />
@@ -58,11 +64,7 @@ export default function TabsLayout() {
         options={{
           title: 'Favoritos',
           tabBarIcon: ({ color, size, focused }) => (
-            <Heart
-              size={size}
-              color={color}
-              fill={focused ? color : 'none'} // Preenche quando focado
-            />
+            <Heart size={size} color={color} fill={focused ? color : 'none'} />
           ),
         }}
       />
@@ -73,11 +75,7 @@ export default function TabsLayout() {
         options={{
           title: 'Perfil',
           tabBarIcon: ({ color, size, focused }) => (
-            <User
-              size={size}
-              color={color}
-              fill={focused ? color : 'none'} // Preenche quando focado
-            />
+            <User size={size} color={color} fill={focused ? color : 'none'} />
           ),
         }}
       />

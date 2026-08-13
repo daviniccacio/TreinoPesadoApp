@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,19 +6,31 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
+  useColorScheme,
+  Appearance,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import {
+  User,
+  Calendar,
+  Dumbbell,
+  Heart,
+  Moon,
+  Sun,
+  Laptop,
+  LogOut,
+  ChevronRight,
+  Shield,
+  Bell,
+} from 'lucide-react-native';
 import { supabase } from '../../lib/supabase';
 
-// Estrutura para as estatísticas do usuário
 interface UserStats {
   customWorkoutsCount: number;
   favoriteCount: number;
 }
 
-// Estrutura para os dados do perfil
 interface UserProfileData {
   fullName: string;
   email: string;
@@ -29,7 +41,11 @@ export default function ProfileScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
-  // Estados locais da tela
+  const systemColorScheme = useColorScheme();
+  const isDark = systemColorScheme === 'dark';
+
+  const [themeMode, setThemeMode] = useState<'light' | 'dark' | 'system'>('system');
+
   const [stats, setStats] = useState<UserStats>({
     customWorkoutsCount: 0,
     favoriteCount: 0,
@@ -41,28 +57,29 @@ export default function ProfileScreen() {
   });
   const [loading, setLoading] = useState<boolean>(true);
 
-  // Recarrega as estatísticas sempre que a tela de perfil ganha foco
-  useFocusEffect(
-    useCallback(() => {
-      fetchUserDataAndStats();
-    }, [])
-  );
+  function handleThemeChange(mode: 'light' | 'dark' | 'system') {
+    setThemeMode(mode);
+    if (mode === 'system') {
+      Appearance.setColorScheme(null);
+    } else {
+      Appearance.setColorScheme(mode);
+    }
+  }
 
-  /**
-   * Busca as informações do usuário autenticado e calcula o resumo de atividades
-   */
-  async function fetchUserDataAndStats() {
+  const fetchUserDataAndStats = useCallback(async () => {
     try {
       setLoading(true);
 
-      // 1. Obter dados do usuário logado na sessão do Supabase
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
       if (user) {
         const metadata = user.user_metadata || {};
         const firstName = metadata.first_name || '';
         const lastName = metadata.last_name || '';
-        const fullName = `${firstName} ${lastName}`.trim() || 'Atleta Treino Pesado';
+        const fullName =
+          `${firstName} ${lastName}`.trim() || 'Atleta Treino Pesado';
 
         setProfile({
           fullName,
@@ -70,13 +87,11 @@ export default function ProfileScreen() {
           birthDate: metadata.birth_date || '',
         });
 
-        // 2. Contagem de treinos customizados criados pelo usuário
         const { count: workoutCount } = await supabase
           .from('custom_workouts')
           .select('*', { count: 'exact', head: true })
           .eq('user_id', user.id);
 
-        // 3. Contagem de exercícios favoritados pelo usuário
         const { count: favCount } = await supabase
           .from('favorites')
           .select('*', { count: 'exact', head: true });
@@ -91,11 +106,18 @@ export default function ProfileScreen() {
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
 
-  /**
-   * Encerra a sessão do usuário com confirmação
-   */
+  useEffect(() => {
+    fetchUserDataAndStats();
+  }, [fetchUserDataAndStats]);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchUserDataAndStats();
+    }, [fetchUserDataAndStats])
+  );
+
   async function handleSignOut() {
     Alert.alert('Sair da Conta', 'Deseja realmente encerrar a sua sessão?', [
       { text: 'Cancelar', style: 'cancel' },
@@ -118,36 +140,30 @@ export default function ProfileScreen() {
   }
 
   return (
-    <View className="flex-1 bg-white" style={{ paddingTop: insets.top }}>
+    <View className="flex-1 bg-white dark:bg-zinc-950" style={{ paddingTop: insets.top }}>
       {/* Cabeçalho */}
-      <View className="px-5 py-4 border-b border-[#f0edef] flex-row justify-between items-center">
-        <Text className="text-xl font-extrabold text-[#1b1b1d]">Meu Perfil</Text>
-        <TouchableOpacity
-          onPress={() => Alert.alert('Configurações', 'Opções de configurações em breve!')}
-          className="w-10 h-10 rounded-full bg-[#f0edef] items-center justify-center"
-          activeOpacity={0.7}
-        >
-          <Ionicons name="settings-outline" size={20} color="#1b1b1d" />
-        </TouchableOpacity>
+      <View className="px-5 py-4 border-b border-[#f0edef] dark:border-zinc-800 flex-row justify-between items-center">
+        <Text className="text-xl font-extrabold text-[#1b1b1d] dark:text-white">
+          Meu Perfil
+        </Text>
       </View>
 
       <ScrollView className="flex-1 px-5 pt-6" showsVerticalScrollIndicator={false}>
         {/* Cartão do Usuário */}
         <View className="items-center mb-6">
           <View className="w-24 h-24 rounded-full bg-[#0058bc] items-center justify-center mb-3">
-            <Ionicons name="person" size={48} color="#ffffff" />
+            <User size={48} color="#ffffff" />
           </View>
-          <Text className="text-2xl font-extrabold text-[#1b1b1d]">
+          <Text className="text-2xl font-extrabold text-[#1b1b1d] dark:text-white">
             {profile.fullName}
           </Text>
-          <Text className="text-sm text-[#414755] mt-1 font-medium">
+          <Text className="text-sm text-[#414755] dark:text-zinc-400 mt-1 font-medium">
             {profile.email}
           </Text>
           {profile.birthDate ? (
-            <View className="flex-row items-center mt-2 bg-[#f0edef] px-3 py-1 rounded-full">
-              {/* Ícone corrigido para calendar-outline (resolve o problema do ?) */}
-              <Ionicons name="calendar-outline" size={14} color="#414755" />
-              <Text className="text-xs text-[#414755] ml-1 font-medium">
+            <View className="flex-row items-center mt-2 bg-[#f0edef] dark:bg-zinc-800 px-3 py-1 rounded-full">
+              <Calendar size={14} color={isDark ? '#a1a1aa' : '#414755'} />
+              <Text className="text-xs text-[#414755] dark:text-zinc-400 ml-1 font-medium">
                 Nascimento: {profile.birthDate}
               </Text>
             </View>
@@ -155,7 +171,9 @@ export default function ProfileScreen() {
         </View>
 
         {/* Resumo de Atividades */}
-        <Text className="text-lg font-bold text-[#1b1b1d] mb-3">Resumo de Atividades</Text>
+        <Text className="text-lg font-bold text-[#1b1b1d] dark:text-white mb-3">
+          Resumo de Atividades
+        </Text>
 
         {loading ? (
           <View className="py-6 items-center">
@@ -163,86 +181,135 @@ export default function ProfileScreen() {
           </View>
         ) : (
           <View className="flex-row justify-between mb-6">
-            {/* Card 1: Treinos Criados (Navega para a aba Meus Treinos) */}
             <TouchableOpacity
-              onPress={() => router.push('/custom-workout')}
-              className="w-[48%] bg-[#f0edef] p-4 rounded-2xl items-center border border-[#e2dfe1]"
+              onPress={() => router.push('/my-workouts')}
+              className="w-[48%] bg-[#f0edef] dark:bg-zinc-900 p-4 rounded-2xl items-center border border-[#e2dfe1] dark:border-zinc-800"
               activeOpacity={0.8}
             >
-              <Ionicons name="barbell-outline" size={28} color="#0058bc" />
-              <Text className="text-2xl font-extrabold text-[#1b1b1d] mt-1">
+              <Dumbbell size={28} color="#0058bc" />
+              <Text className="text-2xl font-extrabold text-[#1b1b1d] dark:text-white mt-1">
                 {stats.customWorkoutsCount}
               </Text>
-              <Text className="text-xs text-[#414755] mt-1 text-center font-medium">
+              <Text className="text-xs text-[#414755] dark:text-zinc-400 mt-1 text-center font-medium">
                 Treinos Criados
               </Text>
             </TouchableOpacity>
 
-            {/* Card 2: Exercícios Favoritos (Navega para a aba Favoritos) */}
             <TouchableOpacity
               onPress={() => router.push('/favorites')}
-              className="w-[48%] bg-[#f0edef] p-4 rounded-2xl items-center border border-[#e2dfe1]"
+              className="w-[48%] bg-[#f0edef] dark:bg-zinc-900 p-4 rounded-2xl items-center border border-[#e2dfe1] dark:border-zinc-800"
               activeOpacity={0.8}
             >
-              <Ionicons name="heart-outline" size={28} color="#e11d48" />
-              <Text className="text-2xl font-extrabold text-[#1b1b1d] mt-1">
+              <Heart size={28} color="#e11d48" />
+              <Text className="text-2xl font-extrabold text-[#1b1b1d] dark:text-white mt-1">
                 {stats.favoriteCount}
               </Text>
-              <Text className="text-xs text-[#414755] mt-1 text-center font-medium">
+              <Text className="text-xs text-[#414755] dark:text-zinc-400 mt-1 text-center font-medium">
                 Exercícios Favoritos
               </Text>
             </TouchableOpacity>
           </View>
         )}
 
-        {/* Menu de Opções da Conta */}
-        <Text className="text-lg font-bold text-[#1b1b1d] mb-3">Opções da Conta</Text>
+        {/* Seletor de Tema */}
+        <Text className="text-lg font-bold text-[#1b1b1d] dark:text-white mb-3">
+          Aparência do Aplicativo
+        </Text>
 
-        <View className="bg-[#f0edef] rounded-2xl overflow-hidden mb-6">
+        <View className="bg-[#f0edef] dark:bg-zinc-900 rounded-2xl p-2 mb-6 border border-[#e2dfe1] dark:border-zinc-800 flex-row">
           <TouchableOpacity
-            onPress={() => Alert.alert('Editar Perfil', 'Funcionalidade em desenvolvimento.')}
-            className="flex-row items-center justify-between p-4 border-b border-[#e2dfe1]"
-            activeOpacity={0.7}
+            onPress={() => handleThemeChange('light')}
+            className={`flex-1 py-3 rounded-xl flex-row items-center justify-center gap-1.5 ${
+              themeMode === 'light' ? 'bg-white dark:bg-zinc-800 border border-[#e2dfe1] dark:border-zinc-700' : 'bg-transparent'
+            }`}
           >
-            <View className="flex-row items-center gap-3">
-              <Ionicons name="create-outline" size={20} color="#1b1b1d" />
-              <Text className="font-semibold text-[#1b1b1d]">Editar Perfil</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color="#414755" />
+            <Sun size={16} color={themeMode === 'light' ? '#0058bc' : '#a1a1aa'} />
+            <Text
+              className={`font-bold text-xs ${
+                themeMode === 'light' ? 'text-[#0058bc] dark:text-sky-400' : 'text-[#414755] dark:text-zinc-400'
+              }`}
+            >
+              Claro
+            </Text>
           </TouchableOpacity>
 
+          <TouchableOpacity
+            onPress={() => handleThemeChange('dark')}
+            className={`flex-1 py-3 rounded-xl flex-row items-center justify-center gap-1.5 ${
+              themeMode === 'dark' ? 'bg-white dark:bg-zinc-800 border border-[#e2dfe1] dark:border-zinc-700' : 'bg-transparent'
+            }`}
+          >
+            <Moon size={16} color={themeMode === 'dark' ? '#38bdf8' : '#a1a1aa'} />
+            <Text
+              className={`font-bold text-xs ${
+                themeMode === 'dark' ? 'text-[#0058bc] dark:text-sky-400' : 'text-[#414755] dark:text-zinc-400'
+              }`}
+            >
+              Escuro
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => handleThemeChange('system')}
+            className={`flex-1 py-3 rounded-xl flex-row items-center justify-center gap-1.5 ${
+              themeMode === 'system' ? 'bg-white dark:bg-zinc-800 border border-[#e2dfe1] dark:border-zinc-700' : 'bg-transparent'
+            }`}
+          >
+            <Laptop size={16} color={themeMode === 'system' ? '#0058bc' : '#a1a1aa'} />
+            <Text
+              className={`font-bold text-xs ${
+                themeMode === 'system' ? 'text-[#0058bc] dark:text-sky-400' : 'text-[#414755] dark:text-zinc-400'
+              }`}
+            >
+              Sistema
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Opções da Conta */}
+        <Text className="text-lg font-bold text-[#1b1b1d] dark:text-white mb-3">
+          Opções da Conta
+        </Text>
+
+        <View className="bg-[#f0edef] dark:bg-zinc-900 rounded-2xl overflow-hidden mb-6 border border-[#e2dfe1] dark:border-zinc-800">
           <TouchableOpacity
             onPress={() => Alert.alert('Notificações', 'Lembretes em desenvolvimento.')}
-            className="flex-row items-center justify-between p-4 border-b border-[#e2dfe1]"
+            className="flex-row items-center justify-between p-4 border-b border-[#e2dfe1] dark:border-zinc-800"
             activeOpacity={0.7}
           >
             <View className="flex-row items-center gap-3">
-              <Ionicons name="notifications-outline" size={20} color="#1b1b1d" />
-              <Text className="font-semibold text-[#1b1b1d]">Notificações e Lembretes</Text>
+              <Bell size={20} color={isDark ? '#ffffff' : '#1b1b1d'} />
+              <Text className="font-semibold text-[#1b1b1d] dark:text-white">
+                Notificações e Lembretes
+              </Text>
             </View>
-            <Ionicons name="chevron-forward" size={18} color="#414755" />
+            <ChevronRight size={18} color={isDark ? '#a1a1aa' : '#414755'} />
           </TouchableOpacity>
 
           <TouchableOpacity
-            onPress={() => Alert.alert('Privacidade', 'Seus dados estão protegidos via Supabase.')}
+            onPress={() =>
+              Alert.alert('Privacidade', 'Seus dados estão protegidos via Supabase.')
+            }
             className="flex-row items-center justify-between p-4"
             activeOpacity={0.7}
           >
             <View className="flex-row items-center gap-3">
-              <Ionicons name="shield-checkmark-outline" size={20} color="#1b1b1d" />
-              <Text className="font-semibold text-[#1b1b1d]">Privacidade e Dados</Text>
+              <Shield size={20} color={isDark ? '#ffffff' : '#1b1b1d'} />
+              <Text className="font-semibold text-[#1b1b1d] dark:text-white">
+                Privacidade e Dados
+              </Text>
             </View>
-            <Ionicons name="chevron-forward" size={18} color="#414755" />
+            <ChevronRight size={18} color={isDark ? '#a1a1aa' : '#414755'} />
           </TouchableOpacity>
         </View>
 
-        {/* Botão de Sair da Conta */}
+        {/* Botão de Sair */}
         <TouchableOpacity
           onPress={handleSignOut}
-          className="bg-[#ffebe8] p-4 rounded-2xl items-center flex-row justify-center mb-10"
+          className="bg-[#ffebe8] dark:bg-red-950/40 p-4 rounded-2xl items-center flex-row justify-center mb-10 border border-transparent dark:border-red-900/30"
           activeOpacity={0.8}
         >
-          <Ionicons name="log-out-outline" size={20} color="#e11d48" />
+          <LogOut size={20} color="#e11d48" />
           <Text className="text-[#e11d48] font-bold text-base ml-2">Sair da Conta</Text>
         </TouchableOpacity>
       </ScrollView>

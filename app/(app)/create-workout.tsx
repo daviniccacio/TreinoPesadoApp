@@ -9,10 +9,19 @@ import {
   Alert,
   Modal,
   FlatList,
+  useColorScheme,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import {
+  ArrowLeft,
+  Plus,
+  PlusCircle,
+  Trash2,
+  Dumbbell,
+  XCircle,
+  Search,
+} from 'lucide-react-native';
 import { supabase } from '../../lib/supabase';
 
 interface BaseExercise {
@@ -31,10 +40,13 @@ export default function CreateWorkoutScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
+
   const [workoutTitle, setWorkoutTitle] = useState<string>('');
   const [availableExercises, setAvailableExercises] = useState<BaseExercise[]>([]);
   const [selectedExercises, setSelectedExercises] = useState<SelectedExercise[]>([]);
-  
+
   const [loading, setLoading] = useState<boolean>(false);
   const [modalVisible, setModalVisible] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -102,7 +114,9 @@ export default function CreateWorkoutScreen() {
     try {
       setLoading(true);
 
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) throw new Error('Usuário não autenticado.');
 
       const { data: workoutData, error: workoutError } = await supabase
@@ -144,17 +158,20 @@ export default function CreateWorkoutScreen() {
   );
 
   return (
-    <View className="flex-1 bg-white" style={{ paddingTop: insets.top }}>
+    <View className="flex-1 bg-white dark:bg-zinc-950" style={{ paddingTop: insets.top }}>
       {/* Cabeçalho */}
-      <View className="flex-row items-center justify-between px-5 py-3 border-b border-[#f0edef]">
+      <View className="flex-row items-center justify-between px-5 py-3 border-b border-[#f0edef] dark:border-zinc-800">
         <TouchableOpacity
           onPress={() => router.back()}
-          className="w-10 h-10 rounded-full bg-[#f0edef] items-center justify-center"
+          className="w-10 h-10 rounded-full bg-[#f0edef] dark:bg-zinc-900 items-center justify-center border border-transparent dark:border-zinc-800"
+          activeOpacity={0.7}
         >
-          <Ionicons name="arrow-back" size={20} color="#1b1b1d" />
+          <ArrowLeft size={20} color={isDark ? '#ffffff' : '#1b1b1d'} />
         </TouchableOpacity>
 
-        <Text className="text-lg font-bold text-[#1b1b1d]">Montar Meu Treino</Text>
+        <Text className="text-lg font-bold text-[#1b1b1d] dark:text-white">
+          Montar Meu Treino
+        </Text>
 
         <TouchableOpacity
           onPress={handleSaveWorkout}
@@ -172,13 +189,13 @@ export default function CreateWorkoutScreen() {
       <ScrollView className="flex-1 px-5 pt-4" showsVerticalScrollIndicator={false}>
         {/* Nome do Treino */}
         <View className="mb-6">
-          <Text className="text-sm font-bold text-[#1b1b1d] mb-2">
+          <Text className="text-sm font-bold text-[#1b1b1d] dark:text-white mb-2">
             Nome do Treino
           </Text>
           <TextInput
-            className="bg-[#f0edef] px-4 py-3 rounded-2xl text-[#1b1b1d] font-medium text-base"
+            className="bg-[#f0edef] dark:bg-zinc-900 px-4 py-3 rounded-2xl text-[#1b1b1d] dark:text-white font-medium text-base border border-[#e2dfe1] dark:border-zinc-800"
             placeholder="Ex: Treino A - Peito e Tríceps"
-            placeholderTextColor="#a09da1"
+            placeholderTextColor={isDark ? '#71717a' : '#a09da1'}
             value={workoutTitle}
             onChangeText={setWorkoutTitle}
           />
@@ -186,24 +203,24 @@ export default function CreateWorkoutScreen() {
 
         {/* Exercícios Selecionados */}
         <View className="flex-row items-center justify-between mb-3">
-          <Text className="text-lg font-bold text-[#1b1b1d]">
+          <Text className="text-lg font-bold text-[#1b1b1d] dark:text-white">
             Exercícios ({selectedExercises.length})
           </Text>
           <TouchableOpacity
             onPress={() => setModalVisible(true)}
-            className="flex-row items-center bg-[#eef2ff] px-3 py-1.5 rounded-full border border-[#dbeaff]"
+            className="flex-row items-center bg-[#eef2ff] dark:bg-sky-950/40 px-3 py-1.5 rounded-full border border-[#dbeaff] dark:border-sky-900/50"
           >
-            <Ionicons name="add-circle-outline" size={18} color="#0058bc" />
-            <Text className="text-xs text-[#0058bc] font-bold ml-1">
+            <PlusCircle size={16} color={isDark ? '#38bdf8' : '#0058bc'} />
+            <Text className="text-xs text-[#0058bc] dark:text-sky-400 font-bold ml-1.5">
               Adicionar
             </Text>
           </TouchableOpacity>
         </View>
 
         {selectedExercises.length === 0 ? (
-          <View className="bg-[#f8f9fa] p-8 rounded-2xl border border-dashed border-[#e2dfe1] items-center my-4">
-            <Ionicons name="barbell-outline" size={36} color="#808591" />
-            <Text className="text-[#414755] font-medium mt-2 text-center text-sm">
+          <View className="bg-[#f8f9fa] dark:bg-zinc-900 p-8 rounded-2xl border border-dashed border-[#e2dfe1] dark:border-zinc-800 items-center my-4">
+            <Dumbbell size={36} color="#808591" />
+            <Text className="text-[#414755] dark:text-zinc-400 font-medium mt-2 text-center text-sm">
               Nenhum exercício selecionado ainda.
             </Text>
             <TouchableOpacity
@@ -217,41 +234,47 @@ export default function CreateWorkoutScreen() {
           selectedExercises.map((item, index) => (
             <View
               key={item.id}
-              className="bg-[#f0edef] p-4 rounded-2xl mb-3 border border-[#e2dfe1]"
+              className="bg-[#f0edef] dark:bg-zinc-900 p-4 rounded-2xl mb-3 border border-[#e2dfe1] dark:border-zinc-800"
             >
               <View className="flex-row justify-between items-center mb-2">
-                <Text className="font-bold text-[#1b1b1d] text-base flex-1 mr-2">
+                <Text className="font-bold text-[#1b1b1d] dark:text-white text-base flex-1 mr-2">
                   {index + 1}. {item.name}
                 </Text>
                 <TouchableOpacity onPress={() => handleRemoveExercise(item.id)}>
-                  <Ionicons name="trash-outline" size={20} color="#e11d48" />
+                  <Trash2 size={20} color="#e11d48" />
                 </TouchableOpacity>
               </View>
 
               <View className="flex-row justify-between mt-2 gap-2">
-                <View className="flex-1 bg-white p-2 rounded-xl border border-[#e2dfe1]">
-                  <Text className="text-[10px] text-[#414755] font-bold">SÉRIES</Text>
+                <View className="flex-1 bg-white dark:bg-zinc-800 p-2 rounded-xl border border-[#e2dfe1] dark:border-zinc-700">
+                  <Text className="text-[10px] text-[#414755] dark:text-zinc-400 font-bold">
+                    SÉRIES
+                  </Text>
                   <TextInput
-                    className="font-bold text-[#0058bc] text-sm p-0 mt-0.5"
+                    className="font-bold text-[#0058bc] dark:text-sky-400 text-sm p-0 mt-0.5"
                     keyboardType="numeric"
                     value={String(item.sets)}
                     onChangeText={(v) => handleUpdateExerciseField(item.id, 'sets', v)}
                   />
                 </View>
 
-                <View className="flex-1 bg-white p-2 rounded-xl border border-[#e2dfe1]">
-                  <Text className="text-[10px] text-[#414755] font-bold">REPS</Text>
+                <View className="flex-1 bg-white dark:bg-zinc-800 p-2 rounded-xl border border-[#e2dfe1] dark:border-zinc-700">
+                  <Text className="text-[10px] text-[#414755] dark:text-zinc-400 font-bold">
+                    REPS
+                  </Text>
                   <TextInput
-                    className="font-bold text-[#0058bc] text-sm p-0 mt-0.5"
+                    className="font-bold text-[#0058bc] dark:text-sky-400 text-sm p-0 mt-0.5"
                     value={item.reps}
                     onChangeText={(v) => handleUpdateExerciseField(item.id, 'reps', v)}
                   />
                 </View>
 
-                <View className="flex-1 bg-white p-2 rounded-xl border border-[#e2dfe1]">
-                  <Text className="text-[10px] text-[#414755] font-bold">CARGA</Text>
+                <View className="flex-1 bg-white dark:bg-zinc-800 p-2 rounded-xl border border-[#e2dfe1] dark:border-zinc-700">
+                  <Text className="text-[10px] text-[#414755] dark:text-zinc-400 font-bold">
+                    CARGA
+                  </Text>
                   <TextInput
-                    className="font-bold text-[#0058bc] text-sm p-0 mt-0.5"
+                    className="font-bold text-[#0058bc] dark:text-sky-400 text-sm p-0 mt-0.5"
                     value={item.weight}
                     onChangeText={(v) => handleUpdateExerciseField(item.id, 'weight', v)}
                   />
@@ -267,24 +290,25 @@ export default function CreateWorkoutScreen() {
       {/* Modal de Busca de Exercícios */}
       <Modal visible={modalVisible} animationType="slide" transparent>
         <View className="flex-1 bg-black/50 justify-end">
-          <View className="bg-white rounded-t-3xl h-[80%] p-5">
+          <View className="bg-white dark:bg-zinc-900 rounded-t-3xl h-[80%] p-5 border-t border-[#e2dfe1] dark:border-zinc-800">
             <View className="flex-row justify-between items-center mb-4">
-              <Text className="text-xl font-bold text-[#1b1b1d]">
+              <Text className="text-xl font-bold text-[#1b1b1d] dark:text-white">
                 Selecionar Exercício
               </Text>
               <TouchableOpacity onPress={() => setModalVisible(false)}>
-                <Ionicons name="close-circle" size={28} color="#414755" />
+                <XCircle size={26} color={isDark ? '#a1a1aa' : '#414755'} />
               </TouchableOpacity>
             </View>
 
-            <View className="bg-[#f0edef] flex-row items-center px-4 py-2 rounded-2xl mb-4">
-              <Ionicons name="search" size={18} color="#414755" />
+            <View className="bg-[#f0edef] dark:bg-zinc-800 flex-row items-center px-4 py-2.5 rounded-2xl mb-4 border border-[#e2dfe1] dark:border-zinc-700">
+              <Search size={18} color={isDark ? '#a1a1aa' : '#414755'} />
               <TextInput
-                className="flex-1 ml-2 text-[#1b1b1d]"
+                className="flex-1 ml-2 text-[#1b1b1d] dark:text-white text-sm"
                 placeholder="Buscar por nome ou grupo..."
-                placeholderTextColor="#a09da1"
+                placeholderTextColor={isDark ? '#71717a' : '#a09da1'}
                 value={searchQuery}
                 onChangeText={setSearchQuery}
+                autoCapitalize="none"
               />
             </View>
 
@@ -295,15 +319,17 @@ export default function CreateWorkoutScreen() {
               renderItem={({ item }) => (
                 <TouchableOpacity
                   onPress={() => handleSelectExercise(item)}
-                  className="p-3 border-b border-[#f0edef] flex-row justify-between items-center"
+                  className="p-3 border-b border-[#f0edef] dark:border-zinc-800 flex-row justify-between items-center"
                 >
                   <View>
-                    <Text className="font-bold text-[#1b1b1d]">{item.name}</Text>
-                    <Text className="text-xs text-[#0058bc] uppercase font-bold">
+                    <Text className="font-bold text-[#1b1b1d] dark:text-white">
+                      {item.name}
+                    </Text>
+                    <Text className="text-xs text-[#0058bc] dark:text-sky-400 uppercase font-bold">
                       {item.category_id}
                     </Text>
                   </View>
-                  <Ionicons name="add" size={22} color="#0058bc" />
+                  <Plus size={22} color={isDark ? '#38bdf8' : '#0058bc'} />
                 </TouchableOpacity>
               )}
             />

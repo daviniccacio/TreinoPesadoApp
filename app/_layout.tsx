@@ -1,30 +1,31 @@
-import '../global.css';
 import React, { useEffect, useState } from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import { Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 
+// Estilos globais do NativeWind
+import '../global.css';
+
 export default function RootLayout() {
-  const [session, setSession] = useState<Session | null>(null);
-  const [initialized, setInitialized] = useState<boolean>(false);
+  const [session, setSession] = useState<any>(null);
+  const [isReady, setIsReady] = useState<boolean>(false);
 
-  const router = useRouter();
   const segments = useSegments();
+  const router = useRouter();
 
+  // 1. Monitora o estado de autenticação do usuário no Supabase
   useEffect(() => {
-    // 1. Busca a sessão ativa ao carregar o app
+    // Busca a sessão inicial
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
-      setInitialized(true);
+      setIsReady(true);
     });
 
-    // 2. Escuta alterações no estado de autenticação em tempo real
+    // Escuta eventos de login e logout em tempo real
     const { data: authListener } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         setSession(session);
-        setInitialized(true);
+        setIsReady(true);
       }
     );
 
@@ -33,36 +34,36 @@ export default function RootLayout() {
     };
   }, []);
 
+  // 2. Executa o redirecionamento seguro quando a sessão altera
   useEffect(() => {
-    if (!initialized) return;
+    if (!isReady) return;
 
-    // Identifica se o usuário está em uma tela do grupo (auth)
-    const inAuthGroup = segments[0] === '(auth)';
+    // Verifica se a rota atual está dentro do grupo autenticado (app)
+    const inAuthGroup = segments[0] === '(app)';
 
-    if (!session && !inAuthGroup) {
-      // Redireciona para o login se não estiver autenticado
-      router.replace('/(auth)/login');
-    } else if (session && inAuthGroup) {
-      // Redireciona para a área interna se já estiver autenticado
+    if (session && !inAuthGroup) {
+      // Se o usuário está logado -> navega para as abas do app
       router.replace('/(app)');
+    } else if (!session && inAuthGroup) {
+      // Se o usuário deslogou -> navega para a rota exata de login
+      router.replace('/(auth)/login');
     }
-  }, [session, initialized, segments]);
+  }, [session, isReady, segments]);
 
-  if (!initialized) {
+  // Exibe indicador de carregamento enquanto valida a sessão
+  if (!isReady) {
     return (
-      <View className="flex-1 justify-center items-center bg-white">
+      <View className="flex-1 justify-center items-center bg-white dark:bg-zinc-950">
         <ActivityIndicator size="large" color="#0058bc" />
       </View>
     );
   }
 
+  // Define as pilhas principais do aplicativo
   return (
-    <>
-      <StatusBar style="dark" />
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="(app)" />
-        <Stack.Screen name="(auth)" />
-      </Stack>
-    </>
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="(app)" />
+      <Stack.Screen name="(auth)" />
+    </Stack>
   );
 }

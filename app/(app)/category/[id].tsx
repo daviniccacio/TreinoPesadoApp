@@ -7,12 +7,22 @@ import {
   ActivityIndicator,
   RefreshControl,
   TextInput,
+  useColorScheme,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import {
+  ArrowLeft,
+  ChevronRight,
+  Search,
+  XCircle,
+  AlertCircle,
+} from 'lucide-react-native';
 import { supabase } from '../../../lib/supabase';
 
+/**
+ * Interface que define a estrutura de um Exercício vindo do Supabase
+ */
 interface Exercise {
   id: string;
   name: string;
@@ -23,16 +33,25 @@ interface Exercise {
 }
 
 export default function CategoryScreen() {
+  // Resgata o ID da categoria passado pela rota (ex: /category/peito)
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
+  // Detecta o tema ativo no dispositivo (light ou dark)
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
+
+  // Estados locais da tela
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [hasError, setHasError] = useState<boolean>(false);
 
+  /**
+   * Função para buscar os exercícios pertencentes à categoria atual no Supabase
+   */
   const fetchExercises = useCallback(async () => {
     if (!id) return;
 
@@ -58,21 +77,32 @@ export default function CategoryScreen() {
     }
   }, [id]);
 
+  // Carrega a lista quando a tela é montada ou o ID muda
   useEffect(() => {
     fetchExercises();
   }, [fetchExercises]);
 
+  /**
+   * Função para atualizar a lista ao puxar a tela para baixo
+   */
   function handleRefresh() {
     setRefreshing(true);
     fetchExercises();
   }
 
+  // Formata o título da categoria (ex: "biceps" -> "Biceps")
   const categoryTitle = id ? id.charAt(0).toUpperCase() + id.slice(1) : 'Categoria';
 
+  /**
+   * Filtra os exercícios da categoria atual conforme o texto digitado
+   */
   const filteredExercises = exercises.filter((item) =>
     item.name.toLowerCase().includes(searchQuery.toLowerCase().trim())
   );
 
+  /**
+   * Renderiza cada card de exercício da lista
+   */
   function renderExerciseItem({ item }: { item: Exercise }) {
     return (
       <TouchableOpacity
@@ -82,61 +112,72 @@ export default function CategoryScreen() {
             params: { id: item.id, from: 'category', categoryId: id },
           })
         }
-        className="bg-[#f0edef] p-4 rounded-2xl mb-3 flex-row items-center justify-between"
+        className="bg-[#f0edef] dark:bg-zinc-900 p-4 rounded-2xl mb-3 flex-row items-center justify-between border border-[#e2dfe1] dark:border-zinc-800"
         activeOpacity={0.8}
       >
         <View className="flex-1 mr-3">
-          <Text className="text-base font-bold text-[#1b1b1d] mb-1">
+          <Text className="text-base font-bold text-[#1b1b1d] dark:text-white mb-1">
             {item.name}
           </Text>
           <View className="flex-row items-center gap-3">
-            <Text className="text-xs text-[#414755]">
-              <Text className="font-bold text-[#0058bc]">{item.sets}</Text> séries
+            <Text className="text-xs text-[#414755] dark:text-zinc-400">
+              <Text className="font-bold text-[#0058bc] dark:text-sky-400">
+                {item.sets}
+              </Text>{' '}
+              séries
             </Text>
-            <Text className="text-xs text-[#414755]">
-              <Text className="font-bold text-[#0058bc]">{item.reps}</Text> reps
+            <Text className="text-xs text-[#414755] dark:text-zinc-400">
+              <Text className="font-bold text-[#0058bc] dark:text-sky-400">
+                {item.reps}
+              </Text>{' '}
+              reps
             </Text>
-            <Text className="text-xs text-[#414755]">
-              <Text className="font-bold text-[#0058bc]">{item.weight}</Text>
+            <Text className="text-xs text-[#414755] dark:text-zinc-400">
+              <Text className="font-bold text-[#0058bc] dark:text-sky-400">
+                {item.weight}
+              </Text>
             </Text>
           </View>
         </View>
 
-        <View className="w-9 h-9 rounded-full bg-white items-center justify-center border border-[#e0dddf]">
-          <Ionicons name="chevron-forward" size={16} color="#0058bc" />
+        <View className="w-9 h-9 rounded-full bg-white dark:bg-zinc-800 items-center justify-center border border-[#e0dddf] dark:border-zinc-700">
+          <ChevronRight size={16} color="#0058bc" />
         </View>
       </TouchableOpacity>
     );
   }
 
   return (
-    <View className="flex-1 bg-white" style={{ paddingTop: insets.top }}>
-      {/* Cabeçalho */}
-      <View className="flex-row items-center justify-between px-5 py-3 border-b border-[#f0edef]">
+    <View className="flex-1 bg-white dark:bg-zinc-950" style={{ paddingTop: insets.top }}>
+      {/* 1. Cabeçalho */}
+      <View className="flex-row items-center justify-between px-5 py-3 border-b border-[#f0edef] dark:border-zinc-800">
         <TouchableOpacity
           onPress={() => router.back()}
-          className="w-10 h-10 rounded-full bg-[#f0edef] items-center justify-center"
+          className="w-10 h-10 rounded-full bg-[#f0edef] dark:bg-zinc-900 items-center justify-center border border-transparent dark:border-zinc-800"
           activeOpacity={0.7}
         >
-          <Ionicons name="arrow-back" size={20} color="#1b1b1d" />
+          <ArrowLeft size={20} color={isDark ? '#ffffff' : '#1b1b1d'} />
         </TouchableOpacity>
 
-        <Text className="text-lg font-bold text-[#1b1b1d]">
+        <Text className="text-lg font-bold text-[#1b1b1d] dark:text-white">
           {categoryTitle}
         </Text>
 
         <View className="w-10" />
       </View>
 
-      {/* Conteúdo */}
+      {/* 2. Conteúdo Principal */}
       {loading ? (
         <View className="flex-1 justify-center items-center">
           <ActivityIndicator size="large" color="#0058bc" />
+          <Text className="mt-3 text-[#414755] dark:text-zinc-400 font-medium">
+            Carregando treinos...
+          </Text>
         </View>
       ) : hasError ? (
         <View className="flex-1 justify-center items-center px-5">
-          <Ionicons name="alert-circle-outline" size={48} color="#e11d48" />
-          <Text className="text-base font-bold text-[#1b1b1d] mt-2 text-center">
+          <AlertCircle size={48} color="#e11d48" />
+          <Text className="text-base font-bold text-[#1b1b1d] dark:text-white mt-2 text-center">
             Não foi possível carregar os exercícios
           </Text>
           <TouchableOpacity
@@ -162,16 +203,17 @@ export default function CategoryScreen() {
           }
           ListHeaderComponent={
             <View className="mb-4">
-              <Text className="text-xl font-bold text-[#1b1b1d] mb-3">
+              <Text className="text-xl font-bold text-[#1b1b1d] dark:text-white mb-3">
                 Exercícios Disponíveis
               </Text>
 
-              <View className="bg-[#f0edef] flex-row items-center px-4 py-2.5 rounded-2xl border border-[#e2dfe1]">
-                <Ionicons name="search-outline" size={18} color="#414755" />
+              {/* Campo de Busca por Exercício */}
+              <View className="bg-[#f0edef] dark:bg-zinc-900 flex-row items-center px-4 py-2.5 rounded-2xl border border-[#e2dfe1] dark:border-zinc-800">
+                <Search size={18} color={isDark ? '#a1a1aa' : '#414755'} />
                 <TextInput
-                  className="flex-1 ml-2.5 text-[#1b1b1d] text-sm"
+                  className="flex-1 ml-2.5 text-[#1b1b1d] dark:text-white text-sm"
                   placeholder={`Buscar em ${categoryTitle.toLowerCase()}...`}
-                  placeholderTextColor="#a09da1"
+                  placeholderTextColor={isDark ? '#71717a' : '#a09da1'}
                   value={searchQuery}
                   onChangeText={setSearchQuery}
                   autoCapitalize="none"
@@ -179,10 +221,19 @@ export default function CategoryScreen() {
                 />
                 {searchQuery.length > 0 && (
                   <TouchableOpacity onPress={() => setSearchQuery('')}>
-                    <Ionicons name="close-circle" size={18} color="#808591" />
+                    <XCircle size={18} color={isDark ? '#71717a' : '#808591'} />
                   </TouchableOpacity>
                 )}
               </View>
+            </View>
+          }
+          ListEmptyComponent={
+            <View className="py-10 items-center">
+              <Text className="text-[#414755] dark:text-zinc-400 font-medium text-center">
+                {searchQuery.trim().length > 0
+                  ? `Nenhum exercício encontrado com "${searchQuery}" em ${categoryTitle}.`
+                  : 'Nenhum exercício cadastrado para esta categoria.'}
+              </Text>
             </View>
           }
         />

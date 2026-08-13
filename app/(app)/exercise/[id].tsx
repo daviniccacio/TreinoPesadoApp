@@ -6,10 +6,11 @@ import {
   ScrollView,
   ActivityIndicator,
   Image,
+  useColorScheme,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { ArrowLeft, Heart, Layers, Repeat, Dumbbell } from 'lucide-react-native';
 import { supabase } from '../../../lib/supabase';
 import { getExerciseGif } from '../../../lib/exerciseGifs';
 
@@ -34,6 +35,10 @@ export default function ExerciseDetailScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
+  // Detecta se o sistema está em modo claro ou escuro
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
+
   const [exercise, setExercise] = useState<ExerciseDetail | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [isFavorite, setIsFavorite] = useState<boolean>(false);
@@ -45,6 +50,9 @@ export default function ExerciseDetailScreen() {
     }
   }, [id]);
 
+  /**
+   * Busca as informações detalhadas do exercício no Supabase
+   */
   async function fetchExerciseDetails() {
     try {
       setLoading(true);
@@ -64,6 +72,9 @@ export default function ExerciseDetailScreen() {
     }
   }
 
+  /**
+   * Verifica se o exercício atual está na tabela de favoritos do usuário
+   */
   async function checkIfFavorite() {
     try {
       const { data } = await supabase
@@ -78,6 +89,9 @@ export default function ExerciseDetailScreen() {
     }
   }
 
+  /**
+   * Adiciona ou remove o exercício dos favoritos no Supabase
+   */
   async function toggleFavorite() {
     try {
       if (isFavorite) {
@@ -100,7 +114,7 @@ export default function ExerciseDetailScreen() {
   }
 
   /**
-   * Lógica de retorno baseada no parâmetro 'from'
+   * Lógica de navegação de retorno baseada na origem da navegação (from)
    */
   function handleGoBack() {
     if (from === 'category' && categoryId) {
@@ -115,35 +129,35 @@ export default function ExerciseDetailScreen() {
   }
 
   return (
-    <View className="flex-1 bg-white" style={{ paddingTop: insets.top }}>
-      {/* Cabeçalho */}
-      <View className="flex-row items-center justify-between px-5 py-3 border-b border-[#f0edef]">
+    <View className="flex-1 bg-white dark:bg-zinc-950" style={{ paddingTop: insets.top }}>
+      {/* 1. Cabeçalho */}
+      <View className="flex-row items-center justify-between px-5 py-3 border-b border-[#f0edef] dark:border-zinc-800">
         <TouchableOpacity
           onPress={handleGoBack}
-          className="w-10 h-10 rounded-full bg-[#f0edef] items-center justify-center"
+          className="w-10 h-10 rounded-full bg-[#f0edef] dark:bg-zinc-900 items-center justify-center border border-transparent dark:border-zinc-800"
           activeOpacity={0.7}
         >
-          <Ionicons name="arrow-back" size={20} color="#1b1b1d" />
+          <ArrowLeft size={20} color={isDark ? '#ffffff' : '#1b1b1d'} />
         </TouchableOpacity>
 
-        <Text className="text-lg font-bold text-[#1b1b1d]">
+        <Text className="text-lg font-bold text-[#1b1b1d] dark:text-white">
           Detalhes do Exercício
         </Text>
 
         <TouchableOpacity
           onPress={toggleFavorite}
-          className="w-10 h-10 rounded-full bg-[#f0edef] items-center justify-center"
+          className="w-10 h-10 rounded-full bg-[#f0edef] dark:bg-zinc-900 items-center justify-center border border-transparent dark:border-zinc-800"
           activeOpacity={0.7}
         >
-          <Ionicons
-            name={isFavorite ? 'heart' : 'heart-outline'}
-            size={22}
-            color={isFavorite ? '#e11d48' : '#1b1b1d'}
+          <Heart
+            size={20}
+            color={isFavorite ? '#e11d48' : isDark ? '#ffffff' : '#1b1b1d'}
+            fill={isFavorite ? '#e11d48' : 'none'}
           />
         </TouchableOpacity>
       </View>
 
-      {/* Conteúdo */}
+      {/* 2. Conteúdo Principal */}
       {loading ? (
         <View className="flex-1 justify-center items-center">
           <ActivityIndicator size="large" color="#0058bc" />
@@ -154,21 +168,21 @@ export default function ExerciseDetailScreen() {
           contentContainerStyle={{ paddingBottom: 40 }}
           showsVerticalScrollIndicator={false}
         >
-          {/* Título e Grupo */}
+          {/* Título e Grupo Muscular */}
           <View className="mb-4">
-            <Text className="text-2xl font-extrabold text-[#1b1b1d] mb-2">
+            <Text className="text-2xl font-extrabold text-[#1b1b1d] dark:text-white mb-2">
               {exercise.name}
             </Text>
 
-            <View className="self-start bg-[#eef2ff] px-3 py-1 rounded-full border border-[#dbeaff]">
-              <Text className="text-xs text-[#0058bc] font-bold uppercase tracking-wider">
+            <View className="self-start bg-[#eef2ff] dark:bg-sky-950/40 px-3 py-1 rounded-full border border-[#dbeaff] dark:border-sky-900/50">
+              <Text className="text-xs text-[#0058bc] dark:text-sky-400 font-bold uppercase tracking-wider">
                 Grupo: {exercise.category_id}
               </Text>
             </View>
           </View>
 
-          {/* GIF */}
-          <View className="w-full h-72 bg-white rounded-3xl overflow-hidden mb-6 items-center justify-center p-2 border border-[#e2dfe1] shadow-sm">
+          {/* GIF Demonstrativo (Removida classe shadow-sm para estabilidade) */}
+          <View className="w-full h-72 bg-white dark:bg-white rounded-3xl overflow-hidden mb-6 items-center justify-center p-2 border border-[#e2dfe1] dark:border-zinc-800">
             <Image
               source={getExerciseGif(exercise.gif_key)}
               className="w-full h-full rounded-2xl"
@@ -176,28 +190,34 @@ export default function ExerciseDetailScreen() {
             />
           </View>
 
-          {/* Métricas */}
+          {/* Cards de Métricas (Séries, Repetições, Carga) */}
           <View className="flex-row justify-between mb-6">
-            <View className="w-[31%] bg-[#f8f9fa] p-4 rounded-2xl items-center border border-[#e2dfe1]">
-              <Ionicons name="layers-outline" size={22} color="#0058bc" />
-              <Text className="text-xs text-[#414755] mt-1 font-medium">Séries</Text>
-              <Text className="text-lg font-extrabold text-[#1b1b1d] mt-1">
+            <View className="w-[31%] bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl items-center border border-[#e2dfe1] dark:border-zinc-800">
+              <Layers size={22} color={isDark ? '#38bdf8' : '#0058bc'} />
+              <Text className="text-xs text-[#414755] dark:text-zinc-400 mt-1 font-medium">
+                Séries
+              </Text>
+              <Text className="text-lg font-extrabold text-[#1b1b1d] dark:text-white mt-1">
                 {exercise.sets}
               </Text>
             </View>
 
-            <View className="w-[31%] bg-[#f8f9fa] p-4 rounded-2xl items-center border border-[#e2dfe1]">
-              <Ionicons name="repeat-outline" size={22} color="#0058bc" />
-              <Text className="text-xs text-[#414755] mt-1 font-medium">Reps</Text>
-              <Text className="text-lg font-extrabold text-[#1b1b1d] mt-1">
+            <View className="w-[31%] bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl items-center border border-[#e2dfe1] dark:border-zinc-800">
+              <Repeat size={22} color={isDark ? '#38bdf8' : '#0058bc'} />
+              <Text className="text-xs text-[#414755] dark:text-zinc-400 mt-1 font-medium">
+                Reps
+              </Text>
+              <Text className="text-lg font-extrabold text-[#1b1b1d] dark:text-white mt-1">
                 {exercise.reps}
               </Text>
             </View>
 
-            <View className="w-[31%] bg-[#f8f9fa] p-4 rounded-2xl items-center border border-[#e2dfe1]">
-              <Ionicons name="fitness-outline" size={22} color="#0058bc" />
-              <Text className="text-xs text-[#414755] mt-1 font-medium">Carga</Text>
-              <Text className="text-lg font-extrabold text-[#1b1b1d] mt-1">
+            <View className="w-[31%] bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl items-center border border-[#e2dfe1] dark:border-zinc-800">
+              <Dumbbell size={22} color={isDark ? '#38bdf8' : '#0058bc'} />
+              <Text className="text-xs text-[#414755] dark:text-zinc-400 mt-1 font-medium">
+                Carga
+              </Text>
+              <Text className="text-lg font-extrabold text-[#1b1b1d] dark:text-white mt-1">
                 {exercise.weight}
               </Text>
             </View>

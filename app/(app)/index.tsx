@@ -97,14 +97,14 @@ export default function HomeScreen() {
   }
 
   return (
-    <View className="flex-1 bg-white" style={{ paddingTop: insets.top }}>
+    <View className="flex-1 bg-white dark:bg-zinc-950" style={{ paddingTop: insets.top }}>
       {/* Cabeçalho */}
-      <View className="px-5 py-4 border-b border-[#f0edef] flex-row justify-between items-center">
+      <View className="px-5 py-4 border-b border-[#f0edef] dark:border-zinc-800 flex-row justify-between items-center">
         <View>
-          <Text className="text-2xl font-extrabold text-[#1b1b1d]">
+          <Text className="text-2xl font-extrabold text-[#1b1b1d] dark:text-white">
             Treino Pesado Academia
           </Text>
-          <Text className="text-sm font-semibold text-[#414755] mt-0.5">
+          <Text className="text-sm font-semibold text-[#414755] dark:text-zinc-400 mt-0.5">
             Bem-vindo, {userName}!
           </Text>
         </View>
@@ -112,7 +112,7 @@ export default function HomeScreen() {
         <View className="flex-row items-center gap-2">
           <TouchableOpacity
             onPress={() => router.push('/favorites')}
-            className="w-10 h-10 rounded-full bg-[#f0edef] items-center justify-center"
+            className="w-10 h-10 rounded-full bg-[#f0edef] dark:bg-zinc-900 items-center justify-center border border-transparent dark:border-zinc-800"
             activeOpacity={0.7}
           >
             <Heart size={20} color="#1b1b1d" />
@@ -124,7 +124,7 @@ export default function HomeScreen() {
       {loading ? (
         <View className="flex-1 justify-center items-center">
           <ActivityIndicator size="large" color="#0058bc" />
-          <Text className="mt-3 text-[#414755] font-medium">
+          <Text className="mt-3 text-[#414755] dark:text-zinc-400 font-medium">
             Carregando seus treinos...
           </Text>
         </View>
@@ -133,7 +133,7 @@ export default function HomeScreen() {
           {/* Botão Montar Meu Treino */}
           <TouchableOpacity
             onPress={() => router.push('/create-workout')}
-            className="bg-[#0058bc] p-4 rounded-2xl flex-row items-center justify-between mb-6 shadow-sm"
+            className="bg-[#0058bc] p-4 rounded-2xl flex-row items-center justify-between mb-6 border border-[#004bb0]"
             activeOpacity={0.8}
           >
             <View className="flex-row items-center gap-3">
@@ -151,25 +151,25 @@ export default function HomeScreen() {
           {/* Treinos Personalizados */}
           {customWorkouts.length > 0 && (
             <View className="mb-6">
-              <Text className="text-xl font-bold text-[#1b1b1d] mb-3">
+              <Text className="text-xl font-bold text-[#1b1b1d] dark:text-white mb-3">
                 Meus Treinos Personalizados
               </Text>
               {customWorkouts.map((workout) => (
                 <TouchableOpacity
                   key={workout.id}
                   onPress={() => router.push(`/custom-workout/${workout.id}`)}
-                  className="bg-[#f0edef] p-4 rounded-2xl mb-3 flex-row items-center justify-between border border-[#e2dfe1]"
+                  className="bg-[#f0edef] dark:bg-zinc-900 p-4 rounded-2xl mb-3 flex-row items-center justify-between border border-[#e2dfe1] dark:border-zinc-800"
                   activeOpacity={0.8}
                 >
                   <View className="flex-1 mr-3">
-                    <Text className="text-base font-bold text-[#1b1b1d] mb-1">
+                    <Text className="text-base font-bold text-[#1b1b1d] dark:text-white mb-1">
                       {workout.title}
                     </Text>
-                    <Text className="text-xs text-[#0058bc] font-bold">
+                    <Text className="text-xs text-[#0058bc] dark:text-sky-400 font-bold">
                       {workout.custom_workout_exercises?.length || 0} exercícios cadastrados
                     </Text>
                   </View>
-                  <View className="w-9 h-9 rounded-full bg-white items-center justify-center border border-[#e0dddf]">
+                  <View className="w-9 h-9 rounded-full bg-white dark:bg-zinc-800 items-center justify-center border border-[#e0dddf] dark:border-zinc-700">
                     <ChevronRight size={18} color="#0058bc" />
                   </View>
                 </TouchableOpacity>
@@ -178,7 +178,7 @@ export default function HomeScreen() {
           )}
 
           {/* Grupos Musculares */}
-          <Text className="text-xl font-bold text-[#1b1b1d] mb-4">
+          <Text className="text-xl font-bold text-[#1b1b1d] dark:text-white mb-4">
             Grupos Musculares
           </Text>
 
@@ -187,7 +187,7 @@ export default function HomeScreen() {
               <TouchableOpacity
                 key={category.id}
                 onPress={() => router.push(`/category/${category.id}`)}
-                className="w-[48%] h-44 rounded-2xl overflow-hidden mb-4 relative bg-[#f0edef]"
+                className="w-[48%] h-44 rounded-2xl overflow-hidden mb-4 relative bg-[#f0edef] dark:bg-zinc-900 border border-transparent dark:border-zinc-800"
                 activeOpacity={0.8}
               >
                 {category.image_url ? (
