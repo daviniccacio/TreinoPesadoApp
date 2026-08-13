@@ -57,6 +57,9 @@ export default function ProfileScreen() {
   });
   const [loading, setLoading] = useState<boolean>(true);
 
+  /**
+   * Altera o tema visual do aplicativo dinamicamente
+   */
   function handleThemeChange(mode: 'light' | 'dark' | 'system') {
     setThemeMode(mode);
     if (mode === 'system') {
@@ -151,7 +154,10 @@ export default function ProfileScreen() {
       <ScrollView className="flex-1 px-5 pt-6" showsVerticalScrollIndicator={false}>
         {/* Cartão do Usuário */}
         <View className="items-center mb-6">
-          <View className="w-24 h-24 rounded-full bg-[#0058bc] items-center justify-center mb-3">
+          <View
+            style={{ backgroundColor: '#59C83A' }}
+            className="w-24 h-24 rounded-full items-center justify-center mb-3 shadow-sm border border-[#46ab2b]"
+          >
             <User size={48} color="#ffffff" />
           </View>
           <Text className="text-2xl font-extrabold text-[#1b1b1d] dark:text-white">
@@ -160,14 +166,6 @@ export default function ProfileScreen() {
           <Text className="text-sm text-[#414755] dark:text-zinc-400 mt-1 font-medium">
             {profile.email}
           </Text>
-          {profile.birthDate ? (
-            <View className="flex-row items-center mt-2 bg-[#f0edef] dark:bg-zinc-800 px-3 py-1 rounded-full">
-              <Calendar size={14} color={isDark ? '#a1a1aa' : '#414755'} />
-              <Text className="text-xs text-[#414755] dark:text-zinc-400 ml-1 font-medium">
-                Nascimento: {profile.birthDate}
-              </Text>
-            </View>
-          ) : null}
         </View>
 
         {/* Resumo de Atividades */}
@@ -177,16 +175,16 @@ export default function ProfileScreen() {
 
         {loading ? (
           <View className="py-6 items-center">
-            <ActivityIndicator size="small" color="#0058bc" />
+            <ActivityIndicator size="small" color="#59C83A" />
           </View>
         ) : (
           <View className="flex-row justify-between mb-6">
             <TouchableOpacity
               onPress={() => router.push('/my-workouts')}
-              className="w-[48%] bg-[#f0edef] dark:bg-zinc-900 p-4 rounded-2xl items-center border border-[#e2dfe1] dark:border-zinc-800"
+              className="w-[48%] bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl items-center border border-[#e2dfe1] dark:border-zinc-800"
               activeOpacity={0.8}
             >
-              <Dumbbell size={28} color="#0058bc" />
+              <Dumbbell size={28} color="#59C83A" />
               <Text className="text-2xl font-extrabold text-[#1b1b1d] dark:text-white mt-1">
                 {stats.customWorkoutsCount}
               </Text>
@@ -197,7 +195,7 @@ export default function ProfileScreen() {
 
             <TouchableOpacity
               onPress={() => router.push('/favorites')}
-              className="w-[48%] bg-[#f0edef] dark:bg-zinc-900 p-4 rounded-2xl items-center border border-[#e2dfe1] dark:border-zinc-800"
+              className="w-[48%] bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl items-center border border-[#e2dfe1] dark:border-zinc-800"
               activeOpacity={0.8}
             >
               <Heart size={28} color="#e11d48" />
@@ -211,54 +209,75 @@ export default function ProfileScreen() {
           </View>
         )}
 
-        {/* Seletor de Tema */}
+        {/* Seletor de Tema da Aparência (Com Contraste Corrigido) */}
         <Text className="text-lg font-bold text-[#1b1b1d] dark:text-white mb-3">
           Aparência do Aplicativo
         </Text>
 
-        <View className="bg-[#f0edef] dark:bg-zinc-900 rounded-2xl p-2 mb-6 border border-[#e2dfe1] dark:border-zinc-800 flex-row">
+        <View className="bg-[#f8f9fa] dark:bg-zinc-900 rounded-2xl p-2 mb-6 border border-[#e2dfe1] dark:border-zinc-800 flex-row">
+          {/* Opção Claro */}
           <TouchableOpacity
             onPress={() => handleThemeChange('light')}
             className={`flex-1 py-3 rounded-xl flex-row items-center justify-center gap-1.5 ${
-              themeMode === 'light' ? 'bg-white dark:bg-zinc-800 border border-[#e2dfe1] dark:border-zinc-700' : 'bg-transparent'
+              themeMode === 'light'
+                ? 'bg-white dark:bg-zinc-800 border border-[#e2dfe1] dark:border-zinc-700'
+                : 'bg-transparent'
             }`}
           >
-            <Sun size={16} color={themeMode === 'light' ? '#0058bc' : '#a1a1aa'} />
+            <Sun
+              size={16}
+              color={themeMode === 'light' ? '#59C83A' : '#9ca3af'}
+            />
             <Text
+              style={themeMode === 'light' ? { color: '#59C83A' } : undefined}
               className={`font-bold text-xs ${
-                themeMode === 'light' ? 'text-[#0058bc] dark:text-sky-400' : 'text-[#414755] dark:text-zinc-400'
+                themeMode !== 'light' ? 'text-[#414755] dark:text-zinc-300' : ''
               }`}
             >
               Claro
             </Text>
           </TouchableOpacity>
 
+          {/* Opção Escuro */}
           <TouchableOpacity
             onPress={() => handleThemeChange('dark')}
             className={`flex-1 py-3 rounded-xl flex-row items-center justify-center gap-1.5 ${
-              themeMode === 'dark' ? 'bg-white dark:bg-zinc-800 border border-[#e2dfe1] dark:border-zinc-700' : 'bg-transparent'
+              themeMode === 'dark'
+                ? 'bg-white dark:bg-zinc-800 border border-[#e2dfe1] dark:border-zinc-700'
+                : 'bg-transparent'
             }`}
           >
-            <Moon size={16} color={themeMode === 'dark' ? '#38bdf8' : '#a1a1aa'} />
+            <Moon
+              size={16}
+              color={themeMode === 'dark' ? '#59C83A' : '#9ca3af'}
+            />
             <Text
+              style={themeMode === 'dark' ? { color: '#59C83A' } : undefined}
               className={`font-bold text-xs ${
-                themeMode === 'dark' ? 'text-[#0058bc] dark:text-sky-400' : 'text-[#414755] dark:text-zinc-400'
+                themeMode !== 'dark' ? 'text-[#414755] dark:text-zinc-300' : ''
               }`}
             >
               Escuro
             </Text>
           </TouchableOpacity>
 
+          {/* Opção Sistema */}
           <TouchableOpacity
             onPress={() => handleThemeChange('system')}
             className={`flex-1 py-3 rounded-xl flex-row items-center justify-center gap-1.5 ${
-              themeMode === 'system' ? 'bg-white dark:bg-zinc-800 border border-[#e2dfe1] dark:border-zinc-700' : 'bg-transparent'
+              themeMode === 'system'
+                ? 'bg-white dark:bg-zinc-800 border border-[#e2dfe1] dark:border-zinc-700'
+                : 'bg-transparent'
             }`}
           >
-            <Laptop size={16} color={themeMode === 'system' ? '#0058bc' : '#a1a1aa'} />
+            <Laptop
+              size={16}
+              color={themeMode === 'system' ? '#59C83A' : '#9ca3af'}
+            />
             <Text
+              style={themeMode === 'system' ? { color: '#59C83A' } : undefined}
               className={`font-bold text-xs ${
-                themeMode === 'system' ? 'text-[#0058bc] dark:text-sky-400' : 'text-[#414755] dark:text-zinc-400'
+                themeMode !== 'system' ? 'text-[#414755] dark:text-zinc-300' : ''
               }`}
             >
               Sistema
@@ -271,7 +290,7 @@ export default function ProfileScreen() {
           Opções da Conta
         </Text>
 
-        <View className="bg-[#f0edef] dark:bg-zinc-900 rounded-2xl overflow-hidden mb-6 border border-[#e2dfe1] dark:border-zinc-800">
+        <View className="bg-[#f8f9fa] dark:bg-zinc-900 rounded-2xl overflow-hidden mb-6 border border-[#e2dfe1] dark:border-zinc-800">
           <TouchableOpacity
             onPress={() => Alert.alert('Notificações', 'Lembretes em desenvolvimento.')}
             className="flex-row items-center justify-between p-4 border-b border-[#e2dfe1] dark:border-zinc-800"
@@ -303,7 +322,7 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Botão de Sair */}
+        {/* Botão Sair da Conta */}
         <TouchableOpacity
           onPress={handleSignOut}
           className="bg-[#ffebe8] dark:bg-red-950/40 p-4 rounded-2xl items-center flex-row justify-center mb-10 border border-transparent dark:border-red-900/30"

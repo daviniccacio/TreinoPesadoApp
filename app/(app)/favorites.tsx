@@ -26,6 +26,9 @@ interface FavoriteItem {
   };
 }
 
+/**
+ * Tela de Exercícios Favoritados com a cor oficial #59C83A
+ */
 export default function FavoritesScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -80,14 +83,14 @@ export default function FavoritesScreen() {
 
   return (
     <View className="flex-1 bg-white dark:bg-zinc-950" style={{ paddingTop: insets.top }}>
-      {/* Cabeçalho */}
+      {/* Cabeçalho Superior */}
       <View className="flex-row items-center justify-between px-5 py-4 border-b border-[#f0edef] dark:border-zinc-800">
         <TouchableOpacity
           onPress={() => router.back()}
-          className="w-10 h-10 rounded-full bg-[#f0edef] dark:bg-zinc-900 items-center justify-center border border-transparent dark:border-zinc-800"
+          className="w-10 h-10 rounded-full bg-[#f8f9fa] dark:bg-zinc-900 items-center justify-center border border-[#e2dfe1] dark:border-zinc-800"
           activeOpacity={0.7}
         >
-          <ArrowLeft size={20} color={isDark ? '#ffffff' : '#1b1b1d'} />
+          <ArrowLeft size={20} color={isDark ? '#59C83A' : '#1b1b1d'} />
         </TouchableOpacity>
 
         <Text className="text-xl font-extrabold text-[#1b1b1d] dark:text-white">
@@ -100,7 +103,7 @@ export default function FavoritesScreen() {
       {/* Conteúdo Principal */}
       {loading ? (
         <View className="flex-1 justify-center items-center">
-          <ActivityIndicator size="large" color="#0058bc" />
+          <ActivityIndicator size="large" color="#59C83A" />
           <Text className="mt-3 text-[#414755] dark:text-zinc-400 font-medium">
             Carregando favoritos...
           </Text>
@@ -122,11 +125,14 @@ export default function FavoritesScreen() {
               <TouchableOpacity
                 key={item.id}
                 onPress={() => router.push(`/exercise/${item.exercises.id}`)}
-                className="bg-[#f0edef] dark:bg-zinc-900 p-4 rounded-2xl mb-3 flex-row items-center justify-between border border-[#e2dfe1] dark:border-zinc-800"
+                className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl mb-3 flex-row items-center justify-between border border-[#e2dfe1] dark:border-zinc-800"
                 activeOpacity={0.8}
               >
                 <View className="flex-1 mr-3">
-                  <Text className="text-xs font-bold text-[#0058bc] dark:text-sky-400 uppercase mb-1">
+                  <Text
+                    style={{ color: '#59C83A' }}
+                    className="text-xs font-bold uppercase mb-1"
+                  >
                     {item.exercises.category_id}
                   </Text>
                   <Text className="text-base font-bold text-[#1b1b1d] dark:text-white mb-1">
@@ -134,19 +140,19 @@ export default function FavoritesScreen() {
                   </Text>
                   <View className="flex-row items-center gap-3">
                     <Text className="text-xs text-[#414755] dark:text-zinc-400">
-                      <Text className="font-bold text-[#0058bc] dark:text-sky-400">
+                      <Text style={{ color: '#59C83A' }} className="font-bold">
                         {item.exercises.sets}
                       </Text>{' '}
                       séries
                     </Text>
                     <Text className="text-xs text-[#414755] dark:text-zinc-400">
-                      <Text className="font-bold text-[#0058bc] dark:text-sky-400">
+                      <Text style={{ color: '#59C83A' }} className="font-bold">
                         {item.exercises.reps}
                       </Text>{' '}
                       reps
                     </Text>
                     <Text className="text-xs text-[#414755] dark:text-zinc-400">
-                      <Text className="font-bold text-[#0058bc] dark:text-sky-400">
+                      <Text style={{ color: '#59C83A' }} className="font-bold">
                         {item.exercises.weight}
                       </Text>
                     </Text>
@@ -154,7 +160,7 @@ export default function FavoritesScreen() {
                 </View>
 
                 <View className="w-9 h-9 rounded-full bg-white dark:bg-zinc-800 items-center justify-center border border-[#e0dddf] dark:border-zinc-700">
-                  <ChevronRight size={18} color="#0058bc" />
+                  <ChevronRight size={18} color="#59C83A" />
                 </View>
               </TouchableOpacity>
             ))

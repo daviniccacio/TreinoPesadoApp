@@ -24,6 +24,9 @@ interface ExerciseDetail {
   gif_key?: string;
 }
 
+/**
+ * Tela de Detalhes do Exercício com a cor da marca #59C83A
+ */
 export default function ExerciseDetailScreen() {
   const { id, from, categoryId, workoutId } = useLocalSearchParams<{
     id: string;
@@ -134,10 +137,10 @@ export default function ExerciseDetailScreen() {
       <View className="flex-row items-center justify-between px-5 py-3 border-b border-[#f0edef] dark:border-zinc-800">
         <TouchableOpacity
           onPress={handleGoBack}
-          className="w-10 h-10 rounded-full bg-[#f0edef] dark:bg-zinc-900 items-center justify-center border border-transparent dark:border-zinc-800"
+          className="w-10 h-10 rounded-full bg-[#f8f9fa] dark:bg-zinc-900 items-center justify-center border border-[#e2dfe1] dark:border-zinc-800"
           activeOpacity={0.7}
         >
-          <ArrowLeft size={20} color={isDark ? '#ffffff' : '#1b1b1d'} />
+          <ArrowLeft size={20} color={isDark ? '#59C83A' : '#1b1b1d'} />
         </TouchableOpacity>
 
         <Text className="text-lg font-bold text-[#1b1b1d] dark:text-white">
@@ -146,7 +149,7 @@ export default function ExerciseDetailScreen() {
 
         <TouchableOpacity
           onPress={toggleFavorite}
-          className="w-10 h-10 rounded-full bg-[#f0edef] dark:bg-zinc-900 items-center justify-center border border-transparent dark:border-zinc-800"
+          className="w-10 h-10 rounded-full bg-[#f8f9fa] dark:bg-zinc-900 items-center justify-center border border-[#e2dfe1] dark:border-zinc-800"
           activeOpacity={0.7}
         >
           <Heart
@@ -160,7 +163,7 @@ export default function ExerciseDetailScreen() {
       {/* 2. Conteúdo Principal */}
       {loading ? (
         <View className="flex-1 justify-center items-center">
-          <ActivityIndicator size="large" color="#0058bc" />
+          <ActivityIndicator size="large" color="#59C83A" />
         </View>
       ) : exercise ? (
         <ScrollView
@@ -174,14 +177,14 @@ export default function ExerciseDetailScreen() {
               {exercise.name}
             </Text>
 
-            <View className="self-start bg-[#eef2ff] dark:bg-sky-950/40 px-3 py-1 rounded-full border border-[#dbeaff] dark:border-sky-900/50">
-              <Text className="text-xs text-[#0058bc] dark:text-sky-400 font-bold uppercase tracking-wider">
+            <View className="self-start bg-[#59C83A]/10 px-3 py-1 rounded-full border border-[#59C83A]/30">
+              <Text style={{ color: '#59C83A' }} className="text-xs font-bold uppercase tracking-wider">
                 Grupo: {exercise.category_id}
               </Text>
             </View>
           </View>
 
-          {/* GIF Demonstrativo (Removida classe shadow-sm para estabilidade) */}
+          {/* GIF Demonstrativo */}
           <View className="w-full h-72 bg-white dark:bg-white rounded-3xl overflow-hidden mb-6 items-center justify-center p-2 border border-[#e2dfe1] dark:border-zinc-800">
             <Image
               source={getExerciseGif(exercise.gif_key)}
@@ -193,7 +196,7 @@ export default function ExerciseDetailScreen() {
           {/* Cards de Métricas (Séries, Repetições, Carga) */}
           <View className="flex-row justify-between mb-6">
             <View className="w-[31%] bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl items-center border border-[#e2dfe1] dark:border-zinc-800">
-              <Layers size={22} color={isDark ? '#38bdf8' : '#0058bc'} />
+              <Layers size={22} color="#59C83A" />
               <Text className="text-xs text-[#414755] dark:text-zinc-400 mt-1 font-medium">
                 Séries
               </Text>
@@ -203,7 +206,7 @@ export default function ExerciseDetailScreen() {
             </View>
 
             <View className="w-[31%] bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl items-center border border-[#e2dfe1] dark:border-zinc-800">
-              <Repeat size={22} color={isDark ? '#38bdf8' : '#0058bc'} />
+              <Repeat size={22} color="#59C83A" />
               <Text className="text-xs text-[#414755] dark:text-zinc-400 mt-1 font-medium">
                 Reps
               </Text>
@@ -213,7 +216,7 @@ export default function ExerciseDetailScreen() {
             </View>
 
             <View className="w-[31%] bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl items-center border border-[#e2dfe1] dark:border-zinc-800">
-              <Dumbbell size={22} color={isDark ? '#38bdf8' : '#0058bc'} />
+              <Dumbbell size={22} color="#59C83A" />
               <Text className="text-xs text-[#414755] dark:text-zinc-400 mt-1 font-medium">
                 Carga
               </Text>

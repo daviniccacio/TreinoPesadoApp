@@ -32,17 +32,17 @@ interface Exercise {
   category_id: string;
 }
 
+/**
+ * Tela de Exercícios por Categoria com o verde #59C83A da marca
+ */
 export default function CategoryScreen() {
-  // Resgata o ID da categoria passado pela rota (ex: /category/peito)
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
-  // Detecta o tema ativo no dispositivo (light ou dark)
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
-  // Estados locais da tela
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
@@ -77,7 +77,6 @@ export default function CategoryScreen() {
     }
   }, [id]);
 
-  // Carrega a lista quando a tela é montada ou o ID muda
   useEffect(() => {
     fetchExercises();
   }, [fetchExercises]);
@@ -112,7 +111,7 @@ export default function CategoryScreen() {
             params: { id: item.id, from: 'category', categoryId: id },
           })
         }
-        className="bg-[#f0edef] dark:bg-zinc-900 p-4 rounded-2xl mb-3 flex-row items-center justify-between border border-[#e2dfe1] dark:border-zinc-800"
+        className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl mb-3 flex-row items-center justify-between border border-[#e2dfe1] dark:border-zinc-800"
         activeOpacity={0.8}
       >
         <View className="flex-1 mr-3">
@@ -121,19 +120,19 @@ export default function CategoryScreen() {
           </Text>
           <View className="flex-row items-center gap-3">
             <Text className="text-xs text-[#414755] dark:text-zinc-400">
-              <Text className="font-bold text-[#0058bc] dark:text-sky-400">
+              <Text style={{ color: '#59C83A' }} className="font-bold">
                 {item.sets}
               </Text>{' '}
               séries
             </Text>
             <Text className="text-xs text-[#414755] dark:text-zinc-400">
-              <Text className="font-bold text-[#0058bc] dark:text-sky-400">
+              <Text style={{ color: '#59C83A' }} className="font-bold">
                 {item.reps}
               </Text>{' '}
               reps
             </Text>
             <Text className="text-xs text-[#414755] dark:text-zinc-400">
-              <Text className="font-bold text-[#0058bc] dark:text-sky-400">
+              <Text style={{ color: '#59C83A' }} className="font-bold">
                 {item.weight}
               </Text>
             </Text>
@@ -141,7 +140,7 @@ export default function CategoryScreen() {
         </View>
 
         <View className="w-9 h-9 rounded-full bg-white dark:bg-zinc-800 items-center justify-center border border-[#e0dddf] dark:border-zinc-700">
-          <ChevronRight size={16} color="#0058bc" />
+          <ChevronRight size={16} color="#59C83A" />
         </View>
       </TouchableOpacity>
     );
@@ -153,10 +152,10 @@ export default function CategoryScreen() {
       <View className="flex-row items-center justify-between px-5 py-3 border-b border-[#f0edef] dark:border-zinc-800">
         <TouchableOpacity
           onPress={() => router.back()}
-          className="w-10 h-10 rounded-full bg-[#f0edef] dark:bg-zinc-900 items-center justify-center border border-transparent dark:border-zinc-800"
+          className="w-10 h-10 rounded-full bg-[#f8f9fa] dark:bg-zinc-900 items-center justify-center border border-[#e2dfe1] dark:border-zinc-800"
           activeOpacity={0.7}
         >
-          <ArrowLeft size={20} color={isDark ? '#ffffff' : '#1b1b1d'} />
+          <ArrowLeft size={20} color={isDark ? '#59C83A' : '#1b1b1d'} />
         </TouchableOpacity>
 
         <Text className="text-lg font-bold text-[#1b1b1d] dark:text-white">
@@ -169,7 +168,7 @@ export default function CategoryScreen() {
       {/* 2. Conteúdo Principal */}
       {loading ? (
         <View className="flex-1 justify-center items-center">
-          <ActivityIndicator size="large" color="#0058bc" />
+          <ActivityIndicator size="large" color="#59C83A" />
           <Text className="mt-3 text-[#414755] dark:text-zinc-400 font-medium">
             Carregando treinos...
           </Text>
@@ -182,7 +181,8 @@ export default function CategoryScreen() {
           </Text>
           <TouchableOpacity
             onPress={fetchExercises}
-            className="mt-4 bg-[#0058bc] px-5 py-2.5 rounded-xl"
+            style={{ backgroundColor: '#59C83A' }}
+            className="mt-4 px-5 py-2.5 rounded-xl"
           >
             <Text className="text-white font-bold">Tentar Novamente</Text>
           </TouchableOpacity>
@@ -198,7 +198,7 @@ export default function CategoryScreen() {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={handleRefresh}
-              colors={['#0058bc']}
+              colors={['#59C83A']}
             />
           }
           ListHeaderComponent={
@@ -208,10 +208,10 @@ export default function CategoryScreen() {
               </Text>
 
               {/* Campo de Busca por Exercício */}
-              <View className="bg-[#f0edef] dark:bg-zinc-900 flex-row items-center px-4 py-2.5 rounded-2xl border border-[#e2dfe1] dark:border-zinc-800">
-                <Search size={18} color={isDark ? '#a1a1aa' : '#414755'} />
+              <View className="bg-[#f8f9fa] dark:bg-zinc-900 flex-row items-center px-4 py-2.5 rounded-2xl border border-[#e2dfe1] dark:border-zinc-800">
+                <Search size={18} color={isDark ? '#59C83A' : '#414755'} />
                 <TextInput
-                  className="flex-1 ml-2.5 text-[#1b1b1d] dark:text-white text-sm"
+                  className="flex-1 ml-2.5 text-[#1b1b1d] dark:text-white text-sm font-medium"
                   placeholder={`Buscar em ${categoryTitle.toLowerCase()}...`}
                   placeholderTextColor={isDark ? '#71717a' : '#a09da1'}
                   value={searchQuery}

@@ -46,6 +46,9 @@ const DAYS_OF_WEEK = [
   { id: 'domingo', label: 'Dom' },
 ];
 
+/**
+ * Tela de Montagem de Treinos Personalizados com a cor oficial #59C83A
+ */
 export default function CreateWorkoutScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -191,10 +194,10 @@ export default function CreateWorkoutScreen() {
       <View className="flex-row items-center justify-between px-5 py-3 border-b border-[#f0edef] dark:border-zinc-800">
         <TouchableOpacity
           onPress={() => router.back()}
-          className="w-10 h-10 rounded-full bg-[#f0edef] dark:bg-zinc-900 items-center justify-center border border-transparent dark:border-zinc-800"
+          className="w-10 h-10 rounded-full bg-[#f8f9fa] dark:bg-zinc-900 items-center justify-center border border-[#e2dfe1] dark:border-zinc-800"
           activeOpacity={0.7}
         >
-          <ArrowLeft size={20} color={isDark ? '#ffffff' : '#1b1b1d'} />
+          <ArrowLeft size={20} color={isDark ? '#59C83A' : '#1b1b1d'} />
         </TouchableOpacity>
 
         <Text className="text-lg font-bold text-[#1b1b1d] dark:text-white">
@@ -204,7 +207,8 @@ export default function CreateWorkoutScreen() {
         <TouchableOpacity
           onPress={handleSaveWorkout}
           disabled={loading}
-          className="bg-[#0058bc] px-4 py-2 rounded-xl"
+          style={{ backgroundColor: '#59C83A' }}
+          className="px-4 py-2 rounded-xl"
         >
           {loading ? (
             <ActivityIndicator color="#ffffff" size="small" />
@@ -221,7 +225,7 @@ export default function CreateWorkoutScreen() {
             Nome do Treino
           </Text>
           <TextInput
-            className="bg-[#f0edef] dark:bg-zinc-900 px-4 py-3 rounded-2xl text-[#1b1b1d] dark:text-white font-medium text-base border border-[#e2dfe1] dark:border-zinc-800"
+            className="bg-[#f8f9fa] dark:bg-zinc-900 px-4 py-3 rounded-2xl text-[#1b1b1d] dark:text-white font-medium text-base border border-[#e2dfe1] dark:border-zinc-800"
             placeholder="Ex: Pernas, Panturrilha e Abdômen"
             placeholderTextColor={isDark ? '#71717a' : '#a09da1'}
             value={workoutTitle}
@@ -241,10 +245,11 @@ export default function CreateWorkoutScreen() {
                 <TouchableOpacity
                   key={day.id}
                   onPress={() => setSelectedDay(day.id)}
+                  style={isSelected ? { backgroundColor: '#59C83A', borderColor: '#59C83A' } : undefined}
                   className={`py-2 px-3 rounded-xl border ${
                     isSelected
-                      ? 'bg-[#0058bc] border-[#0058bc]'
-                      : 'bg-[#f0edef] dark:bg-zinc-900 border-[#e2dfe1] dark:border-zinc-800'
+                      ? ''
+                      : 'bg-[#f8f9fa] dark:bg-zinc-900 border-[#e2dfe1] dark:border-zinc-800'
                   }`}
                 >
                   <Text
@@ -267,10 +272,10 @@ export default function CreateWorkoutScreen() {
           </Text>
           <TouchableOpacity
             onPress={() => setModalVisible(true)}
-            className="flex-row items-center bg-[#eef2ff] dark:bg-sky-950/40 px-3 py-1.5 rounded-full border border-[#dbeaff] dark:border-sky-900/50"
+            className="flex-row items-center bg-[#59C83A]/10 px-3 py-1.5 rounded-full border border-[#59C83A]/30"
           >
-            <PlusCircle size={16} color={isDark ? '#38bdf8' : '#0058bc'} />
-            <Text className="text-xs text-[#0058bc] dark:text-sky-400 font-bold ml-1.5">
+            <PlusCircle size={16} color="#59C83A" />
+            <Text style={{ color: '#59C83A' }} className="text-xs font-bold ml-1.5">
               Adicionar
             </Text>
           </TouchableOpacity>
@@ -284,7 +289,8 @@ export default function CreateWorkoutScreen() {
             </Text>
             <TouchableOpacity
               onPress={() => setModalVisible(true)}
-              className="mt-3 bg-[#0058bc] px-4 py-2 rounded-xl"
+              style={{ backgroundColor: '#59C83A' }}
+              className="mt-3 px-4 py-2 rounded-xl"
             >
               <Text className="text-white font-bold text-xs">Escolher Exercícios</Text>
             </TouchableOpacity>
@@ -293,7 +299,7 @@ export default function CreateWorkoutScreen() {
           selectedExercises.map((item, index) => (
             <View
               key={item.id}
-              className="bg-[#f0edef] dark:bg-zinc-900 p-4 rounded-2xl mb-3 border border-[#e2dfe1] dark:border-zinc-800"
+              className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl mb-3 border border-[#e2dfe1] dark:border-zinc-800"
             >
               <View className="flex-row justify-between items-center mb-2">
                 <Text className="font-bold text-[#1b1b1d] dark:text-white text-base flex-1 mr-2">
@@ -310,7 +316,8 @@ export default function CreateWorkoutScreen() {
                     SÉRIES
                   </Text>
                   <TextInput
-                    className="font-bold text-[#0058bc] dark:text-sky-400 text-sm p-0 mt-0.5"
+                    style={{ color: '#59C83A' }}
+                    className="font-bold text-sm p-0 mt-0.5"
                     keyboardType="numeric"
                     value={String(item.sets)}
                     onChangeText={(v) => handleUpdateExerciseField(item.id, 'sets', v)}
@@ -322,7 +329,8 @@ export default function CreateWorkoutScreen() {
                     REPS
                   </Text>
                   <TextInput
-                    className="font-bold text-[#0058bc] dark:text-sky-400 text-sm p-0 mt-0.5"
+                    style={{ color: '#59C83A' }}
+                    className="font-bold text-sm p-0 mt-0.5"
                     value={item.reps}
                     onChangeText={(v) => handleUpdateExerciseField(item.id, 'reps', v)}
                   />
@@ -333,7 +341,8 @@ export default function CreateWorkoutScreen() {
                     CARGA
                   </Text>
                   <TextInput
-                    className="font-bold text-[#0058bc] dark:text-sky-400 text-sm p-0 mt-0.5"
+                    style={{ color: '#59C83A' }}
+                    className="font-bold text-sm p-0 mt-0.5"
                     value={item.weight}
                     onChangeText={(v) => handleUpdateExerciseField(item.id, 'weight', v)}
                   />
@@ -359,7 +368,7 @@ export default function CreateWorkoutScreen() {
               </TouchableOpacity>
             </View>
 
-            <View className="bg-[#f0edef] dark:bg-zinc-800 flex-row items-center px-4 py-2.5 rounded-2xl mb-4 border border-[#e2dfe1] dark:border-zinc-700">
+            <View className="bg-[#f8f9fa] dark:bg-zinc-800 flex-row items-center px-4 py-2.5 rounded-2xl mb-4 border border-[#e2dfe1] dark:border-zinc-700">
               <Search size={18} color={isDark ? '#a1a1aa' : '#414755'} />
               <TextInput
                 className="flex-1 ml-2 text-[#1b1b1d] dark:text-white text-sm"
@@ -384,11 +393,11 @@ export default function CreateWorkoutScreen() {
                     <Text className="font-bold text-[#1b1b1d] dark:text-white">
                       {item.name}
                     </Text>
-                    <Text className="text-xs text-[#0058bc] dark:text-sky-400 uppercase font-bold">
+                    <Text style={{ color: '#59C83A' }} className="text-xs uppercase font-bold">
                       {item.category_id}
                     </Text>
                   </View>
-                  <Plus size={22} color={isDark ? '#38bdf8' : '#0058bc'} />
+                  <Plus size={22} color="#59C83A" />
                 </TouchableOpacity>
               )}
             />

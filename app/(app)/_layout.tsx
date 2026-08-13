@@ -4,6 +4,9 @@ import { Tabs } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { House, Dumbbell, Heart, User } from 'lucide-react-native';
 
+/**
+ * Layout de Abas Inferiores estilizadas com a cor da marca #59C83A
+ */
 export default function TabsLayout() {
   // Captura as margens de segurança do sistema do celular
   const insets = useSafeAreaInsets();
@@ -16,8 +19,8 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        // Cor do ícone e texto da aba selecionada
-        tabBarActiveTintColor: isDark ? '#38bdf8' : '#0058bc',
+        // Cor do ícone e texto da aba selecionada (Verde Oficial Treino Pesado)
+        tabBarActiveTintColor: '#59C83A',
         // Cor do ícone e texto das abas não selecionadas
         tabBarInactiveTintColor: isDark ? '#a1a1aa' : '#414755',
         tabBarStyle: {

@@ -30,6 +30,9 @@ const DAYS_FILTER = [
   { id: 'domingo', label: 'Dom' },
 ];
 
+/**
+ * Tela de Listagem e Filtro de Meus Treinos com a cor da marca #59C83A
+ */
 export default function MyWorkoutsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -93,7 +96,8 @@ export default function MyWorkoutsScreen() {
         {/* Botão no topo: Montar Novo Treino */}
         <TouchableOpacity
           onPress={() => router.push('/create-workout')}
-          className="bg-[#0058bc] p-4 rounded-2xl flex-row items-center justify-between mb-6 border border-[#004bb0]"
+          style={{ backgroundColor: '#59C83A' }}
+          className="p-4 rounded-2xl flex-row items-center justify-between mb-6 shadow-sm active:opacity-90"
           activeOpacity={0.8}
         >
           <View className="flex-row items-center gap-3">
@@ -101,8 +105,8 @@ export default function MyWorkoutsScreen() {
               <Plus size={24} color="#ffffff" />
             </View>
             <View>
-              <Text className="text-white font-bold text-base">Montar Novo Treino</Text>
-              <Text className="text-white/80 text-xs">Crie uma rotina personalizada</Text>
+              <Text className="text-white font-extrabold text-base">Montar Novo Treino</Text>
+              <Text className="text-white/90 text-xs font-medium">Crie uma rotina personalizada</Text>
             </View>
           </View>
           <ChevronRight size={20} color="#ffffff" />
@@ -120,10 +124,11 @@ export default function MyWorkoutsScreen() {
               <TouchableOpacity
                 key={day.id}
                 onPress={() => setSelectedDayFilter(day.id)}
+                style={isSelected ? { backgroundColor: '#59C83A', borderColor: '#59C83A' } : undefined}
                 className={`py-2 px-4 rounded-xl mr-2 border ${
                   isSelected
-                    ? 'bg-[#0058bc] border-[#0058bc]'
-                    : 'bg-[#f0edef] dark:bg-zinc-900 border-[#e2dfe1] dark:border-zinc-800'
+                    ? ''
+                    : 'bg-[#f8f9fa] dark:bg-zinc-900 border-[#e2dfe1] dark:border-zinc-800'
                 }`}
               >
                 <Text
@@ -145,7 +150,7 @@ export default function MyWorkoutsScreen() {
 
         {loading ? (
           <View className="py-12 items-center">
-            <ActivityIndicator size="large" color="#0058bc" />
+            <ActivityIndicator size="large" color="#59C83A" />
             <Text className="mt-3 text-[#414755] dark:text-zinc-400 font-medium text-xs">
               Carregando treinos...
             </Text>
@@ -165,7 +170,7 @@ export default function MyWorkoutsScreen() {
             <TouchableOpacity
               key={workout.id}
               onPress={() => router.push(`/custom-workout/${workout.id}`)}
-              className="bg-[#f0edef] dark:bg-zinc-900 p-4 rounded-2xl mb-3 flex-row items-center justify-between border border-[#e2dfe1] dark:border-zinc-800"
+              className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl mb-3 flex-row items-center justify-between border border-[#e2dfe1] dark:border-zinc-800"
               activeOpacity={0.8}
             >
               <View className="flex-1 mr-3">
@@ -173,13 +178,13 @@ export default function MyWorkoutsScreen() {
                   {workout.title}
                 </Text>
                 <View className="flex-row items-center gap-2">
-                  <Text className="text-xs text-[#0058bc] dark:text-sky-400 font-bold">
+                  <Text style={{ color: '#59C83A' }} className="text-xs font-bold">
                     {workout.custom_workout_exercises?.length || 0} exercícios
                   </Text>
                   {workout.day_of_week ? (
-                    <View className="bg-[#0058bc]/10 dark:bg-sky-400/10 px-2 py-0.5 rounded-md flex-row items-center gap-1">
-                      <Calendar size={10} color="#0058bc" />
-                      <Text className="text-[10px] font-bold text-[#0058bc] dark:text-sky-400 uppercase">
+                    <View className="bg-[#59C83A]/10 px-2 py-0.5 rounded-md flex-row items-center gap-1 border border-[#59C83A]/20">
+                      <Calendar size={10} color="#59C83A" />
+                      <Text style={{ color: '#59C83A' }} className="text-[10px] font-bold uppercase">
                         {workout.day_of_week}
                       </Text>
                     </View>
@@ -187,7 +192,7 @@ export default function MyWorkoutsScreen() {
                 </View>
               </View>
               <View className="w-9 h-9 rounded-full bg-white dark:bg-zinc-800 items-center justify-center border border-[#e0dddf] dark:border-zinc-700">
-                <ChevronRight size={18} color="#0058bc" />
+                <ChevronRight size={18} color="#59C83A" />
               </View>
             </TouchableOpacity>
           ))
