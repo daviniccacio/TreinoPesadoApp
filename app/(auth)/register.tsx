@@ -63,7 +63,7 @@ export default function RegisterScreen() {
         password: password,
         options: {
           data: {
-            first_name: fullName.trim(),
+            full_name: fullName,
           },
         },
       });
