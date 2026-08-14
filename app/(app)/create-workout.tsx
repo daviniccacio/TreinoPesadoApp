@@ -17,11 +17,11 @@ import {
   ArrowLeft,
   Plus,
   PlusCircle,
-  Trash2,
-  Dumbbell,
+  Trash,
+  Barbell,
   XCircle,
-  Search,
-} from 'lucide-react-native';
+  MagnifyingGlass,
+} from 'phosphor-react-native';
 import { supabase } from '../../lib/supabase';
 
 interface BaseExercise {
@@ -47,7 +47,7 @@ const DAYS_OF_WEEK = [
 ];
 
 /**
- * Tela de Montagem de Treinos Personalizados com a cor oficial #59C83A
+ * Tela de Montagem de Treinos Personalizados com Phosphor Icons
  */
 export default function CreateWorkoutScreen() {
   const router = useRouter();
@@ -65,7 +65,6 @@ export default function CreateWorkoutScreen() {
   const [modalVisible, setModalVisible] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
 
-  // Reseta o formulário sempre que a tela ganha foco para evitar dados residuais
   useFocusEffect(
     useCallback(() => {
       setWorkoutTitle('');
@@ -143,7 +142,6 @@ export default function CreateWorkoutScreen() {
       } = await supabase.auth.getUser();
       if (!user) throw new Error('Usuário não autenticado.');
 
-      // Insere o treino salvando o dia da semana selecionado
       const { data: workoutData, error: workoutError } = await supabase
         .from('custom_workouts')
         .insert([
@@ -283,7 +281,7 @@ export default function CreateWorkoutScreen() {
 
         {selectedExercises.length === 0 ? (
           <View className="bg-[#f8f9fa] dark:bg-zinc-900 p-8 rounded-2xl border border-dashed border-[#e2dfe1] dark:border-zinc-800 items-center my-4">
-            <Dumbbell size={36} color="#808591" />
+            <Barbell size={36} color="#808591" />
             <Text className="text-[#414755] dark:text-zinc-400 font-medium mt-2 text-center text-sm">
               Nenhum exercício selecionado ainda.
             </Text>
@@ -306,7 +304,7 @@ export default function CreateWorkoutScreen() {
                   {index + 1}. {item.name}
                 </Text>
                 <TouchableOpacity onPress={() => handleRemoveExercise(item.id)}>
-                  <Trash2 size={20} color="#e11d48" />
+                  <Trash size={20} color="#e11d48" />
                 </TouchableOpacity>
               </View>
 
@@ -369,7 +367,7 @@ export default function CreateWorkoutScreen() {
             </View>
 
             <View className="bg-[#f8f9fa] dark:bg-zinc-800 flex-row items-center px-4 py-2.5 rounded-2xl mb-4 border border-[#e2dfe1] dark:border-zinc-700">
-              <Search size={18} color={isDark ? '#a1a1aa' : '#414755'} />
+              <MagnifyingGlass size={18} color={isDark ? '#a1a1aa' : '#414755'} />
               <TextInput
                 className="flex-1 ml-2 text-[#1b1b1d] dark:text-white text-sm"
                 placeholder="Buscar por nome ou grupo..."

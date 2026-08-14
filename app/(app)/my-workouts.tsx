@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Plus, ChevronRight, Dumbbell, Calendar } from 'lucide-react-native';
+import { Plus, CaretRight, Barbell, CalendarBlank } from 'phosphor-react-native';
 import { supabase } from '../../lib/supabase';
 
 interface CustomWorkout {
@@ -31,7 +31,7 @@ const DAYS_FILTER = [
 ];
 
 /**
- * Tela de Listagem e Filtro de Meus Treinos com a cor da marca #59C83A
+ * Tela de Listagem e Filtro de Meus Treinos com Phosphor Icons
  */
 export default function MyWorkoutsScreen() {
   const router = useRouter();
@@ -77,7 +77,6 @@ export default function MyWorkoutsScreen() {
     }
   }
 
-  // Filtra os treinos pelo dia da semana selecionado
   const filteredWorkouts = customWorkouts.filter((workout) => {
     if (selectedDayFilter === 'todos') return true;
     return workout.day_of_week === selectedDayFilter;
@@ -102,14 +101,14 @@ export default function MyWorkoutsScreen() {
         >
           <View className="flex-row items-center gap-3">
             <View className="w-10 h-10 rounded-full bg-white/20 items-center justify-center">
-              <Plus size={24} color="#ffffff" />
+              <Plus size={24} color="#ffffff" weight="bold" />
             </View>
             <View>
               <Text className="text-white font-extrabold text-base">Montar Novo Treino</Text>
               <Text className="text-white/90 text-xs font-medium">Crie uma rotina personalizada</Text>
             </View>
           </View>
-          <ChevronRight size={20} color="#ffffff" />
+          <CaretRight size={20} color="#ffffff" weight="bold" />
         </TouchableOpacity>
 
         {/* Filtro por Dia da Semana */}
@@ -157,7 +156,7 @@ export default function MyWorkoutsScreen() {
           </View>
         ) : filteredWorkouts.length === 0 ? (
           <View className="bg-[#f8f9fa] dark:bg-zinc-900 p-8 rounded-2xl border border-dashed border-[#e2dfe1] dark:border-zinc-800 items-center my-2">
-            <Dumbbell size={40} color="#808591" />
+            <Barbell size={40} color="#808591" />
             <Text className="text-[#1b1b1d] dark:text-white font-bold mt-2 text-base">
               Nenhum treino para este dia
             </Text>
@@ -183,7 +182,7 @@ export default function MyWorkoutsScreen() {
                   </Text>
                   {workout.day_of_week ? (
                     <View className="bg-[#59C83A]/10 px-2 py-0.5 rounded-md flex-row items-center gap-1 border border-[#59C83A]/20">
-                      <Calendar size={10} color="#59C83A" />
+                      <CalendarBlank size={10} color="#59C83A" />
                       <Text style={{ color: '#59C83A' }} className="text-[10px] font-bold uppercase">
                         {workout.day_of_week}
                       </Text>
@@ -192,7 +191,7 @@ export default function MyWorkoutsScreen() {
                 </View>
               </View>
               <View className="w-9 h-9 rounded-full bg-white dark:bg-zinc-800 items-center justify-center border border-[#e0dddf] dark:border-zinc-700">
-                <ChevronRight size={18} color="#59C83A" />
+                <CaretRight size={18} color="#59C83A" />
               </View>
             </TouchableOpacity>
           ))

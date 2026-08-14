@@ -14,29 +14,21 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Mail, Lock, Eye, EyeOff } from 'lucide-react-native';
+import { EnvelopeSimple, LockSimple, Eye, EyeSlash } from 'phosphor-react-native';
 import { supabase } from '../../lib/supabase';
 
-/**
- * Tela de Login Moderna com identidade visual baseada na cor #59C83A e Modo Escuro
- */
 export default function LoginScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
-  // Identifica se o celular está em modo escuro
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
-  // Estados do formulário de login
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [showPassword, setShowPassword] = useState<boolean>(false);
 
-  /**
-   * Processa a autenticação com e-mail e senha no Supabase
-   */
   async function handleLogin() {
     if (!email.trim() || !password.trim()) {
       Alert.alert('Campos obrigatórios', 'Por favor, preencha o e-mail e a senha.');
@@ -72,7 +64,7 @@ export default function LoginScreen() {
         style={{ paddingTop: insets.top, paddingBottom: insets.bottom }}
         showsVerticalScrollIndicator={false}
       >
-        {/* Cabeçalho Visual com a Logo Ampliada e Moderna */}
+        {/* Cabeçalho Visual */}
         <View className="items-center mb-10">
           <View className="w-48 h-48 rounded-3xl items-center justify-center overflow-hidden mb-2">
             <Image
@@ -92,13 +84,13 @@ export default function LoginScreen() {
 
         {/* Formulário */}
         <View className="space-y-4">
-          {/* Campo de E-mail */}
+          {/* Campo E-mail */}
           <View className="mb-3">
             <Text className="text-xs font-bold uppercase tracking-wider text-[#71717a] dark:text-zinc-400 mb-2 ml-1">
               E-mail
             </Text>
             <View className="flex-row items-center bg-[#f8f9fa] dark:bg-zinc-900 rounded-2xl px-4 py-3.5 border border-[#e2dfe1] dark:border-zinc-800">
-              <Mail size={20} color={isDark ? '#59C83A' : '#414755'} />
+              <EnvelopeSimple size={20} color={isDark ? '#59C83A' : '#414755'} />
               <TextInput
                 className="flex-1 ml-3 text-[#1b1b1d] dark:text-white text-base font-medium"
                 placeholder="seu.email@exemplo.com"
@@ -111,13 +103,13 @@ export default function LoginScreen() {
             </View>
           </View>
 
-          {/* Campo de Senha */}
+          {/* Campo Senha */}
           <View className="mb-3">
             <Text className="text-xs font-bold uppercase tracking-wider text-[#71717a] dark:text-zinc-400 mb-2 ml-1">
               Senha
             </Text>
             <View className="flex-row items-center bg-[#f8f9fa] dark:bg-zinc-900 rounded-2xl px-4 py-3.5 border border-[#e2dfe1] dark:border-zinc-800">
-              <Lock size={20} color={isDark ? '#59C83A' : '#414755'} />
+              <LockSimple size={20} color={isDark ? '#59C83A' : '#414755'} />
               <TextInput
                 className="flex-1 ml-3 text-[#1b1b1d] dark:text-white text-base font-medium"
                 placeholder="Sua senha secreta"
@@ -128,7 +120,7 @@ export default function LoginScreen() {
               />
               <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
                 {showPassword ? (
-                  <EyeOff size={20} color={isDark ? '#59C83A' : '#414755'} />
+                  <EyeSlash size={20} color={isDark ? '#59C83A' : '#414755'} />
                 ) : (
                   <Eye size={20} color={isDark ? '#59C83A' : '#414755'} />
                 )}
@@ -136,7 +128,7 @@ export default function LoginScreen() {
             </View>
           </View>
 
-          {/* Botão de Envio com a Cor Exata #59C83A */}
+          {/* Botão Entrar */}
           <TouchableOpacity
             onPress={handleLogin}
             disabled={loading}
@@ -153,7 +145,7 @@ export default function LoginScreen() {
             )}
           </TouchableOpacity>
 
-          {/* Link para Cadastro */}
+          {/* Link Cadastro */}
           <TouchableOpacity
             onPress={() => router.push('/(auth)/register')}
             className="items-center py-4 mt-3"

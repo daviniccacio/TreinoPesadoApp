@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Heart, Plus, ChevronRight } from 'lucide-react-native';
+import { Heart, Plus, CaretRight } from 'phosphor-react-native';
 import { supabase } from '../../lib/supabase';
 
 interface Category {
@@ -25,6 +25,9 @@ interface CustomWorkout {
   custom_workout_exercises: { id: string }[];
 }
 
+/**
+ * Tela Inicial do Aplicativo com Phosphor Icons
+ */
 export default function HomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -120,7 +123,7 @@ export default function HomeScreen() {
             className="w-10 h-10 rounded-full bg-[#f8f9fa] dark:bg-zinc-900 items-center justify-center border border-[#e2dfe1] dark:border-zinc-800"
             activeOpacity={0.7}
           >
-            <Heart size={20} color="#59C83A" />
+            <Heart size={20} color="#59C83A" weight="fill" />
           </TouchableOpacity>
         </View>
       </View>
@@ -144,7 +147,7 @@ export default function HomeScreen() {
           >
             <View className="flex-row items-center gap-3">
               <View className="w-10 h-10 rounded-full bg-white/20 items-center justify-center">
-                <Plus size={24} color="#ffffff" />
+                <Plus size={24} color="#ffffff" weight="bold" />
               </View>
               <View>
                 <Text className="text-white font-extrabold text-base">
@@ -155,7 +158,7 @@ export default function HomeScreen() {
                 </Text>
               </View>
             </View>
-            <ChevronRight size={20} color="#ffffff" />
+            <CaretRight size={20} color="#ffffff" weight="bold" />
           </TouchableOpacity>
 
           {/* Treinos Personalizados do Usuário */}
@@ -183,7 +186,7 @@ export default function HomeScreen() {
                     </Text>
                   </View>
                   <View className="w-9 h-9 rounded-full bg-white dark:bg-zinc-800 items-center justify-center border border-[#e0dddf] dark:border-zinc-700">
-                    <ChevronRight size={18} color="#59C83A" />
+                    <CaretRight size={18} color="#59C83A" />
                   </View>
                 </TouchableOpacity>
               ))}
@@ -219,7 +222,7 @@ export default function HomeScreen() {
                     <Text className="text-white/90 text-xs font-semibold mr-1">
                       Ver treinos
                     </Text>
-                    <ChevronRight size={12} color="#ffffff" />
+                    <CaretRight size={12} color="#ffffff" weight="bold" />
                   </View>
                 </View>
               </TouchableOpacity>

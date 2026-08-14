@@ -10,10 +10,9 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ArrowLeft, Trash2, ChevronRight } from 'lucide-react-native';
+import { ArrowLeft, Trash, CaretRight } from 'phosphor-react-native';
 import { supabase } from '../../../lib/supabase';
 
-// Interface para os itens de exercícios pertencentes a este treino
 interface WorkoutExerciseItem {
   id: string;
   sets: number;
@@ -26,7 +25,6 @@ interface WorkoutExerciseItem {
   };
 }
 
-// Interface principal dos detalhes do treino personalizado
 interface CustomWorkoutDetail {
   id: string;
   title: string;
@@ -34,14 +32,13 @@ interface CustomWorkoutDetail {
 }
 
 /**
- * Tela de Detalhes do Treino Personalizado com a cor #59C83A
+ * Tela de Detalhes do Treino Personalizado com Phosphor Icons
  */
 export default function CustomWorkoutDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
-  // Detecta se o sistema está em modo claro ou escuro
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
@@ -55,9 +52,6 @@ export default function CustomWorkoutDetailScreen() {
     }
   }, [id]);
 
-  /**
-   * Busca os detalhes do treino e os exercícios vinculados no Supabase
-   */
   async function fetchWorkoutDetails() {
     try {
       setLoading(true);
@@ -94,9 +88,6 @@ export default function CustomWorkoutDetailScreen() {
     }
   }
 
-  /**
-   * Exclui o treino personalizado atual do banco de dados
-   */
   async function handleDeleteWorkout() {
     Alert.alert(
       'Excluir Treino',
@@ -161,7 +152,7 @@ export default function CustomWorkoutDetailScreen() {
           {deleting ? (
             <ActivityIndicator size="small" color="#e11d48" />
           ) : (
-            <Trash2 size={20} color="#e11d48" />
+            <Trash size={20} color="#e11d48" />
           )}
         </TouchableOpacity>
       </View>
@@ -231,7 +222,7 @@ export default function CustomWorkoutDetailScreen() {
               </View>
 
               <View className="w-9 h-9 rounded-full bg-white dark:bg-zinc-800 items-center justify-center border border-[#e0dddf] dark:border-zinc-700">
-                <ChevronRight size={16} color="#59C83A" />
+                <CaretRight size={16} color="#59C83A" />
               </View>
             </TouchableOpacity>
           ))}

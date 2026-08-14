@@ -13,16 +13,13 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   ArrowLeft,
-  ChevronRight,
-  Search,
+  CaretRight,
+  MagnifyingGlass,
   XCircle,
-  AlertCircle,
-} from 'lucide-react-native';
+  WarningCircle,
+} from 'phosphor-react-native';
 import { supabase } from '../../../lib/supabase';
 
-/**
- * Interface que define a estrutura de um Exercício vindo do Supabase
- */
 interface Exercise {
   id: string;
   name: string;
@@ -33,7 +30,7 @@ interface Exercise {
 }
 
 /**
- * Tela de Exercícios por Categoria com o verde #59C83A da marca
+ * Tela de Exercícios por Categoria com Phosphor Icons
  */
 export default function CategoryScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -49,9 +46,6 @@ export default function CategoryScreen() {
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [hasError, setHasError] = useState<boolean>(false);
 
-  /**
-   * Função para buscar os exercícios pertencentes à categoria atual no Supabase
-   */
   const fetchExercises = useCallback(async () => {
     if (!id) return;
 
@@ -81,27 +75,17 @@ export default function CategoryScreen() {
     fetchExercises();
   }, [fetchExercises]);
 
-  /**
-   * Função para atualizar a lista ao puxar a tela para baixo
-   */
   function handleRefresh() {
     setRefreshing(true);
     fetchExercises();
   }
 
-  // Formata o título da categoria (ex: "biceps" -> "Biceps")
   const categoryTitle = id ? id.charAt(0).toUpperCase() + id.slice(1) : 'Categoria';
 
-  /**
-   * Filtra os exercícios da categoria atual conforme o texto digitado
-   */
   const filteredExercises = exercises.filter((item) =>
     item.name.toLowerCase().includes(searchQuery.toLowerCase().trim())
   );
 
-  /**
-   * Renderiza cada card de exercício da lista
-   */
   function renderExerciseItem({ item }: { item: Exercise }) {
     return (
       <TouchableOpacity
@@ -140,7 +124,7 @@ export default function CategoryScreen() {
         </View>
 
         <View className="w-9 h-9 rounded-full bg-white dark:bg-zinc-800 items-center justify-center border border-[#e0dddf] dark:border-zinc-700">
-          <ChevronRight size={16} color="#59C83A" />
+          <CaretRight size={16} color="#59C83A" />
         </View>
       </TouchableOpacity>
     );
@@ -175,7 +159,7 @@ export default function CategoryScreen() {
         </View>
       ) : hasError ? (
         <View className="flex-1 justify-center items-center px-5">
-          <AlertCircle size={48} color="#e11d48" />
+          <WarningCircle size={48} color="#e11d48" />
           <Text className="text-base font-bold text-[#1b1b1d] dark:text-white mt-2 text-center">
             Não foi possível carregar os exercícios
           </Text>
@@ -209,7 +193,7 @@ export default function CategoryScreen() {
 
               {/* Campo de Busca por Exercício */}
               <View className="bg-[#f8f9fa] dark:bg-zinc-900 flex-row items-center px-4 py-2.5 rounded-2xl border border-[#e2dfe1] dark:border-zinc-800">
-                <Search size={18} color={isDark ? '#59C83A' : '#414755'} />
+                <MagnifyingGlass size={18} color={isDark ? '#59C83A' : '#414755'} />
                 <TextInput
                   className="flex-1 ml-2.5 text-[#1b1b1d] dark:text-white text-sm font-medium"
                   placeholder={`Buscar em ${categoryTitle.toLowerCase()}...`}

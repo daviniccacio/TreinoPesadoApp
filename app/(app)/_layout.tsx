@@ -2,16 +2,13 @@ import React from 'react';
 import { useColorScheme } from 'react-native';
 import { Tabs } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { House, Dumbbell, Heart, User } from 'lucide-react-native';
+import { House, Barbell, Heart, User } from 'phosphor-react-native';
 
 /**
- * Layout de Abas Inferiores estilizadas com a cor da marca #59C83A
+ * Layout de Abas Inferiores atualizado com Phosphor Icons e cor #59C83A
  */
 export default function TabsLayout() {
-  // Captura as margens de segurança do sistema do celular
   const insets = useSafeAreaInsets();
-
-  // Detecta se o dispositivo está no modo claro ou escuro
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
@@ -27,7 +24,6 @@ export default function TabsLayout() {
           borderTopWidth: 1,
           borderTopColor: isDark ? '#27272a' : '#f0edef',
           elevation: 0,
-          // Calcula a altura dinâmica somando a margem inferior de segurança
           height: 60 + insets.bottom,
           paddingBottom: 8 + insets.bottom,
           paddingTop: 8,
@@ -45,7 +41,11 @@ export default function TabsLayout() {
         options={{
           title: 'Treinos',
           tabBarIcon: ({ color, size, focused }) => (
-            <House size={size} color={color} fill={focused ? color : 'none'} />
+            <House
+              size={size}
+              color={color}
+              weight={focused ? 'fill' : 'regular'}
+            />
           ),
         }}
       />
@@ -56,7 +56,11 @@ export default function TabsLayout() {
         options={{
           title: 'Meus Treinos',
           tabBarIcon: ({ color, size, focused }) => (
-            <Dumbbell size={size} color={color} fill={focused ? color : 'none'} />
+            <Barbell
+              size={size}
+              color={color}
+              weight={focused ? 'fill' : 'regular'}
+            />
           ),
         }}
       />
@@ -67,7 +71,11 @@ export default function TabsLayout() {
         options={{
           title: 'Favoritos',
           tabBarIcon: ({ color, size, focused }) => (
-            <Heart size={size} color={color} fill={focused ? color : 'none'} />
+            <Heart
+              size={size}
+              color={color}
+              weight={focused ? 'fill' : 'regular'}
+            />
           ),
         }}
       />
@@ -78,7 +86,11 @@ export default function TabsLayout() {
         options={{
           title: 'Perfil',
           tabBarIcon: ({ color, size, focused }) => (
-            <User size={size} color={color} fill={focused ? color : 'none'} />
+            <User
+              size={size}
+              color={color}
+              weight={focused ? 'fill' : 'regular'}
+            />
           ),
         }}
       />

@@ -9,10 +9,9 @@ import {
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ArrowLeft, ChevronRight, HeartOff } from 'lucide-react-native';
+import { ArrowLeft, CaretRight, HeartBreak } from 'phosphor-react-native';
 import { supabase } from '../../lib/supabase';
 
-// Interface para estruturar os dados do favorito vindo do Supabase
 interface FavoriteItem {
   id: string;
   exercise_id: string;
@@ -27,29 +26,24 @@ interface FavoriteItem {
 }
 
 /**
- * Tela de Exercícios Favoritados com a cor oficial #59C83A
+ * Tela de Exercícios Favoritados com Phosphor Icons
  */
 export default function FavoritesScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
-  // Detecta se o sistema do celular está no Modo Escuro
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
   const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
-  // Executa sempre que a tela ganha foco
   useFocusEffect(
     useCallback(() => {
       fetchFavorites();
     }, [])
   );
 
-  /**
-   * Busca a lista atualizada de exercícios favoritados no Supabase
-   */
   async function fetchFavorites() {
     try {
       setLoading(true);
@@ -112,7 +106,7 @@ export default function FavoritesScreen() {
         <ScrollView className="flex-1 px-5 pt-4" showsVerticalScrollIndicator={false}>
           {favorites.length === 0 ? (
             <View className="py-16 items-center">
-              <HeartOff size={48} color="#a0a5b1" />
+              <HeartBreak size={48} color="#a0a5b1" />
               <Text className="text-[#414755] dark:text-zinc-300 font-semibold text-center mt-3 text-base">
                 Nenhum exercício favoritado ainda.
               </Text>
@@ -160,7 +154,7 @@ export default function FavoritesScreen() {
                 </View>
 
                 <View className="w-9 h-9 rounded-full bg-white dark:bg-zinc-800 items-center justify-center border border-[#e0dddf] dark:border-zinc-700">
-                  <ChevronRight size={18} color="#59C83A" />
+                  <CaretRight size={18} color="#59C83A" />
                 </View>
               </TouchableOpacity>
             ))

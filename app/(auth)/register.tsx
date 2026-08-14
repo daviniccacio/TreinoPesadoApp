@@ -14,11 +14,19 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { User, Mail, Lock, ArrowLeft, Eye, EyeOff } from 'lucide-react-native';
+import {
+  User,
+  EnvelopeSimple,
+  LockSimple,
+  ArrowLeft,
+  Eye,
+  EyeSlash,
+} from 'phosphor-react-native';
 import { supabase } from '../../lib/supabase';
 
 /**
  * Tela de Cadastro Moderna alinhada à identidade visual #59C83A do Treino Pesado Academia
+ * Totalmente migrada para Phosphor Icons
  */
 export default function RegisterScreen() {
   const router = useRouter();
@@ -147,7 +155,7 @@ export default function RegisterScreen() {
               E-mail
             </Text>
             <View className="flex-row items-center bg-[#f8f9fa] dark:bg-zinc-900 rounded-2xl px-4 py-3.5 border border-[#e2dfe1] dark:border-zinc-800">
-              <Mail size={20} color={isDark ? '#59C83A' : '#414755'} />
+              <EnvelopeSimple size={20} color={isDark ? '#59C83A' : '#414755'} />
               <TextInput
                 className="flex-1 ml-3 text-[#1b1b1d] dark:text-white text-base font-medium"
                 placeholder="seu@email.com"
@@ -166,7 +174,7 @@ export default function RegisterScreen() {
               Senha
             </Text>
             <View className="flex-row items-center bg-[#f8f9fa] dark:bg-zinc-900 rounded-2xl px-4 py-3.5 border border-[#e2dfe1] dark:border-zinc-800">
-              <Lock size={20} color={isDark ? '#59C83A' : '#414755'} />
+              <LockSimple size={20} color={isDark ? '#59C83A' : '#414755'} />
               <TextInput
                 className="flex-1 ml-3 text-[#1b1b1d] dark:text-white text-base font-medium"
                 placeholder="••••••••"
@@ -177,7 +185,7 @@ export default function RegisterScreen() {
               />
               <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
                 {showPassword ? (
-                  <EyeOff size={20} color={isDark ? '#59C83A' : '#414755'} />
+                  <EyeSlash size={20} color={isDark ? '#59C83A' : '#414755'} />
                 ) : (
                   <Eye size={20} color={isDark ? '#59C83A' : '#414755'} />
                 )}

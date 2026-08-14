@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ArrowLeft, Heart, Layers, Repeat, Dumbbell } from 'lucide-react-native';
+import { ArrowLeft, Heart, Stack, Repeat, Barbell } from 'phosphor-react-native';
 import { supabase } from '../../../lib/supabase';
 import { getExerciseGif } from '../../../lib/exerciseGifs';
 
@@ -25,7 +25,7 @@ interface ExerciseDetail {
 }
 
 /**
- * Tela de Detalhes do Exercício com a cor da marca #59C83A
+ * Tela de Detalhes do Exercício com Phosphor Icons
  */
 export default function ExerciseDetailScreen() {
   const { id, from, categoryId, workoutId } = useLocalSearchParams<{
@@ -38,7 +38,6 @@ export default function ExerciseDetailScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
-  // Detecta se o sistema está em modo claro ou escuro
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
@@ -53,9 +52,6 @@ export default function ExerciseDetailScreen() {
     }
   }, [id]);
 
-  /**
-   * Busca as informações detalhadas do exercício no Supabase
-   */
   async function fetchExerciseDetails() {
     try {
       setLoading(true);
@@ -75,9 +71,6 @@ export default function ExerciseDetailScreen() {
     }
   }
 
-  /**
-   * Verifica se o exercício atual está na tabela de favoritos do usuário
-   */
   async function checkIfFavorite() {
     try {
       const { data } = await supabase
@@ -92,9 +85,6 @@ export default function ExerciseDetailScreen() {
     }
   }
 
-  /**
-   * Adiciona ou remove o exercício dos favoritos no Supabase
-   */
   async function toggleFavorite() {
     try {
       if (isFavorite) {
@@ -116,9 +106,6 @@ export default function ExerciseDetailScreen() {
     }
   }
 
-  /**
-   * Lógica de navegação de retorno baseada na origem da navegação (from)
-   */
   function handleGoBack() {
     if (from === 'category' && categoryId) {
       router.push(`/category/${categoryId}`);
@@ -155,7 +142,7 @@ export default function ExerciseDetailScreen() {
           <Heart
             size={20}
             color={isFavorite ? '#e11d48' : isDark ? '#ffffff' : '#1b1b1d'}
-            fill={isFavorite ? '#e11d48' : 'none'}
+            weight={isFavorite ? 'fill' : 'regular'}
           />
         </TouchableOpacity>
       </View>
@@ -196,7 +183,7 @@ export default function ExerciseDetailScreen() {
           {/* Cards de Métricas (Séries, Repetições, Carga) */}
           <View className="flex-row justify-between mb-6">
             <View className="w-[31%] bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl items-center border border-[#e2dfe1] dark:border-zinc-800">
-              <Layers size={22} color="#59C83A" />
+              <Stack size={22} color="#59C83A" />
               <Text className="text-xs text-[#414755] dark:text-zinc-400 mt-1 font-medium">
                 Séries
               </Text>
@@ -216,7 +203,7 @@ export default function ExerciseDetailScreen() {
             </View>
 
             <View className="w-[31%] bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl items-center border border-[#e2dfe1] dark:border-zinc-800">
-              <Dumbbell size={22} color="#59C83A" />
+              <Barbell size={22} color="#59C83A" />
               <Text className="text-xs text-[#414755] dark:text-zinc-400 mt-1 font-medium">
                 Carga
               </Text>

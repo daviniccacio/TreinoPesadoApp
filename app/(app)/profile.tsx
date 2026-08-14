@@ -13,17 +13,17 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   User,
-  Calendar,
-  Dumbbell,
+  CalendarBlank,
+  Barbell,
   Heart,
   Moon,
   Sun,
-  Laptop,
-  LogOut,
-  ChevronRight,
+  Desktop,
+  SignOut,
+  CaretRight,
   Shield,
   Bell,
-} from 'lucide-react-native';
+} from 'phosphor-react-native';
 import { supabase } from '../../lib/supabase';
 
 interface UserStats {
@@ -158,7 +158,7 @@ export default function ProfileScreen() {
             style={{ backgroundColor: '#59C83A' }}
             className="w-24 h-24 rounded-full items-center justify-center mb-3 shadow-sm border border-[#46ab2b]"
           >
-            <User size={48} color="#ffffff" />
+            <User size={48} color="#ffffff" weight="bold" />
           </View>
           <Text className="text-2xl font-extrabold text-[#1b1b1d] dark:text-white">
             {profile.fullName}
@@ -166,6 +166,14 @@ export default function ProfileScreen() {
           <Text className="text-sm text-[#414755] dark:text-zinc-400 mt-1 font-medium">
             {profile.email}
           </Text>
+          {profile.birthDate ? (
+            <View className="flex-row items-center mt-2 bg-[#f8f9fa] dark:bg-zinc-800 px-3 py-1 rounded-full border border-[#e2dfe1] dark:border-zinc-700">
+              <CalendarBlank size={14} color={isDark ? '#a1a1aa' : '#414755'} />
+              <Text className="text-xs text-[#414755] dark:text-zinc-400 ml-1 font-medium">
+                Nascimento: {profile.birthDate}
+              </Text>
+            </View>
+          ) : null}
         </View>
 
         {/* Resumo de Atividades */}
@@ -184,7 +192,7 @@ export default function ProfileScreen() {
               className="w-[48%] bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl items-center border border-[#e2dfe1] dark:border-zinc-800"
               activeOpacity={0.8}
             >
-              <Dumbbell size={28} color="#59C83A" />
+              <Barbell size={28} color="#59C83A" />
               <Text className="text-2xl font-extrabold text-[#1b1b1d] dark:text-white mt-1">
                 {stats.customWorkoutsCount}
               </Text>
@@ -198,7 +206,7 @@ export default function ProfileScreen() {
               className="w-[48%] bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl items-center border border-[#e2dfe1] dark:border-zinc-800"
               activeOpacity={0.8}
             >
-              <Heart size={28} color="#e11d48" />
+              <Heart size={28} color="#e11d48" weight="fill" />
               <Text className="text-2xl font-extrabold text-[#1b1b1d] dark:text-white mt-1">
                 {stats.favoriteCount}
               </Text>
@@ -209,7 +217,7 @@ export default function ProfileScreen() {
           </View>
         )}
 
-        {/* Seletor de Tema da Aparência (Com Contraste Corrigido) */}
+        {/* Seletor de Tema da Aparência */}
         <Text className="text-lg font-bold text-[#1b1b1d] dark:text-white mb-3">
           Aparência do Aplicativo
         </Text>
@@ -270,7 +278,7 @@ export default function ProfileScreen() {
                 : 'bg-transparent'
             }`}
           >
-            <Laptop
+            <Desktop
               size={16}
               color={themeMode === 'system' ? '#59C83A' : '#9ca3af'}
             />
@@ -302,7 +310,7 @@ export default function ProfileScreen() {
                 Notificações e Lembretes
               </Text>
             </View>
-            <ChevronRight size={18} color={isDark ? '#a1a1aa' : '#414755'} />
+            <CaretRight size={18} color={isDark ? '#a1a1aa' : '#414755'} />
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -318,7 +326,7 @@ export default function ProfileScreen() {
                 Privacidade e Dados
               </Text>
             </View>
-            <ChevronRight size={18} color={isDark ? '#a1a1aa' : '#414755'} />
+            <CaretRight size={18} color={isDark ? '#a1a1aa' : '#414755'} />
           </TouchableOpacity>
         </View>
 
@@ -328,7 +336,7 @@ export default function ProfileScreen() {
           className="bg-[#ffebe8] dark:bg-red-950/40 p-4 rounded-2xl items-center flex-row justify-center mb-10 border border-transparent dark:border-red-900/30"
           activeOpacity={0.8}
         >
-          <LogOut size={20} color="#e11d48" />
+          <SignOut size={20} color="#e11d48" />
           <Text className="text-[#e11d48] font-bold text-base ml-2">Sair da Conta</Text>
         </TouchableOpacity>
       </ScrollView>
