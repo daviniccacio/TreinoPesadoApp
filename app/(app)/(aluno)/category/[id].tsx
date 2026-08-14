@@ -18,7 +18,7 @@ import {
   XCircle,
   WarningCircle,
 } from 'phosphor-react-native';
-import { supabase } from '../../../lib/supabase';
+import { supabase } from '../../../../lib/supabase';
 
 interface Exercise {
   id: string;

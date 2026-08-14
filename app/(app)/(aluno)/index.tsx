@@ -10,7 +10,7 @@ import {
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Heart, Plus, CaretRight } from 'phosphor-react-native';
-import { supabase } from '../../lib/supabase';
+import { supabase } from '../../../lib/supabase';
 
 interface Category {
   id: string;
@@ -115,16 +115,6 @@ export default function HomeScreen() {
           <Text className="text-sm font-semibold text-[#414755] dark:text-zinc-400 mt-0.5">
             Bem-vindo, {userName}!
           </Text>
-        </View>
-
-        <View className="flex-row items-center gap-2">
-          <TouchableOpacity
-            onPress={() => router.push('/favorites')}
-            className="w-10 h-10 rounded-full bg-[#f8f9fa] dark:bg-zinc-900 items-center justify-center border border-[#e2dfe1] dark:border-zinc-800"
-            activeOpacity={0.7}
-          >
-            <Heart size={20} color="#59C83A" weight="fill" />
-          </TouchableOpacity>
         </View>
       </View>
 

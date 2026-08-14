@@ -9,7 +9,7 @@ import {
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Plus, CaretRight, Barbell, CalendarBlank } from 'phosphor-react-native';
-import { supabase } from '../../lib/supabase';
+import { supabase } from '../../../lib/supabase';
 
 interface CustomWorkout {
   id: string;

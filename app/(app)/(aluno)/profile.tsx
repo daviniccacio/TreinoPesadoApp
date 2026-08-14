@@ -24,7 +24,7 @@ import {
   Shield,
   Bell,
 } from 'phosphor-react-native';
-import { supabase } from '../../lib/supabase';
+import { supabase } from '../../../lib/supabase';
 
 interface UserStats {
   customWorkoutsCount: number;
@@ -198,20 +198,6 @@ export default function ProfileScreen() {
               </Text>
               <Text className="text-xs text-[#414755] dark:text-zinc-400 mt-1 text-center font-medium">
                 Treinos Criados
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={() => router.push('/favorites')}
-              className="w-[48%] bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl items-center border border-[#e2dfe1] dark:border-zinc-800"
-              activeOpacity={0.8}
-            >
-              <Heart size={28} color="#e11d48" weight="fill" />
-              <Text className="text-2xl font-extrabold text-[#1b1b1d] dark:text-white mt-1">
-                {stats.favoriteCount}
-              </Text>
-              <Text className="text-xs text-[#414755] dark:text-zinc-400 mt-1 text-center font-medium">
-                Exercícios Favoritos
               </Text>
             </TouchableOpacity>
           </View>

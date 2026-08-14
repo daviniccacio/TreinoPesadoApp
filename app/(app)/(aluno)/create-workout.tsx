@@ -22,7 +22,7 @@ import {
   XCircle,
   MagnifyingGlass,
 } from 'phosphor-react-native';
-import { supabase } from '../../lib/supabase';
+import { supabase } from '../../../lib/supabase';
 
 interface BaseExercise {
   id: string;

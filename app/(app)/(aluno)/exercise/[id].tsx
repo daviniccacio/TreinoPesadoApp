@@ -10,9 +10,9 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ArrowLeft, Heart, Stack, Repeat, Barbell } from 'phosphor-react-native';
-import { supabase } from '../../../lib/supabase';
-import { getExerciseGif } from '../../../lib/exerciseGifs';
+import { ArrowLeft, Stack, Repeat, Barbell } from 'phosphor-react-native';
+import { supabase } from '../../../../lib/supabase';
+import { getExerciseGif } from '../../../../lib/exerciseGifs';
 
 interface ExerciseDetail {
   id: string;
@@ -25,7 +25,7 @@ interface ExerciseDetail {
 }
 
 /**
- * Tela de Detalhes do Exercício com Phosphor Icons
+ * Tela de Detalhes do Exercício (Sem favoritos e com título centralizado)
  */
 export default function ExerciseDetailScreen() {
   const { id, from, categoryId, workoutId } = useLocalSearchParams<{
@@ -43,12 +43,10 @@ export default function ExerciseDetailScreen() {
 
   const [exercise, setExercise] = useState<ExerciseDetail | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
-  const [isFavorite, setIsFavorite] = useState<boolean>(false);
 
   useEffect(() => {
     if (id) {
       fetchExerciseDetails();
-      checkIfFavorite();
     }
   }, [id]);
 
@@ -71,41 +69,6 @@ export default function ExerciseDetailScreen() {
     }
   }
 
-  async function checkIfFavorite() {
-    try {
-      const { data } = await supabase
-        .from('favorites')
-        .select('id')
-        .eq('exercise_id', id)
-        .maybeSingle();
-
-      setIsFavorite(!!data);
-    } catch (err) {
-      console.error('Erro ao verificar favorito:', err);
-    }
-  }
-
-  async function toggleFavorite() {
-    try {
-      if (isFavorite) {
-        const { error } = await supabase
-          .from('favorites')
-          .delete()
-          .eq('exercise_id', id);
-
-        if (!error) setIsFavorite(false);
-      } else {
-        const { error } = await supabase
-          .from('favorites')
-          .insert({ exercise_id: id });
-
-        if (!error) setIsFavorite(true);
-      }
-    } catch (err) {
-      console.error('Erro ao alternar favorito:', err);
-    }
-  }
-
   function handleGoBack() {
     if (from === 'category' && categoryId) {
       router.push(`/category/${categoryId}`);
@@ -120,7 +83,7 @@ export default function ExerciseDetailScreen() {
 
   return (
     <View className="flex-1 bg-white dark:bg-zinc-950" style={{ paddingTop: insets.top }}>
-      {/* 1. Cabeçalho */}
+      {/* 1. Cabeçalho com Título Centralizado */}
       <View className="flex-row items-center justify-between px-5 py-3 border-b border-[#f0edef] dark:border-zinc-800">
         <TouchableOpacity
           onPress={handleGoBack}
@@ -130,21 +93,13 @@ export default function ExerciseDetailScreen() {
           <ArrowLeft size={20} color={isDark ? '#59C83A' : '#1b1b1d'} />
         </TouchableOpacity>
 
-        <Text className="text-lg font-bold text-[#1b1b1d] dark:text-white">
+        {/* Título perfeitamente centralizado */}
+        <Text className="text-lg font-bold text-[#1b1b1d] dark:text-white text-center flex-1">
           Detalhes do Exercício
         </Text>
 
-        <TouchableOpacity
-          onPress={toggleFavorite}
-          className="w-10 h-10 rounded-full bg-[#f8f9fa] dark:bg-zinc-900 items-center justify-center border border-[#e2dfe1] dark:border-zinc-800"
-          activeOpacity={0.7}
-        >
-          <Heart
-            size={20}
-            color={isFavorite ? '#e11d48' : isDark ? '#ffffff' : '#1b1b1d'}
-            weight={isFavorite ? 'fill' : 'regular'}
-          />
-        </TouchableOpacity>
+        {/* Espaçador invisível para equilibrar o layout do cabeçalho */}
+        <View className="w-10" />
       </View>
 
       {/* 2. Conteúdo Principal */}
