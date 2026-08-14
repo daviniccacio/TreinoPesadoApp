@@ -1,11 +1,19 @@
+// 1. PRIMEIRO: Importamos o SafeAreaProvider
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+
+// 2. SEGUNDO: Aplicamos a correção ANTES de o NativeWind carregar
+if (SafeAreaProvider) {
+  (SafeAreaProvider as any).displayName = 'SafeAreaProvider';
+}
+
+// 3. TERCEIRO: Carregamos o CSS do NativeWind com segurança
+import '../global.css';
+
+// 4. QUARTO: Importamos o resto do React e do Expo
 import React, { useEffect, useState } from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { supabase } from '../lib/supabase';
-
-// Estilos globais do NativeWind
-import '../global.css';
 
 export default function RootLayout() {
   const [session, setSession] = useState<any>(null);
@@ -14,7 +22,6 @@ export default function RootLayout() {
   const segments = useSegments();
   const router = useRouter();
 
-  // 1. Monitora a sessão do usuário no Supabase
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
@@ -33,7 +40,6 @@ export default function RootLayout() {
     };
   }, []);
 
-  // 2. Controla os redirecionamentos de rota
   useEffect(() => {
     if (!isReady) return;
 
@@ -46,19 +52,21 @@ export default function RootLayout() {
     }
   }, [session, isReady, segments]);
 
-  // 3. Renderiza a aplicação dentro do SafeAreaProvider
+  if (!isReady) {
+    return (
+      <View className="flex-1 justify-center items-center bg-white dark:bg-zinc-950">
+        <ActivityIndicator size="large" color="#59C83A" />
+      </View>
+    );
+  }
+
   return (
     <SafeAreaProvider>
-      {!isReady ? (
-        <View className="flex-1 justify-center items-center bg-white dark:bg-zinc-950">
-          <ActivityIndicator size="large" color="#59C83A" />
-        </View>
-      ) : (
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="(app)" />
-          <Stack.Screen name="(auth)" />
-        </Stack>
-      )}
+      {/* Declarar explicitamente as rotas remove os avisos "No route named (app)/(auth)" */}
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="(app)" />
+        <Stack.Screen name="(auth)" />
+      </Stack>
     </SafeAreaProvider>
   );
 }

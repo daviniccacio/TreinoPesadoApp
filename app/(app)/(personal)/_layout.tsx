@@ -4,18 +4,10 @@ import { Tabs } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Users, Books, CalendarCheck, User } from 'phosphor-react-native';
 
-/**
- * Layout de Abas da Área do Personal Trainer
- * Atualizado para esconder rotas internas secundárias (formulários e detalhes).
- */
 export default function PersonalLayout() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
-
-  // 1. Captura as margens de segurança (barra de botões do sistema Android/iOS)
   const insets = useSafeAreaInsets();
-
-  // 2. Calcula a altura total da barra dinamicamente
   const customTabBarHeight = 60 + insets.bottom;
 
   return (
@@ -37,7 +29,6 @@ export default function PersonalLayout() {
         },
       }}
     >
-      {/* ------------------- ABAS VISÍVEIS ------------------- */}
       <Tabs.Screen
         name="index"
         options={{
@@ -47,7 +38,6 @@ export default function PersonalLayout() {
           ),
         }}
       />
-
       <Tabs.Screen
         name="routines"
         options={{
@@ -57,7 +47,6 @@ export default function PersonalLayout() {
           ),
         }}
       />
-
       <Tabs.Screen
         name="attendance"
         options={{
@@ -67,7 +56,6 @@ export default function PersonalLayout() {
           ),
         }}
       />
-
       <Tabs.Screen
         name="profile"
         options={{
@@ -78,9 +66,7 @@ export default function PersonalLayout() {
         }}
       />
 
-      {/* ------------------- ROTAS OCULTAS DA NAVBAR ------------------- */}
-      {/* Definir 'href: null' esconde o botão da barra sem desativar a tela */}
-      <Tabs.Screen name="create-exercise" options={{ href: null }} />
+      {/* ROTAS OCULTAS DA NAVBAR */}
       <Tabs.Screen name="create-workout" options={{ href: null }} />
       <Tabs.Screen name="student-detail" options={{ href: null }} />
     </Tabs>

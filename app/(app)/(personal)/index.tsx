@@ -13,12 +13,18 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MagnifyingGlass, Users, CaretRight, User } from 'phosphor-react-native';
 import { supabase } from '../../../lib/supabase';
 
+/**
+ * Estrutura de dados de um aluno
+ */
 interface Student {
   id: string;
   full_name: string;
   role?: string;
 }
 
+/**
+ * Tela Principal de Gestão de Alunos do Personal Trainer
+ */
 export default function PersonalStudentsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -30,12 +36,16 @@ export default function PersonalStudentsScreen() {
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  // Recarrega a lista sempre que a tela ganha foco
   useFocusEffect(
     useCallback(() => {
       fetchStudents();
     }, [])
   );
 
+  /**
+   * Busca no Supabase todos os perfis com função de aluno
+   */
   async function fetchStudents() {
     try {
       setLoading(true);
@@ -51,7 +61,7 @@ export default function PersonalStudentsScreen() {
         setErrorMessage(error.message);
       } else if (data) {
         console.log('Todos os perfis encontrados:', data);
-        
+
         // Aceita 'student' ou 'aluno'
         const studentList = data.filter(
           (user) =>
@@ -69,12 +79,16 @@ export default function PersonalStudentsScreen() {
     }
   }
 
+  // Filtra os alunos com base na pesquisa
   const filteredStudents = students.filter((student) =>
     student.full_name?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
-    <View className="flex-1 bg-white dark:bg-zinc-950 px-5" style={{ paddingTop: insets.top + 10 }}>
+    <View
+      className="flex-1 bg-white dark:bg-zinc-950 px-5"
+      style={{ paddingTop: insets.top + 10 }}
+    >
       {/* Cabeçalho */}
       <View className="mb-4">
         <Text className="text-2xl font-extrabold text-[#1b1b1d] dark:text-white">
@@ -120,7 +134,7 @@ export default function PersonalStudentsScreen() {
           <Text className="text-xs text-[#71717a] dark:text-zinc-400 text-center mt-1">
             {searchQuery
               ? 'Tente buscar por outro nome.'
-              : 'Verifique se a coluna "role" no Supabase está definida como "student".'}
+              : 'Verifique se a coluna "role" no Supabase está definida como "aluno".'}
           </Text>
         </View>
       ) : (
@@ -132,9 +146,10 @@ export default function PersonalStudentsScreen() {
             <TouchableOpacity
               activeOpacity={0.7}
               onPress={() => {
+                // CORREÇÃO: Utilizando item.id e item.full_name
                 router.push({
                   pathname: '/(personal)/student-detail',
-                  params: { studentId: item.id, studentName: item.full_name },
+                  params: { id: item.id, full_name: item.full_name },
                 });
               }}
               className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl mb-3 border border-[#e2dfe1] dark:border-zinc-800 flex-row items-center justify-between"

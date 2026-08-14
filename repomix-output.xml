@@ -58,9 +58,12 @@ app/
       profile.tsx
     (personal)/
       _layout.tsx
+      attendance.tsx
+      create-workout.tsx
       index.tsx
       profile.tsx
       routines.tsx
+      student-detail.tsx
     _layout.tsx
     index.tsx
   (auth)/
@@ -161,255 +164,128 @@ tsconfig.json
 <files>
 This section contains the contents of the repository's files.
 
-<file path="app/(app)/(personal)/index.tsx">
-import React, { useState, useCallback } from 'react';
-import {
-  View,
-  Text,
-  FlatList,
-  ActivityIndicator,
-  useColorScheme,
-} from 'react-native';
-import { useFocusEffect } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Users } from 'phosphor-react-native';
-import { supabase } from '../../../lib/supabase';
-
-interface Student {
-  id: string;
-  full_name: string;
-  created_at: string;
-}
-
-export default function PersonalStudentsScreen() {
-  const insets = useSafeAreaInsets();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-
-  const [students, setStudents] = useState<Student[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-
-  // Recarrega a lista de alunos sempre que a aba ganha foco
-  useFocusEffect(
-    useCallback(() => {
-      fetchStudents();
-    }, [])
-  );
-
-  async function fetchStudents() {
-    try {
-      setLoading(true);
-      // Consulta a tabela profiles filtrando apenas os utilizadores com role 'aluno'
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('role', 'aluno')
-        .order('full_name', { ascending: true });
-
-      if (error) {
-        console.error('Erro ao buscar alunos:', error.message);
-      } else if (data) {
-        setStudents(data);
-      }
-    } catch (err) {
-      console.error('Erro inesperado:', err);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  return (
-    <View
-      className="flex-1 bg-white dark:bg-zinc-950 px-5"
-      style={{ paddingTop: insets.top + 10 }}
-    >
-      {/* Cabeçalho */}
-      <View className="mb-6 border-b border-[#f0edef] dark:border-zinc-800 pb-4">
-        <Text className="text-2xl font-extrabold text-[#1b1b1d] dark:text-white">
-          Gestão de Alunos
-        </Text>
-        <Text className="text-sm text-[#71717a] dark:text-zinc-400 mt-1">
-          Lista de atletas cadastrados no sistema
-        </Text>
-      </View>
-
-      {/* Conteúdo Principal */}
-      {loading ? (
-        <View className="flex-1 justify-center items-center">
-          <ActivityIndicator size="large" color="#59C83A" />
-        </View>
-      ) : students.length === 0 ? (
-        <View className="flex-1 justify-center items-center px-6">
-          <Users size={48} color="#808591" />
-          <Text className="text-[#1b1b1d] dark:text-white font-bold text-base mt-4 text-center">
-            Nenhum aluno encontrado
-          </Text>
-          <Text className="text-xs text-[#71717a] dark:text-zinc-400 text-center mt-1">
-            Assim que novos utilizadores se cadastrarem, eles aparecerão aqui.
-          </Text>
-        </View>
-      ) : (
-        <FlatList
-          data={students}
-          keyExtractor={(item) => item.id}
-          showsVerticalScrollIndicator={false}
-          renderItem={({ item }) => (
-            <View className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl mb-3 border border-[#e2dfe1] dark:border-zinc-800 flex-row items-center justify-between">
-              <View className="flex-1 pr-3">
-                <Text className="text-base font-bold text-[#1b1b1d] dark:text-white">
-                  {item.full_name || 'Aluno sem nome'}
-                </Text>
-                <Text className="text-xs text-[#71717a] dark:text-zinc-400 mt-0.5">
-                  ID: {item.id.slice(0, 8)}...
-                </Text>
-              </View>
-              <View className="w-9 h-9 rounded-full bg-[#59C83A]/10 items-center justify-center border border-[#59C83A]/20">
-                <Users size={18} color="#59C83A" weight="bold" />
-              </View>
-            </View>
-          )}
-        />
-      )}
-    </View>
-  );
-}
-</file>
-
-<file path="app/(app)/(personal)/profile.tsx">
-import React from 'react';
-import { View, Text, TouchableOpacity, useColorScheme } from 'react-native';
-import { useRouter } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { SignOut, User } from 'phosphor-react-native';
-import { supabase } from '../../../lib/supabase';
-
-/**
- * Tela de Perfil do Personal com opção de Terminar Sessão
- */
-export default function PersonalProfileScreen() {
-  const router = useRouter();
-  const insets = useSafeAreaInsets();
-  
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-
-  async function handleSignOut() {
-    try {
-      const { error } = await supabase.auth.signOut();
-      if (error) {
-        console.error('Erro ao terminar sessão:', error.message);
-        return;
-      }
-      // Redireciona o utilizador para o fluxo de autenticação
-      router.replace('/(auth)');
-    } catch (err) {
-      console.error('Erro inesperado ao sair:', err);
-    }
-  }
-
-  return (
-    <View 
-      className="flex-1 bg-white dark:bg-zinc-950 px-5 justify-between pb-10"
-      style={{ paddingTop: insets.top + 10 }}
-    >
-      {/* Cabeçalho e Informações */}
-      <View>
-        <View className="mb-6 border-b border-[#f0edef] dark:border-zinc-800 pb-4">
-          <Text className="text-2xl font-extrabold text-[#1b1b1d] dark:text-white">
-            Meu Perfil
-          </Text>
-          <Text className="text-sm text-[#71717a] dark:text-zinc-400 mt-1">
-            Informações da conta administrativa
-          </Text>
-        </View>
-
-        {/* Cartão de Identificação */}
-        <View className="bg-[#f8f9fa] dark:bg-zinc-900 p-5 rounded-2xl border border-[#e2dfe1] dark:border-zinc-800 flex-row items-center mb-6">
-          <View className="w-12 h-12 rounded-full bg-[#59C83A]/10 items-center justify-center mr-4 border border-[#59C83A]/20">
-            <User size={24} color="#59C83A" weight="bold" />
-          </View>
-          <View className="flex-1">
-            <Text className="text-lg font-bold text-[#1b1b1d] dark:text-white">
-              Personal Trainer
-            </Text>
-            <Text className="text-xs text-[#71717a] dark:text-zinc-400 mt-0.5">
-              Acesso total ao painel de gestão
-            </Text>
-          </View>
-        </View>
-      </View>
-
-      {/* Botão de Terminar Sessão */}
-      <TouchableOpacity
-        onPress={handleSignOut}
-        className="w-full bg-red-500/10 dark:bg-red-500/10 border border-red-500/30 py-4 rounded-2xl flex-row items-center justify-center"
-        activeOpacity={0.8}
-      >
-        <SignOut size={20} color="#ef4444" weight="bold" />
-        <Text className="text-red-500 font-bold text-base ml-2">
-          Terminar Sessão
-        </Text>
-      </TouchableOpacity>
-    </View>
-  );
-}
-</file>
-
-<file path="app/(app)/(personal)/routines.tsx">
+<file path="app/(app)/(personal)/student-detail.tsx">
 import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
-  FlatList,
   ActivityIndicator,
+  ScrollView,
   useColorScheme,
 } from 'react-native';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Plus, Barbell } from 'phosphor-react-native';
+import {
+  ArrowLeft,
+  User,
+  Trophy,
+  CalendarBlank,
+  PlusCircle,
+  Books,
+} from 'phosphor-react-native';
 import { supabase } from '../../../lib/supabase';
 
-interface Routine {
-  id: string;
-  title: string;
-  description: string;
-  created_at: string;
+/**
+ * Interface para armazenar as estatísticas de treino
+ */
+interface StudentStats {
+  totalWorkouts: number;
+  lastWorkoutDate: string | null;
 }
 
-export default function PersonalRoutinesScreen() {
-  const router = useRouter();
+export default function StudentDetailScreen() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
-  const [routines, setRoutines] = useState<Routine[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  // Captura o ID e o nome inicial passados pela navegação
+  const params = useLocalSearchParams<{ id?: string; full_name?: string }>();
+  const studentId = params.id;
 
+  // Estado para armazenar o nome do aluno recuperado do Supabase
+  const [studentName, setStudentName] = useState<string>(params.full_name || '');
+  const [loading, setLoading] = useState<boolean>(true);
+  const [stats, setStats] = useState<StudentStats>({
+    totalWorkouts: 0,
+    lastWorkoutDate: null,
+  });
+
+  // Executa a busca de dados sempre que a tela entra em foco
   useFocusEffect(
     useCallback(() => {
-      fetchRoutines();
-    }, [])
+      if (studentId) {
+        fetchStudentData(studentId);
+      } else {
+        setLoading(false);
+      }
+    }, [studentId])
   );
 
-  async function fetchRoutines() {
+  /**
+   * Busca as informações completas do aluno e seus treinos no Supabase
+   */
+  async function fetchStudentData(id: string) {
     try {
       setLoading(true);
-      // Consulta as rotinas criadas pelo personal
-      const { data, error } = await supabase
-        .from('workouts') // ou a tabela de treinos que usamos no app
-        .select('*')
-        .order('created_at', { ascending: false });
 
-      if (error) {
-        console.error('Erro ao buscar rotinas:', error.message);
-      } else if (data) {
-        setRoutines(data);
+      // 1. Busca o nome atualizado do aluno na tabela profiles
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', id)
+        .single();
+
+      if (profileError) {
+        console.error('Erro ao buscar perfil do aluno:', profileError.message);
+      } else if (profileData?.full_name) {
+        setStudentName(profileData.full_name);
       }
-    } catch (err) {
-      console.error('Erro inesperado:', err);
+
+      // 2. Conta o total de treinos concluídos pelo aluno
+      const { count, error: countError } = await supabase
+        .from('workout_logs')
+        .select('*', { count: 'exact', head: true })
+        .eq('student_id', id);
+
+      // 3. Busca a data da última atividade registrada
+      const { data: lastWorkout, error: lastError } = await supabase
+        .from('workout_logs')
+        .select('created_at')
+        .eq('student_id', id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (countError) console.error('Erro ao contar treinos:', countError.message);
+      if (lastError) console.error('Erro ao buscar último treino:', lastError.message);
+
+      setStats({
+        totalWorkouts: count || 0,
+        lastWorkoutDate: lastWorkout?.created_at || null,
+      });
+    } catch (error) {
+      console.error('Erro inesperado ao carregar dados do aluno:', error);
     } finally {
       setLoading(false);
+    }
+  }
+
+  /**
+   * Converte a data ISO para o formato local (DD/MM/AAAA)
+   */
+  function formatDate(isoString: string | null) {
+    if (!isoString) return 'Sem registros';
+    try {
+      const date = new Date(isoString);
+      return date.toLocaleDateString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+      });
+    } catch {
+      return 'Data inválida';
     }
   }
 
@@ -419,57 +295,125 @@ export default function PersonalRoutinesScreen() {
       style={{ paddingTop: insets.top + 10 }}
     >
       {/* Cabeçalho */}
-      <View className="flex-row items-center justify-between mb-6 border-b border-[#f0edef] dark:border-zinc-800 pb-4">
-        <View>
-          <Text className="text-2xl font-extrabold text-[#1b1b1d] dark:text-white">
-            Gestão de Treinos
+      <View className="flex-row items-center mb-6">
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={() => router.back()}
+          className="w-10 h-10 rounded-xl bg-[#f8f9fa] dark:bg-zinc-900 justify-center items-center mr-3 border border-[#e2dfe1] dark:border-zinc-800"
+        >
+          <ArrowLeft size={20} color={isDark ? '#ffffff' : '#1b1b1d'} />
+        </TouchableOpacity>
+
+        <View className="flex-1">
+          <Text className="text-xl font-extrabold text-[#1b1b1d] dark:text-white" numberOfLines={1}>
+            {loading && !studentName ? 'Carregando...' : studentName || 'Aluno'}
           </Text>
-          <Text className="text-sm text-[#71717a] dark:text-zinc-400 mt-1">
-            Crie e atribua rotinas aos seus alunos
+          <Text className="text-xs text-[#71717a] dark:text-zinc-400">
+            Acompanhamento de progresso
           </Text>
         </View>
-
-        <TouchableOpacity
-          onPress={() => router.push('/(personal)/create-routine')}
-          className="w-11 h-11 rounded-full bg-[#59C83A] items-center justify-center shadow-md"
-          activeOpacity={0.8}
-        >
-          <Plus size={22} color="#ffffff" weight="bold" />
-        </TouchableOpacity>
       </View>
 
-      {/* Conteúdo */}
-      {loading ? (
-        <View className="flex-1 justify-center items-center">
-          <ActivityIndicator size="large" color="#59C83A" />
+      <ScrollView showsVerticalScrollIndicator={false}>
+        {/* Cartão de Identificação do Perfil */}
+        <View className="bg-[#f8f9fa] dark:bg-zinc-900 p-5 rounded-3xl border border-[#e2dfe1] dark:border-zinc-800 flex-row items-center mb-6">
+          <View className="w-14 h-14 rounded-2xl bg-[#59C83A]/10 items-center justify-center border border-[#59C83A]/30 mr-4">
+            <User size={28} color="#59C83A" weight="bold" />
+          </View>
+          <View className="flex-1">
+            <Text className="text-lg font-bold text-[#1b1b1d] dark:text-white">
+              {studentName || 'Aluno'}
+            </Text>
+            <Text className="text-xs text-[#59C83A] font-semibold mt-0.5">
+              Aluno Ativo
+            </Text>
+          </View>
         </View>
-      ) : routines.length === 0 ? (
-        <View className="flex-1 justify-center items-center px-6">
-          <Barbell size={48} color="#808591" />
-          <Text className="text-[#1b1b1d] dark:text-white font-bold text-base mt-4 text-center">
-            Nenhuma rotina criada
-          </Text>
-          <Text className="text-xs text-[#71717a] dark:text-zinc-400 text-center mt-1">
-            Toque no botão '+' no canto superior para criar o primeiro treino.
-          </Text>
-        </View>
-      ) : (
-        <FlatList
-          data={routines}
-          keyExtractor={(item) => item.id}
-          showsVerticalScrollIndicator={false}
-          renderItem={({ item }) => (
-            <View className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl mb-3 border border-[#e2dfe1] dark:border-zinc-800">
-              <Text className="text-base font-bold text-[#1b1b1d] dark:text-white">
-                {item.title}
+
+        {/* Resumo de Atividades */}
+        <Text className="text-sm font-bold text-[#1b1b1d] dark:text-white mb-3">
+          Resumo de Atividades
+        </Text>
+
+        {loading ? (
+          <View className="p-8 items-center">
+            <ActivityIndicator size="small" color="#59C83A" />
+          </View>
+        ) : (
+          <View className="flex-row gap-3 mb-8">
+            {/* Bloco 1: Total de Treinos */}
+            <View className="flex-1 bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl border border-[#e2dfe1] dark:border-zinc-800">
+              <Trophy size={22} color="#59C83A" weight="bold" />
+              <Text className="text-2xl font-black text-[#1b1b1d] dark:text-white mt-2">
+                {stats.totalWorkouts}
               </Text>
-              <Text className="text-xs text-[#71717a] dark:text-zinc-400 mt-1">
-                {item.description || 'Sem descrição informada'}
+              <Text className="text-[11px] text-[#71717a] dark:text-zinc-400 font-medium">
+                Treinos Concluídos
               </Text>
             </View>
-          )}
-        />
-      )}
+
+            {/* Bloco 2: Último Treino */}
+            <View className="flex-1 bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl border border-[#e2dfe1] dark:border-zinc-800">
+              <CalendarBlank size={22} color="#59C83A" weight="bold" />
+              <Text className="text-xs font-bold text-[#1b1b1d] dark:text-white mt-2" numberOfLines={1}>
+                {formatDate(stats.lastWorkoutDate)}
+              </Text>
+              <Text className="text-[11px] text-[#71717a] dark:text-zinc-400 font-medium mt-1">
+                Última Atividade
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {/* Seção de Ações de Prescrição */}
+        <Text className="text-sm font-bold text-[#1b1b1d] dark:text-white mb-3">
+          Prescrever Treino
+        </Text>
+
+        {/* Botão 1: Criar Treino do Zero */}
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={() =>
+            router.push({
+              pathname: '/(personal)/create-workout',
+              params: { studentId, studentName },
+            })
+          }
+          className="bg-[#59C83A] p-4 rounded-2xl flex-row items-center mb-3 shadow-sm"
+        >
+          <PlusCircle size={24} color="#FFFFFF" weight="bold" />
+          <View className="ml-3 flex-1">
+            <Text className="text-white font-bold text-base">
+              Criar Treino do Zero
+            </Text>
+            <Text className="text-white/80 text-xs">
+              Monte uma ficha personalizada para este aluno
+            </Text>
+          </View>
+        </TouchableOpacity>
+
+        {/* Botão 2: Usar da Biblioteca */}
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={() =>
+            router.push({
+              pathname: '/(personal)/routines',
+              params: { assignToStudentId: studentId },
+            })
+          }
+          className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl border border-[#e2dfe1] dark:border-zinc-800 flex-row items-center mb-6"
+        >
+          <Books size={24} color="#59C83A" weight="bold" />
+          <View className="ml-3 flex-1">
+            <Text className="text-[#1b1b1d] dark:text-white font-bold text-base">
+              Usar Modelo da Biblioteca
+            </Text>
+            <Text className="text-[#71717a] dark:text-zinc-400 text-xs">
+              Escolha uma rotina pronta para vincular
+            </Text>
+          </View>
+        </TouchableOpacity>
+      </ScrollView>
     </View>
   );
 }
@@ -2400,59 +2344,1027 @@ export default function ProfileScreen() {
 }
 </file>
 
-<file path="app/(app)/(personal)/_layout.tsx">
-import { Tabs } from 'expo-router';
-import { Users, User } from 'phosphor-react-native';
-import { useColorScheme } from 'react-native';
+<file path="app/(app)/(personal)/attendance.tsx">
+import React, { useState, useCallback } from 'react';
+import {
+  View,
+  Text,
+  FlatList,
+  ActivityIndicator,
+  useColorScheme,
+} from 'react-native';
+import { useFocusEffect } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { CalendarCheck, CheckCircle, WarningCircle } from 'phosphor-react-native';
+import { supabase } from '../../../lib/supabase';
 
 /**
- * Layout de Abas da Área do Personal
+ * Interface que define a estrutura de um registro de frequência
  */
-export default function PersonalLayout() {
+interface AttendanceLog {
+  id: string;
+  created_at: string;
+  student_id: string;
+  workout_title?: string;
+  profiles: {
+    full_name: string;
+  } | null;
+}
+
+export default function PersonalAttendanceScreen() {
+  const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
-  return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarStyle: {
-          backgroundColor: isDark ? '#09090b' : '#ffffff',
-          borderTopColor: isDark ? '#27272a' : '#f0edef',
-          height: 60,
-          paddingBottom: 8,
-          paddingTop: 8,
-        },
-        tabBarActiveTintColor: '#59C83A',
-        tabBarInactiveTintColor: '#71717a',
-        tabBarLabelStyle: {
-          fontSize: 12,
-          fontWeight: '600',
-        },
-      }}
-    >
-      {/* Aba de Gestão de Alunos */}
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Alunos',
-          tabBarIcon: ({ color, size }) => (
-            <Users size={size} color={color} weight="bold" />
-          ),
-        }}
-      />
+  const [logs, setLogs] = useState<AttendanceLog[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-      {/* Aba de Perfil do Personal */}
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: 'Perfil',
-          tabBarIcon: ({ color, size }) => (
-            <User size={size} color={color} weight="bold" />
-          ),
-        }}
+  // Recarrega os registros de frequência sempre que a tela ganha foco
+  useFocusEffect(
+    useCallback(() => {
+      fetchAttendanceLogs();
+    }, [])
+  );
+
+  /**
+   * Função para buscar o histórico de treinos concluídos no Supabase
+   */
+  async function fetchAttendanceLogs() {
+    try {
+      setLoading(true);
+      setErrorMessage(null);
+
+      // Consulta no banco trazendo os treinos e o nome do aluno via relacionamento (profiles)
+      const { data, error } = await supabase
+        .from('workout_logs')
+        .select(`
+          id,
+          created_at,
+          student_id,
+          workout_title,
+          profiles (
+            full_name
+          )
+        `)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Erro ao buscar relatório de frequência:', error.message);
+        setErrorMessage(error.message);
+      } else if (data) {
+        setLogs(data as unknown as AttendanceLog[]);
+      }
+    } catch (err: any) {
+      console.error('Erro inesperado na frequência:', err);
+      setErrorMessage('Não foi possível carregar os registros de frequência.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  /**
+   * Converte a string de data (ISO) para o formato brasileiro (DD/MM/AAAA às HH:MM)
+   */
+  function formatDate(isoString: string) {
+    if (!isoString) return 'Data não disponível';
+    
+    try {
+      const date = new Date(isoString);
+      return date.toLocaleDateString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+    } catch (e) {
+      return 'Data inválida';
+    }
+  }
+
+  return (
+    <View
+      className="flex-1 bg-white dark:bg-zinc-950 px-5"
+      style={{ paddingTop: insets.top + 10 }}
+    >
+      {/* Cabeçalho da Tela */}
+      <View className="mb-6">
+        <Text className="text-2xl font-extrabold text-[#1b1b1d] dark:text-white">
+          Frequência de Treinos
+        </Text>
+        <Text className="text-sm text-[#71717a] dark:text-zinc-400 mt-1">
+          Histórico de treinos concluídos pelos alunos
+        </Text>
+      </View>
+
+      {/* Caixa de Mensagem de Erro (caso ocorra) */}
+      {errorMessage && (
+        <View className="bg-red-500/10 border border-red-500/30 p-4 rounded-2xl mb-4 flex-row items-center">
+          <WarningCircle size={20} color="#EF4444" />
+          <Text className="text-red-500 text-xs font-bold ml-2 flex-1">
+            {errorMessage}
+          </Text>
+        </View>
+      )}
+
+      {/* Lista de Registros */}
+      {loading ? (
+        <View className="flex-1 justify-center items-center">
+          <ActivityIndicator size="large" color="#59C83A" />
+        </View>
+      ) : logs.length === 0 ? (
+        <View className="flex-1 justify-center items-center px-6">
+          <CalendarCheck size={48} color="#808591" />
+          <Text className="text-[#1b1b1d] dark:text-white font-bold text-base mt-4 text-center">
+            Nenhum registro encontrado
+          </Text>
+          <Text className="text-xs text-[#71717a] dark:text-zinc-400 text-center mt-1">
+            Assim que os alunos finalizarem os treinos no aplicativo, o histórico aparecerá aqui.
+          </Text>
+        </View>
+      ) : (
+        <FlatList
+          data={logs}
+          keyExtractor={(item) => item.id}
+          showsVerticalScrollIndicator={false}
+          renderItem={({ item }) => (
+            <View className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl mb-3 border border-[#e2dfe1] dark:border-zinc-800 flex-row items-center justify-between">
+              <View className="flex-row items-center flex-1">
+                {/* Ícone de Concluído */}
+                <View className="w-11 h-11 rounded-2xl bg-[#59C83A]/10 items-center justify-center border border-[#59C83A]/30 mr-3">
+                  <CheckCircle size={22} color="#59C83A" weight="bold" />
+                </View>
+
+                {/* Dados do Treino e Aluno */}
+                <View className="flex-1">
+                  <Text className="text-base font-bold text-[#1b1b1d] dark:text-white">
+                    {item.profiles?.full_name || 'Aluno Não Identificado'}
+                  </Text>
+                  <Text className="text-xs text-[#59C83A] font-semibold mt-0.5">
+                    {item.workout_title || 'Treino Finalizado'}
+                  </Text>
+                  <Text className="text-[10px] text-[#71717a] dark:text-zinc-400 mt-1">
+                    {formatDate(item.created_at)}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          )}
+        />
+      )}
+    </View>
+  );
+}
+</file>
+
+<file path="app/(app)/(personal)/create-workout.tsx">
+import React, { useState, useCallback } from 'react';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  ScrollView,
+  FlatList,
+  Modal,
+  ActivityIndicator,
+  Alert,
+  useColorScheme,
+} from 'react-native';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import {
+  ArrowLeft,
+  Plus,
+  Trash,
+  CheckCircle,
+  MagnifyingGlass,
+  X,
+  Dumbbell,
+} from 'phosphor-react-native';
+import { supabase } from '../../../lib/supabase'; // Ajusta o caminho de acordo com a tua estrutura
+
+// --- TIPAGENS DE DADOS ---
+
+// Exercício tal como está cadastrado no banco de dados
+interface RegisteredExercise {
+  id: string;
+  name: string;
+  sets?: number;
+  reps?: string;
+  weight?: string;
+  category_id?: string;
+}
+
+// Exercício adicionado à lista local do plano atual
+interface SelectedExerciseItem {
+  tempId: string; // Identificador temporário para a lista local
+  exercise_id: string; // ID original do banco de dados
+  name: string;
+  sets: string;
+  reps: string;
+  notes: string;
+}
+
+// Opções pré-definidas
+const DAYS_OF_WEEK = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
+const OBJECTIVE_OPTIONS = ['Hipertrofia', 'Emagrecimento', 'Resistência', 'Força', 'Adaptação'];
+
+export default function CreateWorkoutPlanScreen() {
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
+
+  // Parâmetros recebidos da navegação anterior (ex: Aluno selecionado)
+  const { studentId, studentName } = useLocalSearchParams<{
+    studentId?: string;
+    studentName?: string;
+  }>();
+
+  // --- ESTADOS DO FORMULÁRIO ---
+  const [planName, setPlanName] = useState('');
+  const [description, setDescription] = useState(''); // Para que serve / Observações
+  const [objective, setObjective] = useState('Hipertrofia');
+  const [selectedDays, setSelectedDays] = useState<string[]>(['Segunda']);
+  const [selectedExercises, setSelectedExercises] = useState<SelectedExerciseItem[]>([]);
+  const [saving, setSaving] = useState(false);
+
+  // --- ESTADOS DO MODAL DE EXERCÍCIOS ---
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [registeredExercises, setRegisteredExercises] = useState<RegisteredExercise[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [loadingModalExercises, setLoadingModalExercises] = useState(false);
+
+  /**
+   * Alterna a seleção dos dias da semana
+   */
+  function toggleDay(day: string) {
+    if (selectedDays.includes(day)) {
+      if (selectedDays.length === 1) {
+        Alert.alert('Atenção', 'Selecione pelo menos um dia da semana para o plano.');
+        return;
+      }
+      setSelectedDays(selectedDays.filter((d) => d !== day));
+    } else {
+      setSelectedDays([...selectedDays, day]);
+    }
+  }
+
+  /**
+   * Procura a lista de exercícios cadastrados no Supabase
+   */
+  const fetchRegisteredExercises = useCallback(async () => {
+    try {
+      setLoadingModalExercises(true);
+      const { data, error } = await supabase
+        .from('exercises')
+        .select('*')
+        .order('name', { ascending: true });
+
+      if (error) throw error;
+      if (data) setRegisteredExercises(data);
+    } catch (err: any) {
+      Alert.alert('Erro', 'Não foi possível carregar os exercícios cadastrados.');
+      console.error(err);
+    } finally {
+      setLoadingModalExercises(false);
+    }
+  }, []);
+
+  /**
+   * Abre o Modal e carrega a biblioteca de exercícios
+   */
+  function handleOpenExerciseModal() {
+    setIsModalVisible(true);
+    fetchRegisteredExercises();
+  }
+
+  /**
+   * Adiciona um exercício selecionado da biblioteca para o plano
+   */
+  function handleAddExerciseFromLibrary(item: RegisteredExercise) {
+    const newExerciseItem: SelectedExerciseItem = {
+      tempId: Date.now().toString() + Math.random().toString(),
+      exercise_id: item.id,
+      name: item.name,
+      sets: String(item.sets || '3'),
+      reps: item.reps || '10 a 12',
+      notes: item.weight ? `Carga sugerida: ${item.weight}` : '',
+    };
+
+    setSelectedExercises((prev) => [...prev, newExerciseItem]);
+    setIsModalVisible(false);
+    setSearchQuery('');
+  }
+
+  /**
+   * Atualiza campos de um exercício específico na lista local
+   */
+  function handleUpdateExercise(tempId: string, field: keyof SelectedExerciseItem, value: string) {
+    setSelectedExercises((prev) =>
+      prev.map((item) => (item.tempId === tempId ? { ...item, [field]: value } : item))
+    );
+  }
+
+  /**
+   * Remove um exercício da lista local
+   */
+  function handleRemoveExercise(tempId: string) {
+    setSelectedExercises((prev) => prev.filter((item) => item.tempId !== tempId));
+  }
+
+  /**
+   * Salva o Plano de Treino no Supabase
+   */
+  async function handleSavePlan() {
+    if (!planName.trim()) {
+      Alert.alert('Campo Obrigatório', 'Por favor, informe o nome do plano de treino.');
+      return;
+    }
+
+    if (selectedExercises.length === 0) {
+      Alert.alert('Atenção', 'Adicione pelo menos um exercício ao plano.');
+      return;
+    }
+
+    try {
+      setSaving(true);
+      const { data: { user } } = await supabase.auth.getUser();
+
+      // 1. Inserir o cabeçalho do plano
+      const { data: planData, error: planError } = await supabase
+        .from('workout_plans')
+        .insert({
+          name: planName.trim(),
+          description: description.trim() || null,
+          objective: objective,
+          days_of_week: selectedDays,
+          student_id: studentId || null,
+          personal_id: user?.id,
+        })
+        .select('id')
+        .single();
+
+      if (planError) throw planError;
+
+      // 2. Inserir a lista de exercícios do plano
+      const exercisesPayload = selectedExercises.map((ex, index) => ({
+        plan_id: planData.id,
+        exercise_id: ex.exercise_id,
+        name: ex.name,
+        sets: ex.sets.trim() || '3',
+        reps: ex.reps.trim() || '10',
+        notes: ex.notes.trim() || null,
+        order_index: index,
+      }));
+
+      const { error: exercisesError } = await supabase
+        .from('plan_exercises')
+        .insert(exercisesPayload);
+
+      if (exercisesError) throw exercisesError;
+
+      Alert.alert('Sucesso!', 'Plano de treino criado com sucesso!', [
+        { text: 'OK', onPress: () => router.back() },
+      ]);
+    } catch (error: any) {
+      Alert.alert('Erro ao Salvar', error.message || 'Ocorreu um erro ao guardar o plano.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  // Filtra exercícios pela pesquisa do modal
+  const filteredRegisteredExercises = registeredExercises.filter((ex) =>
+    ex.name.toLowerCase().includes(searchQuery.toLowerCase().trim())
+  );
+
+  // Cálculo seguro da margem superior para evitar sobreposição da barra de estado
+  const safeTopPadding = Math.max(insets?.top || 0, 16);
+
+  return (
+    <View
+      className="flex-1 bg-white dark:bg-zinc-950 px-5"
+      style={{ paddingTop: safeTopPadding }}
+    >
+      {/* CABAÇALHO */}
+      <View className="flex-row items-center justify-between my-4">
+        <View className="flex-row items-center flex-1 mr-2">
+          <TouchableOpacity
+            onPress={() => router.back()}
+            className="w-10 h-10 rounded-xl bg-[#f8f9fa] dark:bg-zinc-900 justify-center items-center mr-3 border border-[#e2dfe1] dark:border-zinc-800"
+          >
+            <ArrowLeft size={20} color={isDark ? '#ffffff' : '#1b1b1d'} />
+          </TouchableOpacity>
+
+          <View className="flex-1">
+            <Text className="text-xl font-extrabold text-[#1b1b1d] dark:text-white" numberOfLines={1}>
+              Criar Plano de Treino
+            </Text>
+            {studentName && (
+              <Text className="text-xs text-[#59C83A] font-bold" numberOfLines={1}>
+                Para: {studentName}
+              </Text>
+            )}
+          </View>
+        </View>
+
+        <TouchableOpacity
+          onPress={handleSavePlan}
+          disabled={saving}
+          className="bg-[#59C83A] px-4 py-2.5 rounded-xl flex-row items-center"
+        >
+          {saving ? (
+            <ActivityIndicator size="small" color="#FFFFFF" />
+          ) : (
+            <>
+              <CheckCircle size={18} color="#FFFFFF" weight="bold" />
+              <Text className="text-white font-bold ml-1.5 text-sm">Salvar</Text>
+            </>
+          )}
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 50 }}>
+        {/* INFORMAÇÕES DO PLANO */}
+        <View className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl border border-[#e2dfe1] dark:border-zinc-800 mb-5">
+          <Text className="text-xs font-bold text-[#1b1b1d] dark:text-white mb-1.5">
+            Nome do Plano *
+          </Text>
+          <TextInput
+            className="bg-white dark:bg-zinc-950 border border-[#e2dfe1] dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-[#1b1b1d] dark:text-white mb-4"
+            placeholder="Ex: Treino A - Peito e Tríceps"
+            placeholderTextColor={isDark ? '#71717a' : '#a09da1'}
+            value={planName}
+            onChangeText={setPlanName}
+          />
+
+          <Text className="text-xs font-bold text-[#1b1b1d] dark:text-white mb-1.5">
+            Para que serve / Observações
+          </Text>
+          <TextInput
+            className="bg-white dark:bg-zinc-950 border border-[#e2dfe1] dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-[#1b1b1d] dark:text-white mb-4"
+            placeholder="Ex: Foco na execução e hipertrofia"
+            placeholderTextColor={isDark ? '#71717a' : '#a09da1'}
+            value={description}
+            onChangeText={setDescription}
+          />
+
+          <Text className="text-xs font-bold text-[#1b1b1d] dark:text-white mb-2">
+            Objetivo do Treino
+          </Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row mb-4">
+            {OBJECTIVE_OPTIONS.map((item) => {
+              const active = objective === item;
+              return (
+                <TouchableOpacity
+                  key={item}
+                  onPress={() => setObjective(item)}
+                  className={`px-3.5 py-2 rounded-xl mr-2 border ${
+                    active
+                      ? 'bg-[#59C83A] border-[#59C83A]'
+                      : 'bg-white dark:bg-zinc-950 border-[#e2dfe1] dark:border-zinc-800'
+                  }`}
+                >
+                  <Text className={`text-xs font-bold ${active ? 'text-white' : 'text-[#414755] dark:text-zinc-400'}`}>
+                    {item}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+
+          <Text className="text-xs font-bold text-[#1b1b1d] dark:text-white mb-2">
+            Dias da Semana:
+          </Text>
+          <View className="flex-row flex-wrap gap-2">
+            {DAYS_OF_WEEK.map((day) => {
+              const isSelected = selectedDays.includes(day);
+              return (
+                <TouchableOpacity
+                  key={day}
+                  onPress={() => toggleDay(day)}
+                  className={`px-3 py-1.5 rounded-lg border ${
+                    isSelected
+                      ? 'bg-[#59C83A]/20 border-[#59C83A]'
+                      : 'bg-white dark:bg-zinc-950 border-[#e2dfe1] dark:border-zinc-800'
+                  }`}
+                >
+                  <Text className={`text-xs font-bold ${isSelected ? 'text-[#59C83A]' : 'text-[#71717a]'}`}>
+                    {day}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+
+        {/* BOTÃO PARA ABRIR O MODAL DE SELEÇÃO */}
+        <TouchableOpacity
+          onPress={handleOpenExerciseModal}
+          className="bg-[#59C83A] p-4 rounded-2xl flex-row items-center justify-center mb-5"
+          activeOpacity={0.8}
+        >
+          <Plus size={20} color="#FFFFFF" weight="bold" />
+          <Text className="text-white font-bold text-sm ml-2">
+            Adicionar Exercício Cadastrado
+          </Text>
+        </TouchableOpacity>
+
+        {/* LISTA DOS EXERCÍCIOS ADICIONADOS */}
+        <Text className="text-base font-extrabold text-[#1b1b1d] dark:text-white mb-3">
+          Exercícios Adicionados ({selectedExercises.length})
+        </Text>
+
+        {selectedExercises.length === 0 ? (
+          <View className="p-8 items-center justify-center border border-dashed border-[#e2dfe1] dark:border-zinc-800 rounded-2xl">
+            <Dumbbell size={32} color={isDark ? '#52525b' : '#a1a1aa'} />
+            <Text className="text-xs font-medium text-[#71717a] dark:text-zinc-400 mt-2 text-center">
+              Nenhum exercício selecionado.{'\n'}Clica no botão verde para abrir a lista.
+            </Text>
+          </View>
+        ) : (
+          selectedExercises.map((item, index) => (
+            <View
+              key={item.tempId}
+              className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl border border-[#e2dfe1] dark:border-zinc-800 mb-3"
+            >
+              <View className="flex-row items-center justify-between mb-3">
+                <Text className="text-sm font-extrabold text-[#1b1b1d] dark:text-white flex-1 mr-2">
+                  {index + 1}. {item.name}
+                </Text>
+                <TouchableOpacity onPress={() => handleRemoveExercise(item.tempId)}>
+                  <Trash size={18} color="#ef4444" />
+                </TouchableOpacity>
+              </View>
+
+              <View className="flex-row gap-3 mb-2.5">
+                <View className="flex-1">
+                  <Text className="text-[10px] font-bold text-[#71717a] dark:text-zinc-400 mb-1">
+                    Séries
+                  </Text>
+                  <TextInput
+                    className="bg-white dark:bg-zinc-950 border border-[#e2dfe1] dark:border-zinc-800 rounded-xl px-3 py-2 text-xs font-bold text-[#1b1b1d] dark:text-white"
+                    placeholder="Ex: 3"
+                    placeholderTextColor={isDark ? '#71717a' : '#a09da1'}
+                    value={item.sets}
+                    onChangeText={(text) => handleUpdateExercise(item.tempId, 'sets', text)}
+                  />
+                </View>
+
+                <View className="flex-1">
+                  <Text className="text-[10px] font-bold text-[#71717a] dark:text-zinc-400 mb-1">
+                    Repetições
+                  </Text>
+                  <TextInput
+                    className="bg-white dark:bg-zinc-950 border border-[#e2dfe1] dark:border-zinc-800 rounded-xl px-3 py-2 text-xs font-bold text-[#1b1b1d] dark:text-white"
+                    placeholder="Ex: 10 a 12"
+                    placeholderTextColor={isDark ? '#71717a' : '#a09da1'}
+                    value={item.reps}
+                    onChangeText={(text) => handleUpdateExercise(item.tempId, 'reps', text)}
+                  />
+                </View>
+              </View>
+
+              <Text className="text-[10px] font-bold text-[#71717a] dark:text-zinc-400 mb-1">
+                Observações / Carga
+              </Text>
+              <TextInput
+                className="bg-white dark:bg-zinc-950 border border-[#e2dfe1] dark:border-zinc-800 rounded-xl px-3 py-2 text-xs font-medium text-[#1b1b1d] dark:text-white"
+                placeholder="Ex: Carga inicial recomendada"
+                placeholderTextColor={isDark ? '#71717a' : '#a09da1'}
+                value={item.notes}
+                onChangeText={(text) => handleUpdateExercise(item.tempId, 'notes', text)}
+              />
+            </View>
+          ))
+        )}
+      </ScrollView>
+
+      {/* MODAL DE SELEÇÃO DE EXERCÍCIOS */}
+      <Modal visible={isModalVisible} animationType="slide" transparent>
+        <View className="flex-1 bg-black/60 justify-end">
+          <View className="bg-white dark:bg-zinc-900 rounded-t-3xl p-5 h-[80%] border-t border-[#e2dfe1] dark:border-zinc-800">
+            <View className="flex-row items-center justify-between mb-4">
+              <Text className="text-lg font-extrabold text-[#1b1b1d] dark:text-white">
+                Selecione o Exercício
+              </Text>
+              <TouchableOpacity
+                onPress={() => setIsModalVisible(false)}
+                className="w-8 h-8 rounded-full bg-[#f8f9fa] dark:bg-zinc-800 items-center justify-center"
+              >
+                <X size={18} color={isDark ? '#ffffff' : '#1b1b1d'} />
+              </TouchableOpacity>
+            </View>
+
+            <View className="bg-[#f8f9fa] dark:bg-zinc-950 flex-row items-center px-3.5 py-2.5 rounded-xl border border-[#e2dfe1] dark:border-zinc-800 mb-4">
+              <MagnifyingGlass size={18} color={isDark ? '#59C83A' : '#71717a'} />
+              <TextInput
+                className="flex-1 ml-2.5 text-sm text-[#1b1b1d] dark:text-white font-medium"
+                placeholder="Buscar exercício..."
+                placeholderTextColor={isDark ? '#71717a' : '#a09da1'}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                autoCapitalize="none"
+              />
+            </View>
+
+            {loadingModalExercises ? (
+              <View className="flex-1 items-center justify-center">
+                <ActivityIndicator size="large" color="#59C83A" />
+                <Text className="text-xs text-[#71717a] mt-2 font-medium">
+                  Carregando lista...
+                </Text>
+              </View>
+            ) : (
+              <FlatList
+                data={filteredRegisteredExercises}
+                keyExtractor={(item) => item.id}
+                showsVerticalScrollIndicator={false}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    onPress={() => handleAddExerciseFromLibrary(item)}
+                    className="bg-[#f8f9fa] dark:bg-zinc-950 p-3.5 rounded-xl border border-[#e2dfe1] dark:border-zinc-800 mb-2.5 flex-row items-center justify-between"
+                  >
+                    <View className="flex-1 mr-2">
+                      <Text className="text-sm font-bold text-[#1b1b1d] dark:text-white">
+                        {item.name}
+                      </Text>
+                      <Text className="text-xs text-[#71717a] dark:text-zinc-400 mt-0.5">
+                        Séries: {item.sets || 3} | Reps: {item.reps || '10'}
+                      </Text>
+                    </View>
+                    <View className="bg-[#59C83A]/10 p-2 rounded-lg border border-[#59C83A]/30">
+                      <Plus size={16} color="#59C83A" weight="bold" />
+                    </View>
+                  </TouchableOpacity>
+                )}
+                ListEmptyComponent={
+                  <View className="py-10 items-center">
+                    <Text className="text-xs text-[#71717a] dark:text-zinc-400 font-medium text-center">
+                      Nenhum exercício encontrado.
+                    </Text>
+                  </View>
+                }
+              />
+            )}
+          </View>
+        </View>
+      </Modal>
+    </View>
+  );
+}
+</file>
+
+<file path="app/(app)/(personal)/index.tsx">
+import React, { useState, useCallback } from 'react';
+import {
+  View,
+  Text,
+  TextInput,
+  FlatList,
+  TouchableOpacity,
+  ActivityIndicator,
+  useColorScheme,
+} from 'react-native';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { MagnifyingGlass, Users, CaretRight, User } from 'phosphor-react-native';
+import { supabase } from '../../../lib/supabase';
+
+/**
+ * Estrutura de dados de um aluno
+ */
+interface Student {
+  id: string;
+  full_name: string;
+  role?: string;
+}
+
+/**
+ * Tela Principal de Gestão de Alunos do Personal Trainer
+ */
+export default function PersonalStudentsScreen() {
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
+
+  const [students, setStudents] = useState<Student[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Recarrega a lista sempre que a tela ganha foco
+  useFocusEffect(
+    useCallback(() => {
+      fetchStudents();
+    }, [])
+  );
+
+  /**
+   * Busca no Supabase todos os perfis com função de aluno
+   */
+  async function fetchStudents() {
+    try {
+      setLoading(true);
+      setErrorMessage(null);
+
+      // Busca os perfis no Supabase
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, full_name, role');
+
+      if (error) {
+        console.error('Erro ao buscar no Supabase:', error.message);
+        setErrorMessage(error.message);
+      } else if (data) {
+        console.log('Todos os perfis encontrados:', data);
+
+        // Aceita 'student' ou 'aluno'
+        const studentList = data.filter(
+          (user) =>
+            user.role?.toLowerCase() === 'student' ||
+            user.role?.toLowerCase() === 'aluno'
+        );
+
+        setStudents(studentList);
+      }
+    } catch (err: any) {
+      console.error('Erro inesperado:', err);
+      setErrorMessage('Ocorreu um erro ao carregar os dados.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // Filtra os alunos com base na pesquisa
+  const filteredStudents = students.filter((student) =>
+    student.full_name?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  return (
+    <View
+      className="flex-1 bg-white dark:bg-zinc-950 px-5"
+      style={{ paddingTop: insets.top + 10 }}
+    >
+      {/* Cabeçalho */}
+      <View className="mb-4">
+        <Text className="text-2xl font-extrabold text-[#1b1b1d] dark:text-white">
+          Gestão de Alunos
+        </Text>
+        <Text className="text-sm text-[#71717a] dark:text-zinc-400 mt-1">
+          Lista de atletas cadastrados no sistema
+        </Text>
+      </View>
+
+      {/* Barra de Pesquisa */}
+      <View className="flex-row items-center bg-[#f8f9fa] dark:bg-zinc-900 border border-[#e2dfe1] dark:border-zinc-800 rounded-2xl px-4 py-3 mb-5">
+        <MagnifyingGlass size={20} color={isDark ? '#a1a1aa' : '#71717a'} />
+        <TextInput
+          className="flex-1 ml-3 text-base text-[#1b1b1d] dark:text-white font-medium"
+          placeholder="Buscar aluno por nome..."
+          placeholderTextColor={isDark ? '#71717a' : '#a09da1'}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+        />
+      </View>
+
+      {/* Mensagem de Erro */}
+      {errorMessage && (
+        <View className="bg-red-500/10 border border-red-500/30 p-3 rounded-xl mb-4">
+          <Text className="text-red-500 text-xs font-bold text-center">
+            {errorMessage}
+          </Text>
+        </View>
+      )}
+
+      {/* Lista de Alunos */}
+      {loading ? (
+        <View className="flex-1 justify-center items-center">
+          <ActivityIndicator size="large" color="#59C83A" />
+        </View>
+      ) : filteredStudents.length === 0 ? (
+        <View className="flex-1 justify-center items-center px-6">
+          <Users size={48} color="#808591" />
+          <Text className="text-[#1b1b1d] dark:text-white font-bold text-base mt-4 text-center">
+            Nenhum aluno encontrado
+          </Text>
+          <Text className="text-xs text-[#71717a] dark:text-zinc-400 text-center mt-1">
+            {searchQuery
+              ? 'Tente buscar por outro nome.'
+              : 'Verifique se a coluna "role" no Supabase está definida como "aluno".'}
+          </Text>
+        </View>
+      ) : (
+        <FlatList
+          data={filteredStudents}
+          keyExtractor={(item) => item.id}
+          showsVerticalScrollIndicator={false}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => {
+                // CORREÇÃO: Utilizando item.id e item.full_name
+                router.push({
+                  pathname: '/(personal)/student-detail',
+                  params: { id: item.id, full_name: item.full_name },
+                });
+              }}
+              className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl mb-3 border border-[#e2dfe1] dark:border-zinc-800 flex-row items-center justify-between"
+            >
+              <View className="flex-row items-center flex-1">
+                <View className="w-12 h-12 rounded-full bg-[#59C83A]/10 items-center justify-center border border-[#59C83A]/30 mr-3">
+                  <User size={22} color="#59C83A" weight="bold" />
+                </View>
+
+                <View className="flex-1">
+                  <Text className="text-base font-bold text-[#1b1b1d] dark:text-white">
+                    {item.full_name || 'Aluno Sem Nome'}
+                  </Text>
+                </View>
+              </View>
+
+              <CaretRight size={20} color={isDark ? '#71717a' : '#a09da1'} />
+            </TouchableOpacity>
+          )}
+        />
+      )}
+    </View>
+  );
+}
+</file>
+
+<file path="app/(app)/(personal)/profile.tsx">
+import React from 'react';
+import { View, Text, TouchableOpacity, useColorScheme } from 'react-native';
+import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SignOut, User } from 'phosphor-react-native';
+import { supabase } from '../../../lib/supabase';
+
+/**
+ * Tela de Perfil do Personal com opção de Terminar Sessão
+ */
+export default function PersonalProfileScreen() {
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
+
+  async function handleSignOut() {
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error('Erro ao terminar sessão:', error.message);
+        return;
+      }
+      // Redireciona o utilizador para o fluxo de autenticação
+      router.replace('/(auth)');
+    } catch (err) {
+      console.error('Erro inesperado ao sair:', err);
+    }
+  }
+
+  return (
+    <View 
+      className="flex-1 bg-white dark:bg-zinc-950 px-5 justify-between pb-10"
+      style={{ paddingTop: insets.top + 10 }}
+    >
+      {/* Cabeçalho e Informações */}
+      <View>
+        <View className="mb-6 border-b border-[#f0edef] dark:border-zinc-800 pb-4">
+          <Text className="text-2xl font-extrabold text-[#1b1b1d] dark:text-white">
+            Meu Perfil
+          </Text>
+          <Text className="text-sm text-[#71717a] dark:text-zinc-400 mt-1">
+            Informações da conta administrativa
+          </Text>
+        </View>
+
+        {/* Cartão de Identificação */}
+        <View className="bg-[#f8f9fa] dark:bg-zinc-900 p-5 rounded-2xl border border-[#e2dfe1] dark:border-zinc-800 flex-row items-center mb-6">
+          <View className="w-12 h-12 rounded-full bg-[#59C83A]/10 items-center justify-center mr-4 border border-[#59C83A]/20">
+            <User size={24} color="#59C83A" weight="bold" />
+          </View>
+          <View className="flex-1">
+            <Text className="text-lg font-bold text-[#1b1b1d] dark:text-white">
+              Personal Trainer
+            </Text>
+            <Text className="text-xs text-[#71717a] dark:text-zinc-400 mt-0.5">
+              Acesso total ao painel de gestão
+            </Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Botão de Terminar Sessão */}
+      <TouchableOpacity
+        onPress={handleSignOut}
+        className="w-full bg-red-500/10 dark:bg-red-500/10 border border-red-500/30 py-4 rounded-2xl flex-row items-center justify-center"
+        activeOpacity={0.8}
+      >
+        <SignOut size={20} color="#ef4444" weight="bold" />
+        <Text className="text-red-500 font-bold text-base ml-2">
+          Terminar Sessão
+        </Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+</file>
+
+<file path="app/(app)/(personal)/routines.tsx">
+import React from 'react';
+import { View, Text, FlatList, TouchableOpacity, useColorScheme } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Plus, Barbell, CaretRight } from 'phosphor-react-native';
+import { useRouter } from 'expo-router';
+
+/**
+ * Estrutura de dados para representar uma rotina de treino
+ */
+interface RoutineItem {
+  id: string;
+  title: string;
+  exercisesCount: number;
+}
+
+/**
+ * Tela de Gestão de Rotinas de Treino do Personal
+ */
+export default function PersonalRoutinesScreen() {
+  const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
+
+  // Lista de rotinas de exemplo (posteriormente será conectada ao Supabase)
+  const routines: RoutineItem[] = [
+    { id: '1', title: 'Treino A - Peito e Tríceps', exercisesCount: 6 },
+    { id: '2', title: 'Treino B - Costas e Bíceps', exercisesCount: 5 },
+    { id: '3', title: 'Treino C - Pernas Completo', exercisesCount: 7 },
+  ];
+
+  return (
+    <View 
+      className="flex-1 bg-white dark:bg-zinc-950 px-5" 
+      style={{ paddingTop: insets.top + 10 }}
+    >
+      {/* Cabeçalho */}
+      <View className="flex-row justify-between items-center mb-6">
+        <View>
+          <Text className="text-2xl font-extrabold text-[#1b1b1d] dark:text-white">
+            Rotinas de Treino
+          </Text>
+          <Text className="text-sm text-[#71717a] dark:text-zinc-400 mt-1">
+            Modelos de fichas cadastradas
+          </Text>
+        </View>
+
+        {/* Botão de Adicionar Nova Rotina */}
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={() => router.push('/(personal)/create-workout')}
+          className="bg-[#59C83A] w-11 h-11 rounded-2xl justify-center items-center shadow-sm"
+        >
+          <Plus size={22} color="#FFFFFF" weight="bold" />
+        </TouchableOpacity>
+      </View>
+
+      {/* Lista de Rotinas Cadastradas */}
+      <FlatList
+        data={routines}
+        keyExtractor={(item) => item.id}
+        showsVerticalScrollIndicator={false}
+        renderItem={({ item }) => (
+          <TouchableOpacity
+            activeOpacity={0.7}
+            className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl mb-3 border border-[#e2dfe1] dark:border-zinc-800 flex-row items-center justify-between"
+          >
+            <View className="flex-row items-center flex-1">
+              <View className="w-12 h-12 rounded-full bg-[#59C83A]/10 items-center justify-center border border-[#59C83A]/30 mr-3">
+                <Barbell size={22} color="#59C83A" weight="bold" />
+              </View>
+
+              <View className="flex-1">
+                <Text className="text-base font-bold text-[#1b1b1d] dark:text-white">
+                  {item.title}
+                </Text>
+                <Text className="text-xs text-[#71717a] dark:text-zinc-400 mt-0.5">
+                  {item.exercisesCount} exercícios
+                </Text>
+              </View>
+            </View>
+
+            <CaretRight size={20} color={isDark ? '#71717a' : '#a09da1'} />
+          </TouchableOpacity>
+        )}
       />
-    </Tabs>
+    </View>
   );
 }
 </file>
@@ -2562,6 +3474,97 @@ module.exports = {
 };
 </file>
 
+<file path="app/(app)/(personal)/_layout.tsx">
+import React from 'react';
+import { useColorScheme } from 'react-native';
+import { Tabs } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Users, Books, CalendarCheck, User } from 'phosphor-react-native';
+
+/**
+ * Layout de Abas da Área do Personal Trainer
+ * Atualizado para esconder rotas internas secundárias (formulários e detalhes).
+ */
+export default function PersonalLayout() {
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
+
+  // 1. Captura as margens de segurança (barra de botões do sistema Android/iOS)
+  const insets = useSafeAreaInsets();
+
+  // 2. Calcula a altura total da barra dinamicamente
+  const customTabBarHeight = 60 + insets.bottom;
+
+  return (
+    <Tabs
+      screenOptions={{
+        headerShown: false,
+        tabBarStyle: {
+          backgroundColor: isDark ? '#09090b' : '#ffffff',
+          borderTopColor: isDark ? '#27272a' : '#f0edef',
+          height: customTabBarHeight,
+          paddingBottom: insets.bottom > 0 ? insets.bottom : 8,
+          paddingTop: 8,
+        },
+        tabBarActiveTintColor: '#59C83A',
+        tabBarInactiveTintColor: isDark ? '#a1a1aa' : '#71717a',
+        tabBarLabelStyle: {
+          fontSize: 11,
+          fontWeight: '600',
+        },
+      }}
+    >
+      {/* ------------------- ABAS VISÍVEIS ------------------- */}
+      <Tabs.Screen
+        name="index"
+        options={{
+          title: 'Alunos',
+          tabBarIcon: ({ color, size, focused }) => (
+            <Users size={size} color={color} weight={focused ? 'fill' : 'bold'} />
+          ),
+        }}
+      />
+
+      <Tabs.Screen
+        name="routines"
+        options={{
+          title: 'Biblioteca',
+          tabBarIcon: ({ color, size, focused }) => (
+            <Books size={size} color={color} weight={focused ? 'fill' : 'bold'} />
+          ),
+        }}
+      />
+
+      <Tabs.Screen
+        name="attendance"
+        options={{
+          title: 'Frequência',
+          tabBarIcon: ({ color, size, focused }) => (
+            <CalendarCheck size={size} color={color} weight={focused ? 'fill' : 'bold'} />
+          ),
+        }}
+      />
+
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: 'Perfil',
+          tabBarIcon: ({ color, size, focused }) => (
+            <User size={size} color={color} weight={focused ? 'fill' : 'bold'} />
+          ),
+        }}
+      />
+
+      {/* ------------------- ROTAS OCULTAS DA NAVBAR ------------------- */}
+      {/* Definir 'href: null' esconde o botão da barra sem desativar a tela */}
+      <Tabs.Screen name="create-exercise" options={{ href: null }} />
+      <Tabs.Screen name="create-workout" options={{ href: null }} />
+      <Tabs.Screen name="student-detail" options={{ href: null }} />
+    </Tabs>
+  );
+}
+</file>
+
 <file path="app/(auth)/_layout.tsx">
 import React from 'react';
 import { useColorScheme } from 'react-native';
@@ -2638,78 +3641,6 @@ export default function AuthLayout() {
   "compilerOptions": {
     "strict": true
   }
-}
-</file>
-
-<file path="app/_layout.tsx">
-import React, { useEffect, useState } from 'react';
-import { View, ActivityIndicator } from 'react-native';
-import { Stack, useRouter, useSegments } from 'expo-router';
-import { supabase } from '../lib/supabase';
-
-// Estilos globais do NativeWind
-import '../global.css';
-
-export default function RootLayout() {
-  const [session, setSession] = useState<any>(null);
-  const [isReady, setIsReady] = useState<boolean>(false);
-
-  const segments = useSegments();
-  const router = useRouter();
-
-  // 1. Monitora o estado de autenticação do usuário no Supabase
-  useEffect(() => {
-    // Busca a sessão inicial
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setIsReady(true);
-    });
-
-    // Escuta eventos de login e logout em tempo real
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setSession(session);
-        setIsReady(true);
-      }
-    );
-
-    return () => {
-      authListener.subscription.unsubscribe();
-    };
-  }, []);
-
-  // 2. Executa o redirecionamento seguro quando a sessão altera
-  useEffect(() => {
-    if (!isReady) return;
-
-    // Verifica se a rota atual está dentro do grupo autenticado (app)
-    const inAuthGroup = segments[0] === '(app)';
-
-    if (session && !inAuthGroup) {
-      // Se o usuário está logado -> navega para as abas do app
-      router.replace('/(app)');
-    } else if (!session && inAuthGroup) {
-      // Se o usuário deslogou -> navega para a rota exata de login
-      router.replace('/(auth)/login');
-    }
-  }, [session, isReady, segments]);
-
-  // Exibe indicador de carregamento enquanto valida a sessão
-  if (!isReady) {
-    return (
-      <View className="flex-1 justify-center items-center bg-white dark:bg-zinc-950">
-        <ActivityIndicator size="large" color="#0058bc" />
-      </View>
-    );
-  }
-
-  // Define as pilhas principais do aplicativo
-  return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="(app)" />
-      <Stack.Screen name="(auth)" />
-    </Stack>
-  );
 }
 </file>
 
@@ -2872,6 +3803,281 @@ yarn-error.*
 /android
 
 .xml
+</file>
+
+<file path="app/_layout.tsx">
+import React, { useEffect, useState } from 'react';
+import { View, ActivityIndicator } from 'react-native';
+import { Stack, useRouter, useSegments } from 'expo-router';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { supabase } from '../lib/supabase';
+
+// Estilos globais do NativeWind
+import '../global.css';
+
+export default function RootLayout() {
+  const [session, setSession] = useState<any>(null);
+  const [isReady, setIsReady] = useState<boolean>(false);
+
+  const segments = useSegments();
+  const router = useRouter();
+
+  // 1. Monitora a sessão do usuário no Supabase
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setIsReady(true);
+    });
+
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        setSession(session);
+        setIsReady(true);
+      }
+    );
+
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
+  }, []);
+
+  // 2. Controla os redirecionamentos de rota
+  useEffect(() => {
+    if (!isReady) return;
+
+    const inAuthGroup = segments[0] === '(app)';
+
+    if (session && !inAuthGroup) {
+      router.replace('/(app)');
+    } else if (!session && inAuthGroup) {
+      router.replace('/(auth)/login');
+    }
+  }, [session, isReady, segments]);
+
+  // 3. Renderiza a aplicação dentro do SafeAreaProvider
+  return (
+    <SafeAreaProvider>
+      {!isReady ? (
+        <View className="flex-1 justify-center items-center bg-white dark:bg-zinc-950">
+          <ActivityIndicator size="large" color="#59C83A" />
+        </View>
+      ) : (
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="(app)" />
+          <Stack.Screen name="(auth)" />
+        </Stack>
+      )}
+    </SafeAreaProvider>
+  );
+}
+</file>
+
+<file path="package.json">
+{
+  "name": "treino-pesado",
+  "version": "1.0.0",
+  "main": "expo-router/entry",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web"
+  },
+  "dependencies": {
+    "@expo/vector-icons": "^15.0.3",
+    "@react-native-async-storage/async-storage": "2.2.0",
+    "@supabase/supabase-js": "^2.112.2",
+    "babel-preset-expo": "~54.0.10",
+    "expo": "~54.0.35",
+    "expo-constants": "~18.0.13",
+    "expo-keep-awake": "~15.0.8",
+    "expo-linking": "~8.0.12",
+    "expo-router": "~6.0.24",
+    "expo-status-bar": "~3.0.9",
+    "nativewind": "^4.2.6",
+    "phosphor-react-native": "^3.0.6",
+    "react": "19.1.0",
+    "react-native": "0.81.5",
+    "react-native-reanimated": "~4.1.1",
+    "react-native-safe-area-context": "~5.6.0",
+    "react-native-screens": "~4.16.0",
+    "react-native-svg": "15.12.1",
+    "react-native-worklets": "0.5.1",
+    "tailwindcss": "^3.4.19"
+  },
+  "devDependencies": {
+    "@types/react": "~19.1.0",
+    "typescript": "~5.9.2"
+  },
+  "private": true
+}
+</file>
+
+<file path="app/(auth)/login.tsx">
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  useColorScheme,
+  Image,
+} from 'react-native';
+import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { EnvelopeSimple, LockSimple, Eye, EyeSlash } from 'phosphor-react-native';
+import { supabase } from '../../lib/supabase';
+
+export default function LoginScreen() {
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
+
+  const [email, setEmail] = useState<string>('');
+  const [password, setPassword] = useState<string>('');
+  const [loading, setLoading] = useState<boolean>(false);
+  const [showPassword, setShowPassword] = useState<boolean>(false);
+
+  async function handleLogin() {
+    if (!email.trim() || !password.trim()) {
+      Alert.alert('Campos obrigatórios', 'Por favor, preencha o e-mail e a senha.');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password: password,
+      });
+
+      if (error) {
+        Alert.alert('Erro ao entrar', 'E-mail ou senha incorretos.');
+      }
+    } catch (err) {
+      Alert.alert('Erro', 'Ocorreu um erro inesperado ao conectar.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
+      <ScrollView
+        contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}
+        className="bg-white dark:bg-zinc-950 px-6 py-8"
+        style={{ paddingTop: insets.top, paddingBottom: insets.bottom }}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Cabeçalho Visual */}
+        <View className="items-center mb-10">
+          <View className="w-48 h-48 rounded-3xl items-center justify-center overflow-hidden mb-2">
+            <Image
+              source={
+                isDark
+                  ? require('../../assets/logo-treino-pesado.png')
+                  : require('../../assets/logo-treino-pesado-branco.png')
+              }
+              className="w-full h-full"
+              resizeMode="contain"
+            />
+          </View>
+          <Text className="text-sm text-[#71717a] dark:text-zinc-400 text-center font-medium tracking-wide">
+            Entre para continuar a sua evolução
+          </Text>
+        </View>
+
+        {/* Formulário */}
+        <View className="space-y-4">
+          {/* Campo E-mail */}
+          <View className="mb-3">
+            <Text className="text-xs font-bold uppercase tracking-wider text-[#71717a] dark:text-zinc-400 mb-2 ml-1">
+              E-mail
+            </Text>
+            <View className="flex-row items-center bg-[#f8f9fa] dark:bg-zinc-900 rounded-2xl px-4 py-3.5 border border-[#e2dfe1] dark:border-zinc-800">
+              <EnvelopeSimple size={20} color={isDark ? '#59C83A' : '#414755'} />
+              <TextInput
+                className="flex-1 ml-3 text-[#1b1b1d] dark:text-white text-base font-medium"
+                placeholder="seu.email@exemplo.com"
+                placeholderTextColor={isDark ? '#71717a' : '#a09da1'}
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+            </View>
+          </View>
+
+          {/* Campo Senha */}
+          <View className="mb-3">
+            <Text className="text-xs font-bold uppercase tracking-wider text-[#71717a] dark:text-zinc-400 mb-2 ml-1">
+              Senha
+            </Text>
+            <View className="flex-row items-center bg-[#f8f9fa] dark:bg-zinc-900 rounded-2xl px-4 py-3.5 border border-[#e2dfe1] dark:border-zinc-800">
+              <LockSimple size={20} color={isDark ? '#59C83A' : '#414755'} />
+              <TextInput
+                className="flex-1 ml-3 text-[#1b1b1d] dark:text-white text-base font-medium"
+                placeholder="Sua senha secreta"
+                placeholderTextColor={isDark ? '#71717a' : '#a09da1'}
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!showPassword}
+              />
+              <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                {showPassword ? (
+                  <EyeSlash size={20} color={isDark ? '#59C83A' : '#414755'} />
+                ) : (
+                  <Eye size={20} color={isDark ? '#59C83A' : '#414755'} />
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Botão Entrar */}
+          <TouchableOpacity
+            onPress={handleLogin}
+            disabled={loading}
+            style={{ backgroundColor: '#59C83A' }}
+            className="py-4 rounded-2xl items-center mt-4 shadow-md active:opacity-90"
+            activeOpacity={0.8}
+          >
+            {loading ? (
+              <ActivityIndicator color="#ffffff" />
+            ) : (
+              <Text className="text-white font-extrabold text-lg tracking-wide">
+                Entrar
+              </Text>
+            )}
+          </TouchableOpacity>
+
+          {/* Link Cadastro */}
+          <TouchableOpacity
+            onPress={() => router.push('/(auth)/register')}
+            className="items-center py-4 mt-3"
+          >
+            <Text className="text-sm text-[#71717a] dark:text-zinc-400">
+              Não tem uma conta?{' '}
+              <Text style={{ color: '#59C83A' }} className="font-bold">
+                Cadastre-se
+              </Text>
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
+  );
+}
 </file>
 
 <file path="app/(auth)/register.tsx">
@@ -3096,214 +4302,6 @@ export default function RegisterScreen() {
               Já possui uma conta?{' '}
               <Text style={{ color: '#59C83A' }} className="font-bold">
                 Faça Login
-              </Text>
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
-  );
-}
-</file>
-
-<file path="package.json">
-{
-  "name": "treino-pesado",
-  "version": "1.0.0",
-  "main": "expo-router/entry",
-  "scripts": {
-    "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
-    "web": "expo start --web"
-  },
-  "dependencies": {
-    "@expo/vector-icons": "^15.0.3",
-    "@react-native-async-storage/async-storage": "2.2.0",
-    "@supabase/supabase-js": "^2.112.2",
-    "babel-preset-expo": "~54.0.10",
-    "expo": "~54.0.35",
-    "expo-constants": "~18.0.13",
-    "expo-keep-awake": "~15.0.8",
-    "expo-linking": "~8.0.12",
-    "expo-router": "~6.0.24",
-    "expo-status-bar": "~3.0.9",
-    "nativewind": "^4.2.6",
-    "phosphor-react-native": "^3.0.6",
-    "react": "19.1.0",
-    "react-native": "0.81.5",
-    "react-native-reanimated": "~4.1.1",
-    "react-native-safe-area-context": "~5.6.0",
-    "react-native-screens": "~4.16.0",
-    "react-native-svg": "15.12.1",
-    "react-native-worklets": "0.5.1",
-    "tailwindcss": "^3.4.19"
-  },
-  "devDependencies": {
-    "@types/react": "~19.1.0",
-    "typescript": "~5.9.2"
-  },
-  "private": true
-}
-</file>
-
-<file path="app/(auth)/login.tsx">
-import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  ActivityIndicator,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  useColorScheme,
-  Image,
-} from 'react-native';
-import { useRouter } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { EnvelopeSimple, LockSimple, Eye, EyeSlash } from 'phosphor-react-native';
-import { supabase } from '../../lib/supabase';
-
-export default function LoginScreen() {
-  const router = useRouter();
-  const insets = useSafeAreaInsets();
-
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-
-  const [email, setEmail] = useState<string>('');
-  const [password, setPassword] = useState<string>('');
-  const [loading, setLoading] = useState<boolean>(false);
-  const [showPassword, setShowPassword] = useState<boolean>(false);
-
-  async function handleLogin() {
-    if (!email.trim() || !password.trim()) {
-      Alert.alert('Campos obrigatórios', 'Por favor, preencha o e-mail e a senha.');
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
-        password: password,
-      });
-
-      if (error) {
-        Alert.alert('Erro ao entrar', 'E-mail ou senha incorretos.');
-      }
-    } catch (err) {
-      Alert.alert('Erro', 'Ocorreu um erro inesperado ao conectar.');
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  return (
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      <ScrollView
-        contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}
-        className="bg-white dark:bg-zinc-950 px-6 py-8"
-        style={{ paddingTop: insets.top, paddingBottom: insets.bottom }}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Cabeçalho Visual */}
-        <View className="items-center mb-10">
-          <View className="w-48 h-48 rounded-3xl items-center justify-center overflow-hidden mb-2">
-            <Image
-              source={
-                isDark
-                  ? require('../../assets/logo-treino-pesado.png')
-                  : require('../../assets/logo-treino-pesado-branco.png')
-              }
-              className="w-full h-full"
-              resizeMode="contain"
-            />
-          </View>
-          <Text className="text-sm text-[#71717a] dark:text-zinc-400 text-center font-medium tracking-wide">
-            Entre para continuar a sua evolução
-          </Text>
-        </View>
-
-        {/* Formulário */}
-        <View className="space-y-4">
-          {/* Campo E-mail */}
-          <View className="mb-3">
-            <Text className="text-xs font-bold uppercase tracking-wider text-[#71717a] dark:text-zinc-400 mb-2 ml-1">
-              E-mail
-            </Text>
-            <View className="flex-row items-center bg-[#f8f9fa] dark:bg-zinc-900 rounded-2xl px-4 py-3.5 border border-[#e2dfe1] dark:border-zinc-800">
-              <EnvelopeSimple size={20} color={isDark ? '#59C83A' : '#414755'} />
-              <TextInput
-                className="flex-1 ml-3 text-[#1b1b1d] dark:text-white text-base font-medium"
-                placeholder="seu.email@exemplo.com"
-                placeholderTextColor={isDark ? '#71717a' : '#a09da1'}
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-              />
-            </View>
-          </View>
-
-          {/* Campo Senha */}
-          <View className="mb-3">
-            <Text className="text-xs font-bold uppercase tracking-wider text-[#71717a] dark:text-zinc-400 mb-2 ml-1">
-              Senha
-            </Text>
-            <View className="flex-row items-center bg-[#f8f9fa] dark:bg-zinc-900 rounded-2xl px-4 py-3.5 border border-[#e2dfe1] dark:border-zinc-800">
-              <LockSimple size={20} color={isDark ? '#59C83A' : '#414755'} />
-              <TextInput
-                className="flex-1 ml-3 text-[#1b1b1d] dark:text-white text-base font-medium"
-                placeholder="Sua senha secreta"
-                placeholderTextColor={isDark ? '#71717a' : '#a09da1'}
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry={!showPassword}
-              />
-              <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                {showPassword ? (
-                  <EyeSlash size={20} color={isDark ? '#59C83A' : '#414755'} />
-                ) : (
-                  <Eye size={20} color={isDark ? '#59C83A' : '#414755'} />
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* Botão Entrar */}
-          <TouchableOpacity
-            onPress={handleLogin}
-            disabled={loading}
-            style={{ backgroundColor: '#59C83A' }}
-            className="py-4 rounded-2xl items-center mt-4 shadow-md active:opacity-90"
-            activeOpacity={0.8}
-          >
-            {loading ? (
-              <ActivityIndicator color="#ffffff" />
-            ) : (
-              <Text className="text-white font-extrabold text-lg tracking-wide">
-                Entrar
-              </Text>
-            )}
-          </TouchableOpacity>
-
-          {/* Link Cadastro */}
-          <TouchableOpacity
-            onPress={() => router.push('/(auth)/register')}
-            className="items-center py-4 mt-3"
-          >
-            <Text className="text-sm text-[#71717a] dark:text-zinc-400">
-              Não tem uma conta?{' '}
-              <Text style={{ color: '#59C83A' }} className="font-bold">
-                Cadastre-se
               </Text>
             </Text>
           </TouchableOpacity>
