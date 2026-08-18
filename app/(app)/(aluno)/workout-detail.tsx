@@ -21,12 +21,9 @@ import {
 } from 'phosphor-react-native';
 import { supabase } from '../../../lib/supabase';
 
-/**
- * Estrutura de dados de um exercício da ficha prescrita
- */
 interface PlanExercise {
   id: string;
-  exercise_id: string; // ID original do exercício na biblioteca (para abrir o GIF)
+  exercise_id: string;
   name: string;
   sets: string;
   reps: string;
@@ -34,9 +31,6 @@ interface PlanExercise {
   order_index: number;
 }
 
-/**
- * Estrutura de dados do plano de treino do Personal
- */
 interface WorkoutPlanDetail {
   id: string;
   name: string;
@@ -52,16 +46,12 @@ export default function StudentWorkoutDetailScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
-  // Captura o ID da ficha passado via parâmetro de navegação
   const { id } = useLocalSearchParams<{ id?: string }>();
 
   const [workoutPlan, setWorkoutPlan] = useState<WorkoutPlanDetail | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  /**
-   * Busca no Supabase os detalhes da ficha e seus exercícios com o exercise_id
-   */
   const fetchWorkoutPlanDetail = useCallback(async () => {
     if (!id) {
       setErrorMessage('Identificador do treino não encontrado.');
@@ -73,7 +63,6 @@ export default function StudentWorkoutDetailScreen() {
       setLoading(true);
       setErrorMessage(null);
 
-      // Inclui a coluna exercise_id para podermos navegar até a tela do GIF
       const { data, error } = await supabase
         .from('workout_plans')
         .select(`
@@ -99,7 +88,6 @@ export default function StudentWorkoutDetailScreen() {
         console.error('Erro ao buscar detalhes da ficha:', error.message);
         setErrorMessage('Não foi possível carregar os detalhes desta ficha.');
       } else if (data) {
-        // Ordena os exercícios pelo order_index
         const sortedExercises = (data.plan_exercises || []).sort(
           (a: PlanExercise, b: PlanExercise) => a.order_index - b.order_index
         );
@@ -170,7 +158,7 @@ export default function StudentWorkoutDetailScreen() {
       ) : (
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
           {/* CARTÃO RESUMO DA FICHA */}
-          <View className="bg-[#f8f9fa] dark:bg-zinc-900 p-5 rounded-3xl border border-[#e2dfe1] dark:border-zinc-800 mb-6">
+          <View className="bg-[#f8f9fa] dark:bg-zinc-900 p-5 rounded-3xl border border-[#e2dfe1] dark:border-zinc-800 mb-4">
             <View className="flex-row items-center justify-between mb-3">
               <View className="bg-[#59C83A]/10 px-3 py-1 rounded-full border border-[#59C83A]/30 flex-row items-center">
                 <UserCheck size={14} color="#59C83A" weight="bold" />
@@ -216,6 +204,23 @@ export default function StudentWorkoutDetailScreen() {
             </View>
           </View>
 
+          {/* BOTÃO DE INICIAR O TREINO EM TEMPO REAL */}
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() =>
+              router.push({
+                pathname: '/(aluno)/execute-workout',
+                params: { id: workoutPlan.id, type: 'personal' },
+              })
+            }
+            className="bg-[#59C83A] p-4 rounded-2xl flex-row items-center justify-center mb-6 shadow-sm"
+          >
+            <PlayCircle size={24} color="#FFFFFF" weight="bold" />
+            <Text className="text-white font-extrabold text-base ml-2">
+              Iniciar Treino Agora
+            </Text>
+          </TouchableOpacity>
+
           {/* LISTA DE EXERCÍCIOS */}
           <Text className="text-base font-extrabold text-[#1b1b1d] dark:text-white mb-1">
             Exercícios Prescritos
@@ -238,7 +243,6 @@ export default function StudentWorkoutDetailScreen() {
                 activeOpacity={0.7}
                 onPress={() => {
                   if (exercise.exercise_id) {
-                    // Redireciona para a tela do exercício para ver o GIF
                     router.push(`/(aluno)/exercise/${exercise.exercise_id}`);
                   }
                 }}
@@ -249,7 +253,6 @@ export default function StudentWorkoutDetailScreen() {
                     {index + 1}. {exercise.name}
                   </Text>
 
-                  {/* Badges de Séries e Repetições */}
                   <View className="bg-[#59C83A] px-3 py-1 rounded-lg">
                     <Text className="text-xs font-black text-white">
                       {exercise.sets}x {exercise.reps}
@@ -266,7 +269,6 @@ export default function StudentWorkoutDetailScreen() {
                   </View>
                 ) : null}
 
-                {/* BOTÃO PARA VER A EXECUÇÃO EM GIF */}
                 <View className="flex-row items-center justify-between pt-2.5 border-t border-[#e2dfe1] dark:border-zinc-800/80 mt-1">
                   <View className="flex-row items-center">
                     <PlayCircle size={16} color="#59C83A" weight="bold" />
