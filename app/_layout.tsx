@@ -1,20 +1,24 @@
 // 1. PRIMEIRO: Importamos o SafeAreaProvider
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-// 2. SEGUNDO: Aplicamos a correção ANTES de o NativeWind carregar
+// 2. SEGUNDO: Correção de displayName para NativeWind
 if (SafeAreaProvider) {
   (SafeAreaProvider as any).displayName = 'SafeAreaProvider';
 }
 
-// 3. TERCEIRO: Carregamos o CSS do NativeWind com segurança
+// 3. TERCEIRO: CSS Global
 import '../global.css';
 
-// 4. QUARTO: Importamos o resto do React e do Expo
+// 4. QUARTO: Importações do React, Expo Router e Supabase
 import React, { useEffect, useState } from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { supabase } from '../lib/supabase';
 
+/**
+ * Layout Raiz do Aplicativo
+ * Gerencia o estado de sessão (logado / deslogado) e redireciona entre (auth) e (app)
+ */
 export default function RootLayout() {
   const [session, setSession] = useState<any>(null);
   const [isReady, setIsReady] = useState<boolean>(false);
@@ -23,11 +27,13 @@ export default function RootLayout() {
   const router = useRouter();
 
   useEffect(() => {
+    // 1. Obtém a sessão atual salva no dispositivo
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setIsReady(true);
     });
 
+    // 2. Escuta alterações de login e logout em tempo real
     const { data: authListener } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         setSession(session);
@@ -40,14 +46,17 @@ export default function RootLayout() {
     };
   }, []);
 
+  // 3. Controla a proteção global de rotas
   useEffect(() => {
     if (!isReady) return;
 
-    const inAuthGroup = segments[0] === '(app)';
+    const inAppGroup = segments[0] === '(app)';
 
-    if (session && !inAuthGroup) {
+    if (session && !inAppGroup) {
+      // Usuário logado tentando acessar telas externas -> envia para o app
       router.replace('/(app)');
-    } else if (!session && inAuthGroup) {
+    } else if (!session && inAppGroup) {
+      // Usuário deslogado dentro do app -> envia para a tela de login
       router.replace('/(auth)/login');
     }
   }, [session, isReady, segments]);
@@ -62,10 +71,11 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
-      {/* Declarar explicitamente as rotas remove os avisos "No route named (app)/(auth)" */}
+      {/* Mapeamento explícito de todas as pastas no nível raiz de app/ */}
       <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="(app)" />
+        <Stack.Screen name="index" />
         <Stack.Screen name="(auth)" />
+        <Stack.Screen name="(app)" />
       </Stack>
     </SafeAreaProvider>
   );

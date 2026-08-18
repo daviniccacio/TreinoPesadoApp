@@ -131,7 +131,7 @@ export default function PersonalProfileScreen() {
   );
 
   /**
-   * Finaliza a sessão do usuário no Supabase e redireciona para o login
+   * Finaliza a sessão do usuário no Supabase e redireciona para a tela inicial
    */
   async function handleSignOut() {
     Alert.alert('Sair da Conta', 'Deseja realmente encerrar a sua sessão?', [
@@ -141,13 +141,23 @@ export default function PersonalProfileScreen() {
         style: 'destructive',
         onPress: async () => {
           try {
+            setLoading(true);
+
+            // 1. Encerra a sessão no Supabase
             const { error } = await supabase.auth.signOut();
+
             if (error) {
               Alert.alert('Erro ao sair', error.message);
+              setLoading(false);
+              return;
             }
+
+            // 2. Redireciona imediatamente para a tela de login (raiz '/')
+            router.replace('/');
           } catch (err) {
             console.error('Erro ao processar logout:', err);
             Alert.alert('Erro', 'Não foi possível encerrar a sessão.');
+            setLoading(false);
           }
         },
       },
@@ -178,14 +188,6 @@ export default function PersonalProfileScreen() {
           <Text className="text-sm text-[#414755] dark:text-zinc-400 mt-1 font-medium">
             {profile.email}
           </Text>
-          {profile.birthDate ? (
-            <View className="flex-row items-center mt-2 bg-[#f8f9fa] dark:bg-zinc-800 px-3 py-1 rounded-full border border-[#e2dfe1] dark:border-zinc-700">
-              <CalendarBlank size={14} color={isDark ? '#a1a1aa' : '#414755'} />
-              <Text className="text-xs text-[#414755] dark:text-zinc-400 ml-1 font-medium">
-                Nascimento: {profile.birthDate}
-              </Text>
-            </View>
-          ) : null}
         </View>
 
         {/* RESUMO DE ATIVIDADES (MÉTRICAS DO PERSONAL) */}
@@ -201,7 +203,7 @@ export default function PersonalProfileScreen() {
           <View className="flex-row justify-between gap-3 mb-6">
             {/* Cartão 1: Treinos Prescritos */}
             <TouchableOpacity
-              onPress={() => router.push('/(personal)')} // Redireciona para a lista de alunos
+              onPress={() => router.push('/(personal)')}
               className="flex-1 bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl items-center border border-[#e2dfe1] dark:border-zinc-800"
               activeOpacity={0.8}
             >
@@ -216,7 +218,7 @@ export default function PersonalProfileScreen() {
 
             {/* Cartão 2: Modelos na Biblioteca */}
             <TouchableOpacity
-              onPress={() => router.push('/(personal)/routines')} // Redireciona para a biblioteca
+              onPress={() => router.push('/(personal)/routines')}
               className="flex-1 bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl items-center border border-[#e2dfe1] dark:border-zinc-800"
               activeOpacity={0.8}
             >
@@ -239,18 +241,16 @@ export default function PersonalProfileScreen() {
         <View className="bg-[#f8f9fa] dark:bg-zinc-900 rounded-2xl p-2 mb-6 border border-[#e2dfe1] dark:border-zinc-800 flex-row">
           <TouchableOpacity
             onPress={() => handleThemeChange('light')}
-            className={`flex-1 py-3 rounded-xl flex-row items-center justify-center gap-1.5 ${
-              themeMode === 'light'
+            className={`flex-1 py-3 rounded-xl flex-row items-center justify-center gap-1.5 ${themeMode === 'light'
                 ? 'bg-white dark:bg-zinc-800 border border-[#e2dfe1] dark:border-zinc-700'
                 : 'bg-transparent'
-            }`}
+              }`}
           >
             <Sun size={16} color={themeMode === 'light' ? '#59C83A' : '#9ca3af'} />
             <Text
               style={themeMode === 'light' ? { color: '#59C83A' } : undefined}
-              className={`font-bold text-xs ${
-                themeMode !== 'light' ? 'text-[#414755] dark:text-zinc-300' : ''
-              }`}
+              className={`font-bold text-xs ${themeMode !== 'light' ? 'text-[#414755] dark:text-zinc-300' : ''
+                }`}
             >
               Claro
             </Text>
@@ -258,18 +258,16 @@ export default function PersonalProfileScreen() {
 
           <TouchableOpacity
             onPress={() => handleThemeChange('dark')}
-            className={`flex-1 py-3 rounded-xl flex-row items-center justify-center gap-1.5 ${
-              themeMode === 'dark'
+            className={`flex-1 py-3 rounded-xl flex-row items-center justify-center gap-1.5 ${themeMode === 'dark'
                 ? 'bg-white dark:bg-zinc-800 border border-[#e2dfe1] dark:border-zinc-700'
                 : 'bg-transparent'
-            }`}
+              }`}
           >
             <Moon size={16} color={themeMode === 'dark' ? '#59C83A' : '#9ca3af'} />
             <Text
               style={themeMode === 'dark' ? { color: '#59C83A' } : undefined}
-              className={`font-bold text-xs ${
-                themeMode !== 'dark' ? 'text-[#414755] dark:text-zinc-300' : ''
-              }`}
+              className={`font-bold text-xs ${themeMode !== 'dark' ? 'text-[#414755] dark:text-zinc-300' : ''
+                }`}
             >
               Escuro
             </Text>
@@ -277,18 +275,16 @@ export default function PersonalProfileScreen() {
 
           <TouchableOpacity
             onPress={() => handleThemeChange('system')}
-            className={`flex-1 py-3 rounded-xl flex-row items-center justify-center gap-1.5 ${
-              themeMode === 'system'
+            className={`flex-1 py-3 rounded-xl flex-row items-center justify-center gap-1.5 ${themeMode === 'system'
                 ? 'bg-white dark:bg-zinc-800 border border-[#e2dfe1] dark:border-zinc-700'
                 : 'bg-transparent'
-            }`}
+              }`}
           >
             <Desktop size={16} color={themeMode === 'system' ? '#59C83A' : '#9ca3af'} />
             <Text
               style={themeMode === 'system' ? { color: '#59C83A' } : undefined}
-              className={`font-bold text-xs ${
-                themeMode !== 'system' ? 'text-[#414755] dark:text-zinc-300' : ''
-              }`}
+              className={`font-bold text-xs ${themeMode !== 'system' ? 'text-[#414755] dark:text-zinc-300' : ''
+                }`}
             >
               Sistema
             </Text>
