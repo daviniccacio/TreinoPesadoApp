@@ -2,10 +2,17 @@ import React from 'react';
 import { useColorScheme } from 'react-native';
 import { Tabs } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { House, Barbell, User } from 'phosphor-react-native';
+import {
+  House,
+  Barbell,
+  ClockCounterClockwise,
+  User,
+} from 'phosphor-react-native';
 
 /**
- * Layout de Abas Inferiores atualizado (Sem a aba de Favoritos)
+ * Layout de Abas Inferiores do Aluno
+ * Exibe as abas principais (Início, Meus Treinos, Histórico, Perfil)
+ * e oculta telas de navegação secundária (Execução, Detalhes, etc.).
  */
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();
@@ -33,11 +40,11 @@ export default function TabsLayout() {
         },
       }}
     >
-      {/* 1. Aba Início / Treinos */}
+      {/* 1. Aba Início / Página Principal */}
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Página Principal',
+          title: 'Início',
           tabBarIcon: ({ color, size, focused }) => (
             <House
               size={size}
@@ -63,7 +70,22 @@ export default function TabsLayout() {
         }}
       />
 
-      {/* 3. Aba Perfil */}
+      {/* 3. Aba Histórico (Nova Aba Visível) */}
+      <Tabs.Screen
+        name="history"
+        options={{
+          title: 'Histórico',
+          tabBarIcon: ({ color, size, focused }) => (
+            <ClockCounterClockwise
+              size={size}
+              color={color}
+              weight={focused ? 'fill' : 'regular'}
+            />
+          ),
+        }}
+      />
+
+      {/* 4. Aba Perfil */}
       <Tabs.Screen
         name="profile"
         options={{
@@ -78,11 +100,13 @@ export default function TabsLayout() {
         }}
       />
 
-      {/* Rotas ocultas da barra inferior */}
+      {/* ROTAS OCULTAS DA BARRA INFERIOR (Acessíveis via navegação/push) */}
       <Tabs.Screen name="category/[id]" options={{ href: null }} />
       <Tabs.Screen name="exercise/[id]" options={{ href: null }} />
       <Tabs.Screen name="custom-workout/[id]" options={{ href: null }} />
       <Tabs.Screen name="create-workout" options={{ href: null }} />
+      <Tabs.Screen name="workout-detail" options={{ href: null }} />
+      <Tabs.Screen name="execute-workout" options={{ href: null }} />
     </Tabs>
   );
 }
