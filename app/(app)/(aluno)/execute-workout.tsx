@@ -305,7 +305,7 @@ export default function ExecuteWorkoutScreen() {
 
       const { error } = await supabase.from('workout_logs').insert({
         student_id: user.id,
-        workout_name: workoutName,
+        workout_title: workoutName,
         duration_seconds: elapsedSeconds,
       });
 
