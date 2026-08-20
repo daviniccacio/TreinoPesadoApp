@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -6,11 +6,11 @@ import {
   TouchableOpacity,
   Image,
   ActivityIndicator,
-} from 'react-native';
-import { useRouter, useFocusEffect } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Heart, Plus, CaretRight } from 'phosphor-react-native';
-import { supabase } from '../../../lib/supabase';
+} from "react-native";
+import { useRouter, useFocusEffect } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Heart, Plus, CaretRight } from "phosphor-react-native";
+import { supabase } from "../../../lib/supabase";
 
 interface Category {
   id: string;
@@ -34,18 +34,22 @@ export default function HomeScreen() {
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [customWorkouts, setCustomWorkouts] = useState<CustomWorkout[]>([]);
-  const [userName, setUserName] = useState<string>('Atleta');
+  const [userName, setUserName] = useState<string>("Atleta");
   const [loading, setLoading] = useState<boolean>(true);
 
   useFocusEffect(
     useCallback(() => {
       loadAllData();
-    }, [])
+    }, []),
   );
 
   async function loadAllData() {
     setLoading(true);
-    await Promise.all([fetchUserData(), fetchCategories(), fetchCustomWorkouts()]);
+    await Promise.all([
+      fetchUserData(),
+      fetchCategories(),
+      fetchCustomWorkouts(),
+    ]);
     setLoading(false);
   }
 
@@ -57,24 +61,24 @@ export default function HomeScreen() {
 
       if (user) {
         const metadata = user.user_metadata || {};
-        const firstName = metadata.first_name || '';
+        const firstName = metadata.first_name || "";
         if (firstName.trim()) {
           setUserName(firstName.trim());
         } else {
-          setUserName('Atleta');
+          setUserName("Atleta");
         }
       }
     } catch (err) {
-      console.error('Erro ao buscar dados do usuário:', err);
+      console.error("Erro ao buscar dados do usuário:", err);
     }
   }
 
   async function fetchCategories() {
     try {
-      const { data, error } = await supabase.from('categories').select('*');
+      const { data, error } = await supabase.from("categories").select("*");
       if (!error && data) setCategories(data);
     } catch (err) {
-      console.error('Erro ao buscar categorias:', err);
+      console.error("Erro ao buscar categorias:", err);
     }
   }
 
@@ -86,31 +90,36 @@ export default function HomeScreen() {
       if (!user) return;
 
       const { data, error } = await supabase
-        .from('custom_workouts')
-        .select(`
+        .from("custom_workouts")
+        .select(
+          `
           id,
           title,
           created_at,
           custom_workout_exercises (id)
-        `)
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
+        `,
+        )
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
 
       if (!error && data) {
         setCustomWorkouts(data as unknown as CustomWorkout[]);
       }
     } catch (err) {
-      console.error('Erro ao buscar treinos customizados:', err);
+      console.error("Erro ao buscar treinos customizados:", err);
     }
   }
 
   return (
-    <View className="flex-1 bg-white dark:bg-zinc-950" style={{ paddingTop: insets.top }}>
+    <View
+      className="flex-1 bg-white dark:bg-zinc-950"
+      style={{ paddingTop: insets.top }}
+    >
       {/* Cabeçalho Superior */}
       <View className="px-5 py-4 border-b border-[#f0edef] dark:border-zinc-800 flex-row justify-between items-center">
         <View>
           <Text className="text-2xl font-extrabold text-[#1b1b1d] dark:text-white">
-            Treino Pesado
+            Treino Pesado Academia
           </Text>
           <Text className="text-sm font-semibold text-[#414755] dark:text-zinc-400 mt-0.5">
             Bem-vindo, {userName}!
@@ -127,11 +136,14 @@ export default function HomeScreen() {
           </Text>
         </View>
       ) : (
-        <ScrollView className="flex-1 px-5 pt-4" showsVerticalScrollIndicator={false}>
+        <ScrollView
+          className="flex-1 px-5 pt-4"
+          showsVerticalScrollIndicator={false}
+        >
           {/* Botão Principal: Montar Meu Treino */}
           <TouchableOpacity
-            onPress={() => router.push('/create-workout')}
-            style={{ backgroundColor: '#59C83A' }}
+            onPress={() => router.push("/create-workout")}
+            style={{ backgroundColor: "#59C83A" }}
             className="p-4 rounded-2xl flex-row items-center justify-between mb-6 shadow-sm active:opacity-90"
             activeOpacity={0.8}
           >
@@ -169,10 +181,11 @@ export default function HomeScreen() {
                       {workout.title}
                     </Text>
                     <Text
-                      style={{ color: '#59C83A' }}
+                      style={{ color: "#59C83A" }}
                       className="text-xs font-extrabold"
                     >
-                      {workout.custom_workout_exercises?.length || 0} exercícios cadastrados
+                      {workout.custom_workout_exercises?.length || 0} exercícios
+                      cadastrados
                     </Text>
                   </View>
                   <View className="w-9 h-9 rounded-full bg-white dark:bg-zinc-800 items-center justify-center border border-[#e0dddf] dark:border-zinc-700">

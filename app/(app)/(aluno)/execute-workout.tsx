@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View,
   Text,
@@ -8,10 +8,10 @@ import {
   Alert,
   Modal,
   useColorScheme,
-} from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Image } from 'expo-image';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+} from "react-native";
+import { useLocalSearchParams, useRouter, useFocusEffect } from "expo-router";
+import { Image } from "expo-image";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   Check,
   CheckCircle,
@@ -20,8 +20,10 @@ import {
   PlayCircle,
   X,
   Barbell,
-} from 'phosphor-react-native';
-import { supabase } from '../../../lib/supabase';
+  Pause,
+  Play,
+} from "phosphor-react-native";
+import { supabase } from "../../../lib/supabase";
 
 interface ExerciseItem {
   id: string;
@@ -42,18 +44,19 @@ export default function ExecuteWorkoutScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const isDark = colorScheme === "dark";
 
   const { id, type } = useLocalSearchParams<{ id?: string; type?: string }>();
 
   // --- ESTADOS DE DADOS DO TREINO ---
-  const [workoutName, setWorkoutName] = useState<string>('Treino');
+  const [workoutName, setWorkoutName] = useState<string>("Treino");
   const [exercises, setExercises] = useState<ExerciseItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [saving, setSaving] = useState<boolean>(false);
 
   // --- CRONÔMETRO PRINCIPAL DO TREINO ---
   const [elapsedSeconds, setElapsedSeconds] = useState<number>(0);
+  const [isTimerPaused, setIsTimerPaused] = useState<boolean>(false);
 
   // --- CONTROLE DE SÉRIES CONCLUÍDAS ---
   const [completedSets, setCompletedSets] = useState<Set<string>>(new Set());
@@ -66,27 +69,66 @@ export default function ExecuteWorkoutScreen() {
   // --- MODAL DE DEMONSTRAÇÃO DO GIF DO EXERCÍCIO ---
   const [demoModalVisible, setDemoModalVisible] = useState<boolean>(false);
   const [loadingDemo, setLoadingDemo] = useState<boolean>(false);
-  const [demoExercise, setDemoExercise] = useState<DemoExerciseData | null>(null);
+  const [demoExercise, setDemoExercise] = useState<DemoExerciseData | null>(
+    null,
+  );
 
-  // Timers
+  // Referências dos intervalos
   const workoutTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const restTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // 1. Inicia o Cronômetro Geral do Treino
-  useEffect(() => {
-    fetchWorkoutData();
+  /**
+   * Zera completamente o temporizador e limpa todos os cronômetros e estados do treino
+   */
+  const resetWorkoutState = useCallback(() => {
+    if (workoutTimerRef.current) {
+      clearInterval(workoutTimerRef.current);
+      workoutTimerRef.current = null;
+    }
+    if (restTimerRef.current) {
+      clearInterval(restTimerRef.current);
+      restTimerRef.current = null;
+    }
+    setElapsedSeconds(0);
+    setIsTimerPaused(false);
+    setCompletedSets(new Set());
+    setIsResting(false);
+    setRestSecondsLeft(DEFAULT_REST_TIME);
+  }, []);
 
-    workoutTimerRef.current = setInterval(() => {
-      setElapsedSeconds((prev) => prev + 1);
-    }, 1000);
+  // Recarrega os dados e ZERA o temporizador sempre que a tela entra em foco
+  useFocusEffect(
+    useCallback(() => {
+      resetWorkoutState();
+      fetchWorkoutData();
+
+      return () => {
+        resetWorkoutState();
+      };
+    }, [id, type, resetWorkoutState]),
+  );
+
+  // Cronômetro Geral do Treino
+  useEffect(() => {
+    if (!loading && !isTimerPaused) {
+      workoutTimerRef.current = setInterval(() => {
+        setElapsedSeconds((prev) => prev + 1);
+      }, 1000);
+    } else {
+      if (workoutTimerRef.current) {
+        clearInterval(workoutTimerRef.current);
+        workoutTimerRef.current = null;
+      }
+    }
 
     return () => {
-      if (workoutTimerRef.current) clearInterval(workoutTimerRef.current);
-      if (restTimerRef.current) clearInterval(restTimerRef.current);
+      if (workoutTimerRef.current) {
+        clearInterval(workoutTimerRef.current);
+      }
     };
-  }, [id, type]);
+  }, [loading, isTimerPaused]);
 
-  // 2. Timer de Descanso
+  // Timer de Descanso entre séries
   useEffect(() => {
     if (isResting && restSecondsLeft > 0) {
       restTimerRef.current = setInterval(() => {
@@ -103,27 +145,26 @@ export default function ExecuteWorkoutScreen() {
   }, [isResting, restSecondsLeft]);
 
   /**
-   * Função Utilitária: Converte o valor de gif_url numa URL https:// válida
+   * Converte o valor de gif_url numa URL https:// válida
    */
   function formatGifUrl(rawUrl: string | null | undefined): string | null {
-    if (!rawUrl || typeof rawUrl !== 'string') return null;
+    if (!rawUrl || typeof rawUrl !== "string") return null;
 
     const trimmed = rawUrl.trim();
     if (!trimmed) return null;
 
-    // Se já for uma URL completa com protocolo http:// ou https://
-    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
       return trimmed;
     }
 
-    // Caso seja apenas o nome do arquivo (ex: "crossover-polia-baixa"),
-    // busca a URL pública no bucket do Supabase Storage chamado 'exercises' (ou 'exercicios')
     try {
-      const fileName = trimmed.endsWith('.gif') ? trimmed : `${trimmed}.gif`;
-      const { data } = supabase.storage.from('exercises').getPublicUrl(fileName);
+      const fileName = trimmed.endsWith(".gif") ? trimmed : `${trimmed}.gif`;
+      const { data } = supabase.storage
+        .from("exercises")
+        .getPublicUrl(fileName);
       return data?.publicUrl || null;
     } catch (e) {
-      console.error('Erro ao formatar URL do Storage:', e);
+      console.error("Erro ao formatar URL do Storage:", e);
       return null;
     }
   }
@@ -139,10 +180,11 @@ export default function ExecuteWorkoutScreen() {
     try {
       setLoading(true);
 
-      if (type === 'custom') {
+      if (type === "custom") {
         const { data } = await supabase
-          .from('custom_workouts')
-          .select(`
+          .from("custom_workouts")
+          .select(
+            `
             title,
             custom_workout_exercises (
               id,
@@ -152,16 +194,19 @@ export default function ExecuteWorkoutScreen() {
               weight,
               exercises ( name )
             )
-          `)
-          .eq('id', id)
+          `,
+          )
+          .eq("id", id)
           .single();
 
         if (data) {
           setWorkoutName(data.title);
-          const formatted: ExerciseItem[] = (data.custom_workout_exercises || []).map((item: any) => ({
+          const formatted: ExerciseItem[] = (
+            data.custom_workout_exercises || []
+          ).map((item: any) => ({
             id: item.id,
             exercise_id: item.exercise_id,
-            name: item.exercises?.name || 'Exercício',
+            name: item.exercises?.name || "Exercício",
             sets: String(item.sets || 3),
             reps: String(item.reps || 10),
             notes: item.weight ? `Carga: ${item.weight}` : null,
@@ -170,8 +215,9 @@ export default function ExecuteWorkoutScreen() {
         }
       } else {
         const { data } = await supabase
-          .from('workout_plans')
-          .select(`
+          .from("workout_plans")
+          .select(
+            `
             name,
             plan_exercises (
               id,
@@ -182,52 +228,78 @@ export default function ExecuteWorkoutScreen() {
               notes,
               order_index
             )
-          `)
-          .eq('id', id)
+          `,
+          )
+          .eq("id", id)
           .single();
 
         if (data) {
           setWorkoutName(data.name);
-          const sorted = (data.plan_exercises || []).sort((a: any, b: any) => a.order_index - b.order_index);
+          const sorted = (data.plan_exercises || []).sort(
+            (a: any, b: any) => a.order_index - b.order_index,
+          );
           setExercises(sorted);
         }
       }
     } catch (err) {
-      console.error('Erro ao carregar treino:', err);
+      console.error("Erro ao carregar treino:", err);
     } finally {
       setLoading(false);
     }
   }
 
   /**
-   * Busca os detalhes do exercício no Supabase e formata a URL do GIF
+   * Trata a confirmação de saída do treino. Ao selecionar "Sair sem Salvar", zera o temporizador imediatamente.
    */
-  async function handleOpenExerciseDemo(exerciseId: string, fallbackName: string) {
+  function handleExitWorkout() {
+    Alert.alert(
+      "Sair do Treino",
+      "Deseja cancelar o treino em andamento? O tempo e progresso atual não serão salvos.",
+      [
+        {
+          text: "Continuar Treinando",
+          style: "cancel",
+        },
+        {
+          text: "Sair sem Salvar",
+          style: "destructive",
+          onPress: () => {
+            // Zera o temporizador e limpa o progresso antes de sair
+            resetWorkoutState();
+            router.back();
+          },
+        },
+      ],
+    );
+  }
+
+  /**
+   * Busca os detalhes do exercício e formata o GIF
+   */
+  async function handleOpenExerciseDemo(
+    exerciseId: string,
+    fallbackName: string,
+  ) {
     try {
-      console.log('🔎 Buscando exercício no Supabase com ID:', exerciseId);
       setDemoModalVisible(true);
       setLoadingDemo(true);
       setDemoExercise({ name: fallbackName });
 
       if (!exerciseId) {
-        console.warn('⚠️ Exercício sem ID vinculado.');
         setLoadingDemo(false);
         return;
       }
 
       const { data, error } = await supabase
-        .from('exercises')
-        .select('name, gif_url')
-        .eq('id', exerciseId)
+        .from("exercises")
+        .select("name, gif_url")
+        .eq("id", exerciseId)
         .single();
 
       if (error) {
-        console.error('❌ Erro no Supabase:', error.message);
+        console.error("Erro no Supabase:", error.message);
       } else if (data) {
-        // Formata e valida a URL para garantir que comece com https://
         const validGifUrl = formatGifUrl(data.gif_url);
-        console.log('🔗 URL final que será carregada:', validGifUrl);
-
         setDemoExercise({
           name: data.name || fallbackName,
           gif_url: validGifUrl,
@@ -235,7 +307,7 @@ export default function ExecuteWorkoutScreen() {
         });
       }
     } catch (err) {
-      console.error('Erro ao buscar GIF do exercício:', err);
+      console.error("Erro ao buscar GIF do exercício:", err);
     } finally {
       setLoadingDemo(false);
     }
@@ -273,7 +345,7 @@ export default function ExecuteWorkoutScreen() {
     const hrs = Math.floor(seconds / 3600);
     const mins = Math.floor((seconds % 3600) / 60);
     const secs = seconds % 60;
-    const pad = (num: number) => String(num).padStart(2, '0');
+    const pad = (num: number) => String(num).padStart(2, "0");
 
     if (hrs > 0) {
       return `${pad(hrs)}:${pad(mins)}:${pad(secs)}`;
@@ -285,47 +357,49 @@ export default function ExecuteWorkoutScreen() {
     try {
       setSaving(true);
 
-      if (workoutTimerRef.current) {
-        clearInterval(workoutTimerRef.current);
-        workoutTimerRef.current = null;
-      }
-      if (restTimerRef.current) {
-        clearInterval(restTimerRef.current);
-        restTimerRef.current = null;
-      }
+      if (workoutTimerRef.current) clearInterval(workoutTimerRef.current);
+      if (restTimerRef.current) clearInterval(restTimerRef.current);
       setIsResting(false);
 
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
       if (!user) {
-        Alert.alert('Erro', 'Usuário não autenticado.');
+        Alert.alert("Erro", "Usuário não autenticado.");
         setSaving(false);
         return;
       }
 
-      const { error } = await supabase.from('workout_logs').insert({
+      const { error } = await supabase.from("workout_logs").insert({
         student_id: user.id,
         workout_title: workoutName,
         duration_seconds: elapsedSeconds,
       });
 
       if (error) {
-        console.error('Erro ao salvar log de treino:', error.message);
-        Alert.alert('Erro ao Salvar', 'Não foi possível registrar o treino concluído.');
-      } else {
+        console.error("Erro ao salvar log de treino:", error.message);
         Alert.alert(
-          'Treino Concluído! 🎉',
-          `Parabéns! Você completou o "${workoutName}" em ${formatTime(elapsedSeconds)}.`,
+          "Erro ao Salvar",
+          "Não foi possível registrar o treino concluído.",
+        );
+      } else {
+        const finalTime = elapsedSeconds;
+        resetWorkoutState();
+
+        Alert.alert(
+          "Treino Concluído! 🎉",
+          `Parabéns! Você completou o "${workoutName}" em ${formatTime(finalTime)}.`,
           [
             {
-              text: 'Voltar ao Início',
-              onPress: () => router.replace('/(aluno)'),
+              text: "Voltar ao Início",
+              onPress: () => router.replace("/(aluno)"),
             },
-          ]
+          ],
         );
       }
     } catch (err) {
-      console.error('Erro ao finalizar treino:', err);
+      console.error("Erro ao finalizar treino:", err);
     } finally {
       setSaving(false);
     }
@@ -343,35 +417,46 @@ export default function ExecuteWorkoutScreen() {
   }
 
   return (
-    <View className="flex-1 bg-white dark:bg-zinc-950 px-5" style={{ paddingTop: insets.top + 10 }}>
+    <View
+      className="flex-1 bg-white dark:bg-zinc-950 px-5"
+      style={{ paddingTop: insets.top + 10 }}
+    >
       {/* CABEÇALHO */}
       <View className="flex-row items-center justify-between mb-4 border-b border-[#e2dfe1] dark:border-zinc-800 pb-3">
         <TouchableOpacity
-          onPress={() =>
-            Alert.alert(
-              'Sair do Treino',
-              'Deseja cancelar o treino em andamento? O progresso atual não será salvo.',
-              [
-                { text: 'Continuar Treinando', style: 'cancel' },
-                { text: 'Sair sem Salvar', style: 'destructive', onPress: () => router.back() },
-              ]
-            )
-          }
+          onPress={handleExitWorkout}
           className="w-10 h-10 rounded-xl bg-[#f8f9fa] dark:bg-zinc-900 justify-center items-center border border-[#e2dfe1] dark:border-zinc-800"
         >
-          <X size={20} color={isDark ? '#ffffff' : '#1b1b1d'} />
+          <X size={20} color={isDark ? "#ffffff" : "#1b1b1d"} />
         </TouchableOpacity>
 
-        <View className="items-center">
-          <Text className="text-xs font-bold text-[#59C83A] uppercase tracking-wider">
-            Treino em Andamento
-          </Text>
-          <View className="flex-row items-center mt-0.5">
-            <Clock size={16} color="#59C83A" weight="bold" />
-            <Text className="text-lg font-black text-[#1b1b1d] dark:text-white ml-1.5">
-              {formatTime(elapsedSeconds)}
+        <View className="flex-row items-center gap-2">
+          <View className="items-center">
+            <Text className="text-[10px] font-bold text-[#59C83A] uppercase tracking-wider">
+              {isTimerPaused ? "Treino Pausado" : "Treino em Andamento"}
             </Text>
+            <View className="flex-row items-center mt-0.5">
+              <Clock
+                size={16}
+                color={isTimerPaused ? "#EAB308" : "#59C83A"}
+                weight="bold"
+              />
+              <Text className="text-lg font-black text-[#1b1b1d] dark:text-white ml-1.5">
+                {formatTime(elapsedSeconds)}
+              </Text>
+            </View>
           </View>
+
+          <TouchableOpacity
+            onPress={() => setIsTimerPaused((prev) => !prev)}
+            className="w-9 h-9 rounded-xl bg-[#f8f9fa] dark:bg-zinc-900 items-center justify-center border border-[#e2dfe1] dark:border-zinc-800 ml-1"
+          >
+            {isTimerPaused ? (
+              <Play size={18} color="#59C83A" weight="bold" />
+            ) : (
+              <Pause size={18} color="#EAB308" weight="bold" />
+            )}
+          </TouchableOpacity>
         </View>
 
         <TouchableOpacity
@@ -384,18 +469,26 @@ export default function ExecuteWorkoutScreen() {
           ) : (
             <>
               <CheckCircle size={18} color="#FFFFFF" weight="bold" />
-              <Text className="text-white font-extrabold ml-1 text-xs">Finalizar</Text>
+              <Text className="text-white font-extrabold ml-1 text-xs">
+                Finalizar
+              </Text>
             </>
           )}
         </TouchableOpacity>
       </View>
 
-      <Text className="text-xl font-extrabold text-[#1b1b1d] dark:text-white mb-4" numberOfLines={1}>
+      <Text
+        className="text-xl font-extrabold text-[#1b1b1d] dark:text-white mb-4"
+        numberOfLines={1}
+      >
         {workoutName}
       </Text>
 
       {/* LISTA DE EXERCÍCIOS */}
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 100 }}
+      >
         {exercises.map((exercise, exIndex) => {
           const totalSetsCount = parseInt(exercise.sets) || 3;
           const setsArray = Array.from({ length: totalSetsCount });
@@ -411,11 +504,15 @@ export default function ExecuteWorkoutScreen() {
                 </Text>
 
                 <TouchableOpacity
-                  onPress={() => handleOpenExerciseDemo(exercise.exercise_id, exercise.name)}
+                  onPress={() =>
+                    handleOpenExerciseDemo(exercise.exercise_id, exercise.name)
+                  }
                   className="bg-[#59C83A]/10 px-2.5 py-1 rounded-lg flex-row items-center border border-[#59C83A]/30"
                 >
                   <PlayCircle size={14} color="#59C83A" weight="bold" />
-                  <Text className="text-[11px] font-bold text-[#59C83A] ml-1">Ver GIF</Text>
+                  <Text className="text-[11px] font-bold text-[#59C83A] ml-1">
+                    Ver GIF
+                  </Text>
                 </TouchableOpacity>
               </View>
 
@@ -438,14 +535,16 @@ export default function ExecuteWorkoutScreen() {
                       onPress={() => toggleSetCompletion(exIndex, setIndex)}
                       className={`p-3 rounded-xl border flex-row items-center justify-between ${
                         isDone
-                          ? 'bg-[#59C83A]/10 border-[#59C83A]'
-                          : 'bg-white dark:bg-zinc-950 border-[#e2dfe1] dark:border-zinc-800'
+                          ? "bg-[#59C83A]/10 border-[#59C83A]"
+                          : "bg-white dark:bg-zinc-950 border-[#e2dfe1] dark:border-zinc-800"
                       }`}
                     >
                       <View className="flex-row items-center">
                         <View
                           className={`w-6 h-6 rounded-lg items-center justify-center mr-3 ${
-                            isDone ? 'bg-[#59C83A]' : 'bg-zinc-200 dark:bg-zinc-800'
+                            isDone
+                              ? "bg-[#59C83A]"
+                              : "bg-zinc-200 dark:bg-zinc-800"
                           }`}
                         >
                           {isDone ? (
@@ -458,7 +557,9 @@ export default function ExecuteWorkoutScreen() {
                         </View>
                         <Text
                           className={`text-xs font-bold ${
-                            isDone ? 'text-[#59C83A] line-through' : 'text-[#1b1b1d] dark:text-white'
+                            isDone
+                              ? "text-[#59C83A] line-through"
+                              : "text-[#1b1b1d] dark:text-white"
                           }`}
                         >
                           Série {setIndex + 1}
@@ -467,7 +568,9 @@ export default function ExecuteWorkoutScreen() {
 
                       <Text
                         className={`text-xs font-bold ${
-                          isDone ? 'text-[#59C83A]' : 'text-[#71717a] dark:text-zinc-400'
+                          isDone
+                            ? "text-[#59C83A]"
+                            : "text-[#71717a] dark:text-zinc-400"
                         }`}
                       >
                         {exercise.reps} reps
@@ -486,14 +589,17 @@ export default function ExecuteWorkoutScreen() {
         <View className="flex-1 bg-black/70 justify-end">
           <View className="bg-white dark:bg-zinc-900 rounded-t-3xl p-5 h-[75%] border-t border-[#e2dfe1] dark:border-zinc-800">
             <View className="flex-row items-center justify-between mb-3 border-b border-[#e2dfe1] dark:border-zinc-800 pb-3">
-              <Text className="text-base font-extrabold text-[#1b1b1d] dark:text-white flex-1 mr-2" numberOfLines={1}>
+              <Text
+                className="text-base font-extrabold text-[#1b1b1d] dark:text-white flex-1 mr-2"
+                numberOfLines={1}
+              >
                 {demoExercise?.name}
               </Text>
               <TouchableOpacity
                 onPress={() => setDemoModalVisible(false)}
                 className="w-8 h-8 rounded-full bg-zinc-100 dark:bg-zinc-800 items-center justify-center"
               >
-                <X size={18} color={isDark ? '#ffffff' : '#1b1b1d'} />
+                <X size={18} color={isDark ? "#ffffff" : "#1b1b1d"} />
               </TouchableOpacity>
             </View>
 
@@ -505,25 +611,23 @@ export default function ExecuteWorkoutScreen() {
                 </Text>
               </View>
             ) : (
-              <ScrollView showsVerticalScrollIndicator={false} className="flex-1">
+              <ScrollView
+                showsVerticalScrollIndicator={false}
+                className="flex-1"
+              >
                 {demoExercise?.gif_url ? (
-                  <View className="w-full h-64 rounded-2xl bg-white dark:bg-zinc-950 overflow-hidden mb-4 border border-[#e2dfe1] dark:border-zinc-800 items-center justify-center">
+                  <View className="w-full h-64 rounded-2xl bg-zinc-100 dark:bg-zinc-950 overflow-hidden mb-4 border border-[#e2dfe1] dark:border-zinc-800 items-center justify-center">
                     <Image
                       source={{ uri: demoExercise.gif_url }}
-                      style={{ width: '100%', height: '100%' }}
+                      style={{ width: "100%", height: "100%" }}
                       contentFit="contain"
                       autoplay={true}
                       transition={200}
-                      onLoadStart={() => console.log('⏳ Iniciando download do GIF...')}
-                      onLoad={() => console.log('✅ GIF carregado com sucesso!')}
-                      onError={(e) =>
-                        console.error('❌ Falha no download do GIF:', e.error)
-                      }
                     />
                   </View>
                 ) : (
                   <View className="w-full h-44 rounded-2xl bg-zinc-100 dark:bg-zinc-800 items-center justify-center mb-4 border border-dashed border-zinc-300 dark:border-zinc-700">
-                    <Barbell size={36} color={isDark ? '#71717a' : '#a1a1aa'} />
+                    <Barbell size={36} color={isDark ? "#71717a" : "#a1a1aa"} />
                     <Text className="text-xs font-bold text-[#71717a] dark:text-zinc-400 mt-2">
                       GIF demonstrativo não cadastrado no banco
                     </Text>
@@ -535,7 +639,7 @@ export default function ExecuteWorkoutScreen() {
                 </Text>
                 <Text className="text-xs text-[#71717a] dark:text-zinc-400 font-medium leading-5 mb-4">
                   {demoExercise?.description ||
-                    'Execute o movimento de forma controlada, mantendo a postura firme e respeitando a cadência recomendada pelo seu personal trainer.'}
+                    "Execute o movimento de forma controlada, mantendo a postura firme e respeitando a cadência recomendada pelo seu personal trainer."}
                 </Text>
               </ScrollView>
             )}
@@ -544,7 +648,9 @@ export default function ExecuteWorkoutScreen() {
               onPress={() => setDemoModalVisible(false)}
               className="bg-[#59C83A] py-3 rounded-xl items-center mt-2"
             >
-              <Text className="text-xs font-bold text-white">Voltar para o Treino</Text>
+              <Text className="text-xs font-bold text-white">
+                Voltar para o Treino
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -579,7 +685,9 @@ export default function ExecuteWorkoutScreen() {
                 onPress={skipRest}
                 className="flex-1 bg-[#59C83A] py-3 rounded-xl items-center"
               >
-                <Text className="text-xs font-bold text-white">Pular Descanso</Text>
+                <Text className="text-xs font-bold text-white">
+                  Pular Descanso
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
