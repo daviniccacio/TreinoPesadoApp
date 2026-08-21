@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "treino-pesado",
+    "name": "Treino Pesado Academia",
     "slug": "treino-pesado",
     "scheme": "treinopesado",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/logo-treino-pesado.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
