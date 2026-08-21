@@ -22,6 +22,7 @@ import {
   Barbell,
   Pause,
   Play,
+  ArrowCounterClockwise,
 } from "phosphor-react-native";
 import { supabase } from "../../../lib/supabase";
 
@@ -54,9 +55,9 @@ export default function ExecuteWorkoutScreen() {
   const [loading, setLoading] = useState<boolean>(true);
   const [saving, setSaving] = useState<boolean>(false);
 
-  // --- CRONÔMETRO PRINCIPAL DO TREINO ---
+  // --- CRONÔMETRO PRINCIPAL DO TREINO (Inicia pausado por padrão) ---
   const [elapsedSeconds, setElapsedSeconds] = useState<number>(0);
-  const [isTimerPaused, setIsTimerPaused] = useState<boolean>(false);
+  const [isTimerPaused, setIsTimerPaused] = useState<boolean>(true);
 
   // --- CONTROLE DE SÉRIES CONCLUÍDAS ---
   const [completedSets, setCompletedSets] = useState<Set<string>>(new Set());
@@ -101,7 +102,7 @@ export default function ExecuteWorkoutScreen() {
       restTimerRef.current = null;
     }
     setElapsedSeconds(0);
-    setIsTimerPaused(false);
+    setIsTimerPaused(true); // Mantém pausado ao resetar
     setCompletedSets(new Set());
     setIsResting(false);
     setRestSecondsLeft(DEFAULT_REST_TIME);
@@ -431,7 +432,7 @@ export default function ExecuteWorkoutScreen() {
       className="flex-1 bg-white dark:bg-zinc-950 px-5"
       style={{ paddingTop: insets.top + 10 }}
     >
-      {/* CABEÇALHO */}
+      {/* CABEÇALHO REORGANIZADO COM NOME DO TREINO NO CENTRO */}
       <View className="flex-row items-center justify-between mb-4 border-b border-[#e2dfe1] dark:border-zinc-800 pb-3">
         <TouchableOpacity
           onPress={handleExitWorkout}
@@ -440,34 +441,12 @@ export default function ExecuteWorkoutScreen() {
           <X size={20} color={isDark ? "#ffffff" : "#1b1b1d"} />
         </TouchableOpacity>
 
-        <View className="flex-row items-center gap-2">
-          <View className="items-center">
-            <Text className="text-[10px] font-bold text-[#59C83A] uppercase tracking-wider">
-              {isTimerPaused ? "Treino Pausado" : "Treino em Andamento"}
-            </Text>
-            <View className="flex-row items-center mt-0.5">
-              <Clock
-                size={16}
-                color={isTimerPaused ? "#EAB308" : "#59C83A"}
-                weight="bold"
-              />
-              <Text className="text-lg font-black text-[#1b1b1d] dark:text-white ml-1.5">
-                {formatTime(elapsedSeconds)}
-              </Text>
-            </View>
-          </View>
-
-          <TouchableOpacity
-            onPress={() => setIsTimerPaused((prev) => !prev)}
-            className="w-9 h-9 rounded-xl bg-[#f8f9fa] dark:bg-zinc-900 items-center justify-center border border-[#e2dfe1] dark:border-zinc-800 ml-1"
-          >
-            {isTimerPaused ? (
-              <Play size={18} color="#59C83A" weight="bold" />
-            ) : (
-              <Pause size={18} color="#EAB308" weight="bold" />
-            )}
-          </TouchableOpacity>
-        </View>
+        <Text
+          className="text-base font-black text-[#1b1b1d] dark:text-white flex-1 mx-3 text-center"
+          numberOfLines={1}
+        >
+          {workoutName}
+        </Text>
 
         <TouchableOpacity
           onPress={handleFinishWorkout}
@@ -487,12 +466,68 @@ export default function ExecuteWorkoutScreen() {
         </TouchableOpacity>
       </View>
 
-      <Text
-        className="text-xl font-extrabold text-[#1b1b1d] dark:text-white mb-4"
-        numberOfLines={1}
-      >
-        {workoutName}
-      </Text>
+      {/* CARD DO CRONÔMETRO PRINCIPAL COM CONTROLES */}
+      <View className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl mb-4 border border-[#e2dfe1] dark:border-zinc-800 items-center justify-center">
+        <Text className="text-[10px] font-bold text-[#59C83A] uppercase tracking-wider mb-1">
+          {elapsedSeconds === 0 && isTimerPaused
+            ? "Pronto para Iniciar"
+            : isTimerPaused
+            ? "Treino Pausado"
+            : "Treino em Andamento"}
+        </Text>
+
+        <View className="flex-row items-center justify-center my-1">
+          <Clock
+            size={22}
+            color={isTimerPaused ? "#EAB308" : "#59C83A"}
+            weight="bold"
+          />
+          <Text className="text-3xl font-black text-[#1b1b1d] dark:text-white ml-2">
+            {formatTime(elapsedSeconds)}
+          </Text>
+        </View>
+
+        {/* BOTOES DE CONTROLE DO CRONÔMETRO */}
+        <View className="flex-row items-center gap-3 mt-3">
+          <TouchableOpacity
+            onPress={() => setIsTimerPaused((prev) => !prev)}
+            className="flex-row items-center bg-[#59C83A] px-4 py-2 rounded-xl"
+          >
+            {isTimerPaused ? (
+              <>
+                <Play size={16} color="#FFFFFF" weight="bold" />
+                <Text className="text-white font-bold text-xs ml-1.5">
+                  {elapsedSeconds === 0 ? "Iniciar" : "Continuar"}
+                </Text>
+              </>
+            ) : (
+              <>
+                <Pause size={16} color="#FFFFFF" weight="bold" />
+                <Text className="text-white font-bold text-xs ml-1.5">
+                  Pausar
+                </Text>
+              </>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => {
+              setElapsedSeconds(0);
+              setIsTimerPaused(true);
+            }}
+            className="flex-row items-center bg-zinc-200 dark:bg-zinc-800 px-4 py-2 rounded-xl border border-zinc-300 dark:border-zinc-700"
+          >
+            <ArrowCounterClockwise
+              size={16}
+              color={isDark ? "#ffffff" : "#1b1b1d"}
+              weight="bold"
+            />
+            <Text className="text-[#1b1b1d] dark:text-white font-bold text-xs ml-1.5">
+              Zerar
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
 
       {/* LISTA DE EXERCÍCIOS */}
       <ScrollView
@@ -626,7 +661,7 @@ export default function ExecuteWorkoutScreen() {
                 className="flex-1"
               >
                 {demoExercise?.gif_url ? (
-                  <View className="w-full h-64 rounded-2xl bg-zinc-100 dark:bg-zinc-950 overflow-hidden mb-4 border border-[#e2dfe1] dark:border-zinc-800 items-center justify-center">
+                  <View className="w-full h-64 rounded-2xl bg-white dark:bg-white overflow-hidden mb-4 border border-[#e2dfe1] dark:border-zinc-800 items-center justify-center">
                     <Image
                       source={{ uri: demoExercise.gif_url }}
                       style={{ width: "100%", height: "100%" }}
