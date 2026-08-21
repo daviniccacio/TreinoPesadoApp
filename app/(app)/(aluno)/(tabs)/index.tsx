@@ -10,7 +10,7 @@ import {
 import { useRouter, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Heart, Plus, CaretRight } from "phosphor-react-native";
-import { supabase } from "../../../lib/supabase";
+import { supabase } from "../../../../lib/supabase";
 
 interface Category {
   id: string;

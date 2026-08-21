@@ -47,7 +47,7 @@ const DAYS_OF_WEEK = [
 ];
 
 /**
- * Tela de Montagem de Treinos Personalizados com Phosphor Icons
+ * Tela de Montagem de Treinos Personalizados com Navegação Inteligente
  */
 export default function CreateWorkoutScreen() {
   const router = useRouter();
@@ -64,6 +64,17 @@ export default function CreateWorkoutScreen() {
   const [loading, setLoading] = useState<boolean>(false);
   const [modalVisible, setModalVisible] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
+
+  /**
+   * Função para navegação regressiva segura
+   */
+  const handleNavigateBack = useCallback(() => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/(app)/(aluno)');
+    }
+  }, [router]);
 
   useFocusEffect(
     useCallback(() => {
@@ -170,8 +181,12 @@ export default function CreateWorkoutScreen() {
 
       if (itemsError) throw itemsError;
 
-      Alert.alert('Sucesso! 🎉', 'Seu treino foi salvo no dia selecionado!');
-      router.back();
+      Alert.alert('Sucesso! 🎉', 'Seu treino foi salvo no dia selecionado!', [
+        {
+          text: 'OK',
+          onPress: () => handleNavigateBack(),
+        },
+      ]);
     } catch (err: any) {
       console.error('Erro ao salvar treino:', err);
       Alert.alert('Erro', 'Não foi possível salvar o seu treino.');
@@ -191,7 +206,7 @@ export default function CreateWorkoutScreen() {
       {/* Cabeçalho */}
       <View className="flex-row items-center justify-between px-5 py-3 border-b border-[#f0edef] dark:border-zinc-800">
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={handleNavigateBack}
           className="w-10 h-10 rounded-full bg-[#f8f9fa] dark:bg-zinc-900 items-center justify-center border border-[#e2dfe1] dark:border-zinc-800"
           activeOpacity={0.7}
         >

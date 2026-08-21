@@ -78,6 +78,17 @@ export default function ExecuteWorkoutScreen() {
   const restTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   /**
+   * Navegação segura para a tela anterior
+   */
+  const handleNavigateBack = useCallback(() => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace("/(app)/(aluno)");
+    }
+  }, [router]);
+
+  /**
    * Zera completamente o temporizador e limpa todos os cronômetros e estados do treino
    */
   const resetWorkoutState = useCallback(() => {
@@ -249,7 +260,7 @@ export default function ExecuteWorkoutScreen() {
   }
 
   /**
-   * Trata a confirmação de saída do treino. Ao selecionar "Sair sem Salvar", zera o temporizador imediatamente.
+   * Confirmação de saída do treino com retorno à tela anterior
    */
   function handleExitWorkout() {
     Alert.alert(
@@ -264,9 +275,8 @@ export default function ExecuteWorkoutScreen() {
           text: "Sair sem Salvar",
           style: "destructive",
           onPress: () => {
-            // Zera o temporizador e limpa o progresso antes de sair
             resetWorkoutState();
-            router.back();
+            handleNavigateBack();
           },
         },
       ],
@@ -392,8 +402,8 @@ export default function ExecuteWorkoutScreen() {
           `Parabéns! Você completou o "${workoutName}" em ${formatTime(finalTime)}.`,
           [
             {
-              text: "Voltar ao Início",
-              onPress: () => router.replace("/(aluno)"),
+              text: "Voltar",
+              onPress: () => handleNavigateBack(),
             },
           ],
         );
@@ -626,7 +636,7 @@ export default function ExecuteWorkoutScreen() {
                     />
                   </View>
                 ) : (
-                  <View className="w-full h-44 rounded-2xl bg-zinc-100 dark:bg-zinc-800 items-center justify-center mb-4 border border-dashed border-zinc-300 dark:border-zinc-700">
+                  <View className="w-full h-44 rounded-2xl bg-white dark:bg-white items-center justify-center mb-4 border border-dashed border-zinc-300 dark:border-zinc-700">
                     <Barbell size={36} color={isDark ? "#71717a" : "#a1a1aa"} />
                     <Text className="text-xs font-bold text-[#71717a] dark:text-zinc-400 mt-2">
                       GIF demonstrativo não cadastrado no banco

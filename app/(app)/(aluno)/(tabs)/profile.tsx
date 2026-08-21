@@ -24,7 +24,7 @@ import {
   Shield,
   Bell,
 } from "phosphor-react-native";
-import { supabase } from "../../../lib/supabase";
+import { supabase } from "../../../../lib/supabase";
 
 // --- TIPAGENS DE DADOS ---
 interface UserStats {

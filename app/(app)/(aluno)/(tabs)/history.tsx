@@ -19,7 +19,7 @@ import {
   ArrowLeft,
   CheckCircle,
 } from 'phosphor-react-native';
-import { supabase } from '../../../lib/supabase';
+import { supabase } from '../../../../lib/supabase';
 
 /**
  * Estrutura de dados de um registro de treino salvo no banco

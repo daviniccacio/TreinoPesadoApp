@@ -52,6 +52,20 @@ export default function StudentWorkoutDetailScreen() {
   const [loading, setLoading] = useState<boolean>(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  /**
+   * Navegação segura de retorno com fallback para a aba do aluno
+   */
+  const handleNavigateBack = useCallback(() => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/(app)/(aluno)');
+    }
+  }, [router]);
+
+  /**
+   * Busca os detalhes da ficha de treino no Supabase
+   */
   const fetchWorkoutPlanDetail = useCallback(async () => {
     if (!id) {
       setErrorMessage('Identificador do treino não encontrado.');
@@ -118,7 +132,7 @@ export default function StudentWorkoutDetailScreen() {
       <View className="flex-row items-center mb-5">
         <TouchableOpacity
           activeOpacity={0.7}
-          onPress={() => router.back()}
+          onPress={handleNavigateBack}
           className="w-10 h-10 rounded-xl bg-[#f8f9fa] dark:bg-zinc-900 justify-center items-center mr-3 border border-[#e2dfe1] dark:border-zinc-800"
         >
           <ArrowLeft size={20} color={isDark ? '#ffffff' : '#1b1b1d'} />
@@ -149,7 +163,7 @@ export default function StudentWorkoutDetailScreen() {
             {errorMessage || 'Ficha de treino não encontrada.'}
           </Text>
           <TouchableOpacity
-            onPress={() => router.back()}
+            onPress={handleNavigateBack}
             className="mt-4 bg-[#59C83A] px-5 py-2.5 rounded-xl"
           >
             <Text className="text-white font-bold text-xs">Voltar para Meus Treinos</Text>

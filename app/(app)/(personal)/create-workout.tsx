@@ -62,7 +62,7 @@ export default function CreateWorkoutPlanScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
-  // Parâmetros recebidos da navegação (incluindo o planId para edição)
+  // Parâmetros recebidos da navegação
   const { planId, studentId, studentName } = useLocalSearchParams<{
     planId?: string;
     studentId?: string;
@@ -84,6 +84,17 @@ export default function CreateWorkoutPlanScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('todos');
   const [loadingModalExercises, setLoadingModalExercises] = useState(false);
+
+  /**
+   * Navegação inteligente de retorno
+   */
+  const handleNavigateBack = useCallback(() => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/(app)/(personal)');
+    }
+  }, [router]);
 
   /**
    * Reseta ou carrega os dados dependendo de haver um planId
@@ -113,7 +124,6 @@ export default function CreateWorkoutPlanScreen() {
     try {
       setLoadingPlanData(true);
 
-      // 1. Busca o cabeçalho do plano
       const { data: plan, error: planError } = await supabase
         .from('workout_plans')
         .select('*')
@@ -129,7 +139,6 @@ export default function CreateWorkoutPlanScreen() {
         setSelectedDays(plan.days_of_week || ['Segunda']);
       }
 
-      // 2. Busca os exercícios associados
       const { data: exercises, error: exercisesError } = await supabase
         .from('plan_exercises')
         .select('*')
@@ -253,7 +262,6 @@ export default function CreateWorkoutPlanScreen() {
 
         if (planError) throw planError;
 
-        // Remove os exercícios antigos e re-insere a lista atualizada
         await supabase.from('plan_exercises').delete().eq('plan_id', planId);
 
         const exercisesPayload = selectedExercises.map((ex, index) => ({
@@ -273,7 +281,7 @@ export default function CreateWorkoutPlanScreen() {
         if (exercisesError) throw exercisesError;
 
         Alert.alert('Sucesso!', 'Plano de treino atualizado com sucesso!', [
-          { text: 'OK', onPress: () => router.back() },
+          { text: 'OK', onPress: () => handleNavigateBack() },
         ]);
       } else {
         // --- MODO DE CRIAÇÃO (INSERT) ---
@@ -309,7 +317,7 @@ export default function CreateWorkoutPlanScreen() {
         if (exercisesError) throw exercisesError;
 
         Alert.alert('Sucesso!', 'Plano de treino criado com sucesso!', [
-          { text: 'OK', onPress: () => router.back() },
+          { text: 'OK', onPress: () => handleNavigateBack() },
         ]);
       }
     } catch (error: any) {
@@ -346,7 +354,7 @@ export default function CreateWorkoutPlanScreen() {
       <View className="flex-row items-center justify-between my-4">
         <View className="flex-row items-center flex-1 mr-2">
           <TouchableOpacity
-            onPress={() => router.back()}
+            onPress={handleNavigateBack}
             className="w-10 h-10 rounded-xl bg-[#f8f9fa] dark:bg-zinc-900 justify-center items-center mr-3 border border-[#e2dfe1] dark:border-zinc-800"
           >
             <ArrowLeft size={20} color={isDark ? '#ffffff' : '#1b1b1d'} />
