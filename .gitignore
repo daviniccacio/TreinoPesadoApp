@@ -41,4 +41,5 @@ yarn-error.*
 /ios
 /android
 
-.xml
+repomix-output.xml
+*.xml
