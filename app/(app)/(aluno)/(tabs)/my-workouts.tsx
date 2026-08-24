@@ -23,7 +23,6 @@ import {
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../../../../lib/supabase";
 
-// --- TIPAGENS DE DADOS ---
 interface WorkoutCardItem {
   id: string;
   title: string;
@@ -51,13 +50,13 @@ async function fetchStudentWorkouts(): Promise<WorkoutCardItem[]> {
 
   const combinedList: WorkoutCardItem[] = [];
 
-  // 1. Busca treinos prescritos pelo Personal Trainer
-  const { data: prescribedData, error: errorPrescribed } = await supabase
+  // 1. Busca treinos prescritos pelo Personal Trainer (workout_plans)
+  const { data: prescribedData } = await supabase
     .from("workout_plans")
     .select("*")
     .eq("student_id", user.id);
 
-  if (!errorPrescribed && prescribedData) {
+  if (prescribedData) {
     prescribedData.forEach((item: any) => {
       combinedList.push({
         id: item.id,
@@ -68,33 +67,30 @@ async function fetchStudentWorkouts(): Promise<WorkoutCardItem[]> {
     });
   }
 
-  // 2. Busca treinos criados pelo próprio Aluno
-  let { data: customData, error: errorCustom } = await supabase
+  // 2. Busca treinos criados pelo Aluno (custom_workouts) - Checa user_id e student_id
+  const { data: customUser } = await supabase
     .from("custom_workouts")
     .select("*")
     .eq("user_id", user.id);
 
-  if (errorCustom || !customData || customData.length === 0) {
-    const { data: customDataStudent } = await supabase
-      .from("custom_workouts")
-      .select("*")
-      .eq("student_id", user.id);
+  const { data: customStudent } = await supabase
+    .from("custom_workouts")
+    .select("*")
+    .eq("student_id", user.id);
 
-    if (customDataStudent && customDataStudent.length > 0) {
-      customData = customDataStudent;
-    }
-  }
+  // Unifica e remove duplicados
+  const customMap = new Map();
+  (customUser || []).forEach((item: any) => customMap.set(item.id, item));
+  (customStudent || []).forEach((item: any) => customMap.set(item.id, item));
 
-  if (customData) {
-    customData.forEach((item: any) => {
-      combinedList.push({
-        id: item.id,
-        title: item.title || item.name || "Treino Personalizado",
-        type: "custom",
-        subtitle: item.description || item.goal || "Criado por mim",
-      });
+  customMap.forEach((item: any) => {
+    combinedList.push({
+      id: item.id,
+      title: item.title || item.name || "Treino Personalizado",
+      type: "custom",
+      subtitle: item.description || item.goal || "Criado por mim",
     });
-  }
+  });
 
   return combinedList;
 }
@@ -108,7 +104,6 @@ export default function MyWorkoutsScreen() {
 
   const [selectedFilter, setSelectedFilter] = useState<FilterType>("all");
 
-  // --- CONSULTA TANSTACK QUERY ---
   const {
     data: workouts = [],
     isLoading,
@@ -119,7 +114,6 @@ export default function MyWorkoutsScreen() {
     queryFn: fetchStudentWorkouts,
   });
 
-  // --- MUTAÇÃO PARA APAGAR TREINO PERSONALIZADO ---
   const deleteWorkoutMutation = useMutation({
     mutationFn: async (workoutId: string) => {
       const { error } = await supabase
@@ -314,11 +308,10 @@ export default function MyWorkoutsScreen() {
                   </View>
                 </TouchableOpacity>
 
-                {/* BOTOES DE ACAO CONDICIONAIS */}
+                {/* AÇÕES CONDICIONAIS */}
                 <View className="flex-row items-center gap-1.5">
                   {!isPersonal && (
                     <>
-                      {/* Botão Editar Treino do Aluno */}
                       <TouchableOpacity
                         onPress={() =>
                           router.push({
@@ -335,7 +328,6 @@ export default function MyWorkoutsScreen() {
                         />
                       </TouchableOpacity>
 
-                      {/* Botão Excluir Treino do Aluno */}
                       <TouchableOpacity
                         onPress={() =>
                           handleDeleteCustomWorkout(workout.id, workout.title)
@@ -348,7 +340,6 @@ export default function MyWorkoutsScreen() {
                     </>
                   )}
 
-                  {/* Botão Iniciar Treino */}
                   <TouchableOpacity
                     onPress={() => handleOpenWorkout(workout)}
                     className="flex-row items-center gap-1 bg-[#59C83A]/10 border border-[#59C83A]/30 px-2.5 py-1.5 rounded-xl ml-0.5"

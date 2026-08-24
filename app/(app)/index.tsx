@@ -1,49 +1,65 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, ActivityIndicator } from 'react-native';
-import { useRouter } from 'expo-router';
+import { Redirect } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 
 /**
- * Porteiro de Redirecionamento Baseado na Role
+ * Ponto de entrada do grupo (app).
+ * Lê a 'role' do usuário no Supabase e redireciona para a área correspondente (Aluno ou Personal).
  */
-export default function AppEntryRedirect() {
-  const router = useRouter();
+export default function AppGroupIndex() {
+  const [loading, setLoading] = useState(true);
+  const [userRole, setUserRole] = useState<'aluno' | 'personal' | null>(null);
 
   useEffect(() => {
-    async function redirectToCorrectArea() {
+    async function checkUserRole() {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-        
-        if (!user) {
-          router.replace('/(auth)');
-          return;
-        }
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
 
-        // Busca a role diretamente na tabela profiles
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', user.id)
-          .maybeSingle();
+        if (user) {
+          // Busca o papel (role) do usuário no perfil do Supabase
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('role')
+            .eq('id', user.id)
+            .single();
 
-        // Direciona estritamente para o grupo correspondente
-        if (data?.role === 'personal') {
-          router.replace('/(personal)');
+          const role = profile?.role?.toLowerCase();
+
+          if (role === 'personal') {
+            setUserRole('personal');
+          } else {
+            setUserRole('aluno');
+          }
         } else {
-          router.replace('/(aluno)');
+          setUserRole('aluno');
         }
-      } catch (err) {
-        console.error('Erro ao redirecionar:', err);
-        router.replace('/(aluno)');
+      } catch (error) {
+        console.error('Erro ao verificar role do usuário:', error);
+        setUserRole('aluno'); // Fallback de segurança
+      } finally {
+        setLoading(false);
       }
     }
 
-    redirectToCorrectArea();
+    checkUserRole();
   }, []);
 
-  return (
-    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#09090b' }}>
-      <ActivityIndicator size="large" color="#59C83A" />
-    </View>
-  );
+  // Exibe o carregamento verde enquanto consulta o perfil no banco de dados
+  if (loading) {
+    return (
+      <View className="flex-1 justify-center items-center bg-white dark:bg-zinc-950">
+        <ActivityIndicator size="large" color="#59C83A" />
+      </View>
+    );
+  }
+
+  // Redireciona para a rota apropriada
+  if (userRole === 'personal') {
+    return <Redirect href="/(personal)" />;
+  }
+
+  return <Redirect href="/(aluno)" />;
 }
