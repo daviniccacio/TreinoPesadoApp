@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -8,7 +8,7 @@ import {
   RefreshControl,
   useColorScheme,
 } from "react-native";
-import { useRouter, useFocusEffect } from "expo-router";
+import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   Barbell,
@@ -17,6 +17,7 @@ import {
   Plus,
   PlayCircle,
 } from "phosphor-react-native";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "../../../../lib/supabase";
 
 // --- TIPAGENS DE DADOS ---
@@ -35,133 +36,104 @@ const CATEGORY_FILTERS = [
 
 type FilterType = "all" | "personal" | "custom";
 
+/**
+ * Função responsável por buscar e unificar os treinos do aluno no Supabase.
+ * É executada pelo TanStack Query e seu resultado é salvo em cache.
+ */
+async function fetchStudentWorkouts(): Promise<WorkoutCardItem[]> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) throw new Error("Usuário não autenticado");
+
+  const combinedList: WorkoutCardItem[] = [];
+
+  // 1. Busca treinos prescritos pelo Personal Trainer (workout_plans)
+  const { data: prescribedData, error: errorPrescribed } = await supabase
+    .from("workout_plans")
+    .select("*")
+    .eq("student_id", user.id);
+
+  if (errorPrescribed) {
+    console.error("Erro na consulta workout_plans:", errorPrescribed.message);
+  } else if (prescribedData) {
+    prescribedData.forEach((item: any) => {
+      combinedList.push({
+        id: item.id,
+        title: item.name || item.title || "Treino Prescrito",
+        type: "personal",
+        subtitle: item.goal || item.description || "Ficha do Personal",
+      });
+    });
+  }
+
+  // 2. Busca treinos criados pelo próprio Aluno (custom_workouts)
+  let { data: customData, error: errorCustom } = await supabase
+    .from("custom_workouts")
+    .select("*")
+    .eq("user_id", user.id);
+
+  // Tenta recuperar por student_id caso user_id não traga registros
+  if (errorCustom || !customData || customData.length === 0) {
+    const { data: customDataStudent } = await supabase
+      .from("custom_workouts")
+      .select("*")
+      .eq("student_id", user.id);
+
+    if (customDataStudent && customDataStudent.length > 0) {
+      customData = customDataStudent;
+    }
+  }
+
+  if (customData) {
+    customData.forEach((item: any) => {
+      combinedList.push({
+        id: item.id,
+        title: item.title || item.name || "Treino Personalizado",
+        type: "custom",
+        subtitle: item.description || item.goal || "Criado por mim",
+      });
+    });
+  }
+
+  return combinedList;
+}
+
 export default function MyWorkoutsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
 
-  // --- ESTADOS ---
-  const [workouts, setWorkouts] = useState<WorkoutCardItem[]>([]);
+  // Estado local apenas para o filtro visual de categoria
   const [selectedFilter, setSelectedFilter] = useState<FilterType>("all");
-  const [loading, setLoading] = useState<boolean>(true);
-  const [refreshing, setRefreshing] = useState<boolean>(false);
 
-  // Recarrega a lista sempre que a tela volta ao foco
-  useFocusEffect(
-    useCallback(() => {
-      fetchStudentWorkouts();
-    }, []),
-  );
-
-  /**
-   * Busca os treinos no Supabase com suporte flexível a colunas
-   */
-  async function fetchStudentWorkouts() {
-    try {
-      setLoading(true);
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user) {
-        setLoading(false);
-        return;
-      }
-
-      console.log("🔎 Buscando treinos do aluno com ID:", user.id);
-
-      const combinedList: WorkoutCardItem[] = [];
-
-      // 1. Busca treinos prescritos pelo Personal Trainer (workout_plans)
-      const { data: prescribedData, error: errorPrescribed } = await supabase
-        .from("workout_plans")
-        .select("*")
-        .eq("student_id", user.id);
-
-      if (errorPrescribed) {
-        console.error(
-          "❌ Erro na consulta workout_plans:",
-          errorPrescribed.message,
-        );
-      } else if (prescribedData) {
-        console.log(
-          `✅ ${prescribedData.length} treinos prescritos encontrados.`,
-        );
-        prescribedData.forEach((item: any) => {
-          combinedList.push({
-            id: item.id,
-            title: item.name || item.title || "Treino Prescrito",
-            type: "personal",
-            subtitle: item.goal || item.description || "Ficha do Personal",
-          });
-        });
-      }
-
-      // 2. Busca treinos criados pelo próprio Aluno (custom_workouts)
-      let { data: customData, error: errorCustom } = await supabase
-        .from("custom_workouts")
-        .select("*")
-        .eq("user_id", user.id);
-
-      // Tenta recuperar por student_id caso user_id não traga registros
-      if (errorCustom || !customData || customData.length === 0) {
-        const { data: customDataStudent } = await supabase
-          .from("custom_workouts")
-          .select("*")
-          .eq("student_id", user.id);
-
-        if (customDataStudent && customDataStudent.length > 0) {
-          customData = customDataStudent;
-        }
-      }
-
-      if (customData) {
-        console.log(
-          `✅ ${customData.length} treinos customizados encontrados.`,
-        );
-        customData.forEach((item: any) => {
-          combinedList.push({
-            id: item.id,
-            title: item.title || item.name || "Treino Personalizado",
-            type: "custom",
-            subtitle: item.description || item.goal || "Criado por mim",
-          });
-        });
-      }
-
-      setWorkouts(combinedList);
-    } catch (err) {
-      console.error("Erro inesperado ao buscar treinos:", err);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }
-
-  function handleRefresh() {
-    setRefreshing(true);
-    fetchStudentWorkouts();
-  }
+  // --- REQUISITION COM TANSTACK QUERY ---
+  const {
+    data: workouts = [],
+    isLoading,
+    isRefetching,
+    refetch,
+  } = useQuery({
+    queryKey: ["student-workouts"], // Chave única para o cache
+    queryFn: fetchStudentWorkouts,  // Função de busca
+  });
 
   /**
    * Navega para a execução da ficha selecionada
    */
   function handleOpenWorkout(workout: WorkoutCardItem) {
-    if (workout.type === "custom") {
-      router.push({
-        pathname: "/(aluno)/execute-workout",
-        params: { id: workout.id, type: "custom" },
-      });
-    } else {
-      router.push({
-        pathname: "/(aluno)/execute-workout",
-        params: { id: workout.id, type: "prescribed" },
-      });
-    }
+    router.push({
+      pathname: "/(aluno)/execute-workout",
+      params: {
+        id: workout.id,
+        type: workout.type === "custom" ? "custom" : "prescribed",
+      },
+    });
   }
 
-  // Filtra a lista com base no botão de categoria selecionado
+  // Filtra a lista em memória com base na categoria selecionada
   const filteredWorkouts = workouts.filter((item) => {
     if (selectedFilter === "personal") return item.type === "personal";
     if (selectedFilter === "custom") return item.type === "custom";
@@ -228,19 +200,19 @@ export default function MyWorkoutsScreen() {
         </ScrollView>
       </View>
 
-      {/* LISTA DE TREINOS */}
+      {/* LISTA DE TREINOS COM SUPORTE A REFRESH E CACHE */}
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 40 }}
         refreshControl={
           <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
+            refreshing={isRefetching}
+            onRefresh={refetch}
             tintColor="#59C83A"
           />
         }
       >
-        {loading && !refreshing ? (
+        {isLoading ? (
           <View className="py-12 items-center">
             <ActivityIndicator size="large" color="#59C83A" />
             <Text className="text-xs text-[#71717a] dark:text-zinc-400 mt-3 font-medium">

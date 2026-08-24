@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useCallback } from 'react';
 import {
   View,
   Text,
@@ -19,8 +19,10 @@ import {
   PlayCircle,
   CaretRight,
 } from 'phosphor-react-native';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../../lib/supabase';
 
+// --- TIPAGENS DE DADOS ---
 interface PlanExercise {
   id: string;
   exercise_id: string;
@@ -40,6 +42,47 @@ interface WorkoutPlanDetail {
   plan_exercises: PlanExercise[];
 }
 
+/**
+ * Função responsável por buscar a ficha prescrita e ordenar seus exercícios no Supabase
+ */
+async function fetchWorkoutPlanDetail(id?: string): Promise<WorkoutPlanDetail> {
+  if (!id) throw new Error('Identificador do treino não encontrado.');
+
+  const { data, error } = await supabase
+    .from('workout_plans')
+    .select(`
+      id,
+      name,
+      description,
+      objective,
+      days_of_week,
+      plan_exercises (
+        id,
+        exercise_id,
+        name,
+        sets,
+        reps,
+        notes,
+        order_index
+      )
+    `)
+    .eq('id', id)
+    .single();
+
+  if (error) {
+    throw new Error('Não foi possível carregar os detalhes desta ficha.');
+  }
+
+  const sortedExercises = (data.plan_exercises || []).sort(
+    (a: PlanExercise, b: PlanExercise) => a.order_index - b.order_index
+  );
+
+  return {
+    ...data,
+    plan_exercises: sortedExercises,
+  };
+}
+
 export default function StudentWorkoutDetailScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -48,13 +91,18 @@ export default function StudentWorkoutDetailScreen() {
 
   const { id } = useLocalSearchParams<{ id?: string }>();
 
-  const [workoutPlan, setWorkoutPlan] = useState<WorkoutPlanDetail | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  // --- BUSCA REATIVA COM TANSTACK QUERY ---
+  const {
+    data: workoutPlan,
+    isLoading,
+    isError,
+    error,
+  } = useQuery({
+    queryKey: ['workout-plan-detail', id],
+    queryFn: () => fetchWorkoutPlanDetail(id),
+    enabled: !!id,
+  });
 
-  /**
-   * Navegação segura de retorno com fallback para a aba do aluno
-   */
   const handleNavigateBack = useCallback(() => {
     if (router.canGoBack()) {
       router.back();
@@ -62,66 +110,6 @@ export default function StudentWorkoutDetailScreen() {
       router.replace('/(app)/(aluno)');
     }
   }, [router]);
-
-  /**
-   * Busca os detalhes da ficha de treino no Supabase
-   */
-  const fetchWorkoutPlanDetail = useCallback(async () => {
-    if (!id) {
-      setErrorMessage('Identificador do treino não encontrado.');
-      setLoading(false);
-      return;
-    }
-
-    try {
-      setLoading(true);
-      setErrorMessage(null);
-
-      const { data, error } = await supabase
-        .from('workout_plans')
-        .select(`
-          id,
-          name,
-          description,
-          objective,
-          days_of_week,
-          plan_exercises (
-            id,
-            exercise_id,
-            name,
-            sets,
-            reps,
-            notes,
-            order_index
-          )
-        `)
-        .eq('id', id)
-        .single();
-
-      if (error) {
-        console.error('Erro ao buscar detalhes da ficha:', error.message);
-        setErrorMessage('Não foi possível carregar os detalhes desta ficha.');
-      } else if (data) {
-        const sortedExercises = (data.plan_exercises || []).sort(
-          (a: PlanExercise, b: PlanExercise) => a.order_index - b.order_index
-        );
-
-        setWorkoutPlan({
-          ...data,
-          plan_exercises: sortedExercises,
-        });
-      }
-    } catch (err) {
-      console.error('Erro inesperado ao buscar treino:', err);
-      setErrorMessage('Ocorreu um erro ao carregar os dados do treino.');
-    } finally {
-      setLoading(false);
-    }
-  }, [id]);
-
-  useEffect(() => {
-    fetchWorkoutPlanDetail();
-  }, [fetchWorkoutPlanDetail]);
 
   return (
     <View
@@ -149,18 +137,18 @@ export default function StudentWorkoutDetailScreen() {
       </View>
 
       {/* CONTEÚDO PRINCIPAL */}
-      {loading ? (
+      {isLoading ? (
         <View className="flex-1 justify-center items-center">
           <ActivityIndicator size="large" color="#59C83A" />
           <Text className="text-xs text-[#71717a] dark:text-zinc-400 mt-3 font-medium">
             Carregando exercícios da ficha...
           </Text>
         </View>
-      ) : errorMessage || !workoutPlan ? (
+      ) : isError || !workoutPlan ? (
         <View className="flex-1 justify-center items-center px-6">
           <Info size={40} color="#ef4444" />
           <Text className="text-[#1b1b1d] dark:text-white font-bold text-base mt-3 text-center">
-            {errorMessage || 'Ficha de treino não encontrada.'}
+            {error?.message || 'Ficha de treino não encontrada.'}
           </Text>
           <TouchableOpacity
             onPress={handleNavigateBack}

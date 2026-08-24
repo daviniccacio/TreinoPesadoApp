@@ -24,8 +24,10 @@ import {
   Play,
   ArrowCounterClockwise,
 } from "phosphor-react-native";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../../../lib/supabase";
 
+// --- TIPAGENS DE DADOS ---
 interface ExerciseItem {
   id: string;
   exercise_id: string;
@@ -35,10 +37,93 @@ interface ExerciseItem {
   notes?: string | null;
 }
 
+interface WorkoutExecutionData {
+  workoutName: string;
+  exercises: ExerciseItem[];
+}
+
 interface DemoExerciseData {
   name: string;
   gif_url?: string | null;
   description?: string | null;
+}
+
+/**
+ * Busca os dados da ficha de treino no Supabase (Customizada ou Prescrita)
+ */
+async function fetchWorkoutExecutionData(
+  id?: string,
+  type?: string
+): Promise<WorkoutExecutionData> {
+  if (!id) throw new Error("ID do treino não fornecido");
+
+  if (type === "custom") {
+    const { data, error } = await supabase
+      .from("custom_workouts")
+      .select(
+        `
+        title,
+        custom_workout_exercises (
+          id,
+          exercise_id,
+          sets,
+          reps,
+          weight,
+          exercises ( name )
+        )
+      `
+      )
+      .eq("id", id)
+      .single();
+
+    if (error) throw new Error(error.message);
+
+    const formatted: ExerciseItem[] = (
+      data.custom_workout_exercises || []
+    ).map((item: any) => ({
+      id: item.id,
+      exercise_id: item.exercise_id,
+      name: item.exercises?.name || "Exercício",
+      sets: String(item.sets || 3),
+      reps: String(item.reps || 10),
+      notes: item.weight ? `Carga: ${item.weight}` : null,
+    }));
+
+    return {
+      workoutName: data.title || "Treino Customizado",
+      exercises: formatted,
+    };
+  } else {
+    const { data, error } = await supabase
+      .from("workout_plans")
+      .select(
+        `
+        name,
+        plan_exercises (
+          id,
+          exercise_id,
+          name,
+          sets,
+          reps,
+          notes,
+          order_index
+        )
+      `
+      )
+      .eq("id", id)
+      .single();
+
+    if (error) throw new Error(error.message);
+
+    const sorted = (data.plan_exercises || []).sort(
+      (a: any, b: any) => a.order_index - b.order_index
+    );
+
+    return {
+      workoutName: data.name || "Ficha Prescrita",
+      exercises: sorted,
+    };
+  }
 }
 
 export default function ExecuteWorkoutScreen() {
@@ -46,16 +131,11 @@ export default function ExecuteWorkoutScreen() {
   const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
+  const queryClient = useQueryClient();
 
   const { id, type } = useLocalSearchParams<{ id?: string; type?: string }>();
 
-  // --- ESTADOS DE DADOS DO TREINO ---
-  const [workoutName, setWorkoutName] = useState<string>("Treino");
-  const [exercises, setExercises] = useState<ExerciseItem[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [saving, setSaving] = useState<boolean>(false);
-
-  // --- CRONÔMETRO PRINCIPAL DO TREINO (Inicia pausado por padrão) ---
+  // --- CRONÔMETRO PRINCIPAL DO TREINO ---
   const [elapsedSeconds, setElapsedSeconds] = useState<number>(0);
   const [isTimerPaused, setIsTimerPaused] = useState<boolean>(true);
 
@@ -67,20 +147,67 @@ export default function ExecuteWorkoutScreen() {
   const [restSecondsLeft, setRestSecondsLeft] = useState<number>(60);
   const DEFAULT_REST_TIME = 60;
 
-  // --- MODAL DE DEMONSTRAÇÃO DO GIF DO EXERCÍCIO ---
+  // --- MODAL DE DEMONSTRAÇÃO DO GIF ---
   const [demoModalVisible, setDemoModalVisible] = useState<boolean>(false);
   const [loadingDemo, setLoadingDemo] = useState<boolean>(false);
-  const [demoExercise, setDemoExercise] = useState<DemoExerciseData | null>(
-    null,
-  );
+  const [demoExercise, setDemoExercise] = useState<DemoExerciseData | null>(null);
 
   // Referências dos intervalos
   const workoutTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const restTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  /**
-   * Navegação segura para a tela anterior
-   */
+  // --- BUSCA COM TANSTACK QUERY ---
+  const { data: workoutData, isLoading } = useQuery({
+    queryKey: ["workout-execution", type, id],
+    queryFn: () => fetchWorkoutExecutionData(id, type),
+    enabled: !!id,
+  });
+
+  const workoutName = workoutData?.workoutName || "Treino";
+  const exercises = workoutData?.exercises || [];
+
+  // --- MUTAÇÃO PARA REGISTRAR TREINO CONCLUÍDO ---
+  const finishWorkoutMutation = useMutation({
+    mutationFn: async (duration: number) => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) throw new Error("Usuário não autenticado.");
+
+      const { error } = await supabase.from("workout_logs").insert({
+        student_id: user.id,
+        workout_title: workoutName,
+        duration_seconds: duration,
+      });
+
+      if (error) throw new Error(error.message);
+      return duration;
+    },
+    onSuccess: (finalTime) => {
+      // Invalida os caches globais para que as outras telas reflitam o novo treino concluído
+      queryClient.invalidateQueries({ queryKey: ["workout-history"] });
+      queryClient.invalidateQueries({ queryKey: ["student-profile-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["student-home-data"] });
+
+      resetWorkoutState();
+
+      Alert.alert(
+        "Treino Concluído! 🎉",
+        `Parabéns! Você completou o "${workoutName}" em ${formatTime(finalTime)}.`,
+        [
+          {
+            text: "Voltar",
+            onPress: () => handleNavigateBack(),
+          },
+        ]
+      );
+    },
+    onError: (error: any) => {
+      Alert.alert("Erro ao Salvar", error.message || "Não foi possível registrar o treino.");
+    },
+  });
+
   const handleNavigateBack = useCallback(() => {
     if (router.canGoBack()) {
       router.back();
@@ -89,9 +216,6 @@ export default function ExecuteWorkoutScreen() {
     }
   }, [router]);
 
-  /**
-   * Zera completamente o temporizador e limpa todos os cronômetros e estados do treino
-   */
   const resetWorkoutState = useCallback(() => {
     if (workoutTimerRef.current) {
       clearInterval(workoutTimerRef.current);
@@ -102,27 +226,24 @@ export default function ExecuteWorkoutScreen() {
       restTimerRef.current = null;
     }
     setElapsedSeconds(0);
-    setIsTimerPaused(true); // Mantém pausado ao resetar
+    setIsTimerPaused(true);
     setCompletedSets(new Set());
     setIsResting(false);
     setRestSecondsLeft(DEFAULT_REST_TIME);
   }, []);
 
-  // Recarrega os dados e ZERA o temporizador sempre que a tela entra em foco
   useFocusEffect(
     useCallback(() => {
       resetWorkoutState();
-      fetchWorkoutData();
-
       return () => {
         resetWorkoutState();
       };
-    }, [id, type, resetWorkoutState]),
+    }, [id, type, resetWorkoutState])
   );
 
   // Cronômetro Geral do Treino
   useEffect(() => {
-    if (!loading && !isTimerPaused) {
+    if (!isLoading && !isTimerPaused) {
       workoutTimerRef.current = setInterval(() => {
         setElapsedSeconds((prev) => prev + 1);
       }, 1000);
@@ -134,13 +255,11 @@ export default function ExecuteWorkoutScreen() {
     }
 
     return () => {
-      if (workoutTimerRef.current) {
-        clearInterval(workoutTimerRef.current);
-      }
+      if (workoutTimerRef.current) clearInterval(workoutTimerRef.current);
     };
-  }, [loading, isTimerPaused]);
+  }, [isLoading, isTimerPaused]);
 
-  // Timer de Descanso entre séries
+  // Timer de Descanso
   useEffect(() => {
     if (isResting && restSecondsLeft > 0) {
       restTimerRef.current = setInterval(() => {
@@ -156,9 +275,6 @@ export default function ExecuteWorkoutScreen() {
     };
   }, [isResting, restSecondsLeft]);
 
-  /**
-   * Converte o valor de gif_url numa URL https:// válida
-   */
   function formatGifUrl(rawUrl: string | null | undefined): string | null {
     if (!rawUrl || typeof rawUrl !== "string") return null;
 
@@ -176,102 +292,16 @@ export default function ExecuteWorkoutScreen() {
         .getPublicUrl(fileName);
       return data?.publicUrl || null;
     } catch (e) {
-      console.error("Erro ao formatar URL do Storage:", e);
       return null;
     }
   }
 
-  /**
-   * Carrega os exercícios do treino no Supabase
-   */
-  async function fetchWorkoutData() {
-    if (!id) {
-      setLoading(false);
-      return;
-    }
-    try {
-      setLoading(true);
-
-      if (type === "custom") {
-        const { data } = await supabase
-          .from("custom_workouts")
-          .select(
-            `
-            title,
-            custom_workout_exercises (
-              id,
-              exercise_id,
-              sets,
-              reps,
-              weight,
-              exercises ( name )
-            )
-          `,
-          )
-          .eq("id", id)
-          .single();
-
-        if (data) {
-          setWorkoutName(data.title);
-          const formatted: ExerciseItem[] = (
-            data.custom_workout_exercises || []
-          ).map((item: any) => ({
-            id: item.id,
-            exercise_id: item.exercise_id,
-            name: item.exercises?.name || "Exercício",
-            sets: String(item.sets || 3),
-            reps: String(item.reps || 10),
-            notes: item.weight ? `Carga: ${item.weight}` : null,
-          }));
-          setExercises(formatted);
-        }
-      } else {
-        const { data } = await supabase
-          .from("workout_plans")
-          .select(
-            `
-            name,
-            plan_exercises (
-              id,
-              exercise_id,
-              name,
-              sets,
-              reps,
-              notes,
-              order_index
-            )
-          `,
-          )
-          .eq("id", id)
-          .single();
-
-        if (data) {
-          setWorkoutName(data.name);
-          const sorted = (data.plan_exercises || []).sort(
-            (a: any, b: any) => a.order_index - b.order_index,
-          );
-          setExercises(sorted);
-        }
-      }
-    } catch (err) {
-      console.error("Erro ao carregar treino:", err);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  /**
-   * Confirmação de saída do treino com retorno à tela anterior
-   */
   function handleExitWorkout() {
     Alert.alert(
       "Sair do Treino",
       "Deseja cancelar o treino em andamento? O tempo e progresso atual não serão salvos.",
       [
-        {
-          text: "Continuar Treinando",
-          style: "cancel",
-        },
+        { text: "Continuar Treinando", style: "cancel" },
         {
           text: "Sair sem Salvar",
           style: "destructive",
@@ -280,17 +310,11 @@ export default function ExecuteWorkoutScreen() {
             handleNavigateBack();
           },
         },
-      ],
+      ]
     );
   }
 
-  /**
-   * Busca os detalhes do exercício e formata o GIF
-   */
-  async function handleOpenExerciseDemo(
-    exerciseId: string,
-    fallbackName: string,
-  ) {
+  async function handleOpenExerciseDemo(exerciseId: string, fallbackName: string) {
     try {
       setDemoModalVisible(true);
       setLoadingDemo(true);
@@ -307,18 +331,15 @@ export default function ExecuteWorkoutScreen() {
         .eq("id", exerciseId)
         .single();
 
-      if (error) {
-        console.error("Erro no Supabase:", error.message);
-      } else if (data) {
-        const validGifUrl = formatGifUrl(data.gif_url);
+      if (!error && data) {
         setDemoExercise({
           name: data.name || fallbackName,
-          gif_url: validGifUrl,
+          gif_url: formatGifUrl(data.gif_url),
           description: null,
         });
       }
     } catch (err) {
-      console.error("Erro ao buscar GIF do exercício:", err);
+      console.error("Erro ao buscar GIF:", err);
     } finally {
       setLoadingDemo(false);
     }
@@ -364,59 +385,11 @@ export default function ExecuteWorkoutScreen() {
     return `${pad(mins)}:${pad(secs)}`;
   }
 
-  async function handleFinishWorkout() {
-    try {
-      setSaving(true);
-
-      if (workoutTimerRef.current) clearInterval(workoutTimerRef.current);
-      if (restTimerRef.current) clearInterval(restTimerRef.current);
-      setIsResting(false);
-
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user) {
-        Alert.alert("Erro", "Usuário não autenticado.");
-        setSaving(false);
-        return;
-      }
-
-      const { error } = await supabase.from("workout_logs").insert({
-        student_id: user.id,
-        workout_title: workoutName,
-        duration_seconds: elapsedSeconds,
-      });
-
-      if (error) {
-        console.error("Erro ao salvar log de treino:", error.message);
-        Alert.alert(
-          "Erro ao Salvar",
-          "Não foi possível registrar o treino concluído.",
-        );
-      } else {
-        const finalTime = elapsedSeconds;
-        resetWorkoutState();
-
-        Alert.alert(
-          "Treino Concluído! 🎉",
-          `Parabéns! Você completou o "${workoutName}" em ${formatTime(finalTime)}.`,
-          [
-            {
-              text: "Voltar",
-              onPress: () => handleNavigateBack(),
-            },
-          ],
-        );
-      }
-    } catch (err) {
-      console.error("Erro ao finalizar treino:", err);
-    } finally {
-      setSaving(false);
-    }
+  function handleFinishWorkout() {
+    finishWorkoutMutation.mutate(elapsedSeconds);
   }
 
-  if (loading) {
+  if (isLoading) {
     return (
       <View className="flex-1 bg-white dark:bg-zinc-950 justify-center items-center">
         <ActivityIndicator size="large" color="#59C83A" />
@@ -432,7 +405,7 @@ export default function ExecuteWorkoutScreen() {
       className="flex-1 bg-white dark:bg-zinc-950 px-5"
       style={{ paddingTop: insets.top + 10 }}
     >
-      {/* CABEÇALHO REORGANIZADO COM NOME DO TREINO NO CENTRO */}
+      {/* CABEÇALHO */}
       <View className="flex-row items-center justify-between mb-4 border-b border-[#e2dfe1] dark:border-zinc-800 pb-3">
         <TouchableOpacity
           onPress={handleExitWorkout}
@@ -450,10 +423,10 @@ export default function ExecuteWorkoutScreen() {
 
         <TouchableOpacity
           onPress={handleFinishWorkout}
-          disabled={saving}
+          disabled={finishWorkoutMutation.isPending}
           className="bg-[#59C83A] px-3.5 py-2 rounded-xl flex-row items-center shadow-sm"
         >
-          {saving ? (
+          {finishWorkoutMutation.isPending ? (
             <ActivityIndicator size="small" color="#FFFFFF" />
           ) : (
             <>
@@ -466,7 +439,7 @@ export default function ExecuteWorkoutScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* CARD DO CRONÔMETRO PRINCIPAL COM CONTROLES */}
+      {/* CARD DO CRONÔMETRO PRINCIPAL */}
       <View className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl mb-4 border border-[#e2dfe1] dark:border-zinc-800 items-center justify-center">
         <Text className="text-[10px] font-bold text-[#59C83A] uppercase tracking-wider mb-1">
           {elapsedSeconds === 0 && isTimerPaused
@@ -487,7 +460,7 @@ export default function ExecuteWorkoutScreen() {
           </Text>
         </View>
 
-        {/* BOTOES DE CONTROLE DO CRONÔMETRO */}
+        {/* CONTROLES DO CRONÔMETRO */}
         <View className="flex-row items-center gap-3 mt-3">
           <TouchableOpacity
             onPress={() => setIsTimerPaused((prev) => !prev)}

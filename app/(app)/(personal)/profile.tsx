@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -9,11 +9,10 @@ import {
   useColorScheme,
   Appearance,
 } from 'react-native';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   User,
-  CalendarBlank,
   Moon,
   Sun,
   Desktop,
@@ -24,42 +23,75 @@ import {
   Books,
   ClipboardText,
 } from 'phosphor-react-native';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../../lib/supabase';
 
 // --- TIPAGENS ---
-interface PersonalStats {
+interface PersonalProfileData {
+  fullName: string;
+  email: string;
+  birthDate: string;
   libraryTemplatesCount: number;
   prescribedWorkoutsCount: number;
 }
 
-interface UserProfileData {
-  fullName: string;
-  email: string;
-  birthDate: string;
+/**
+ * Busca os dados do perfil e as métricas do Personal Trainer no Supabase
+ */
+async function fetchPersonalProfileData(): Promise<PersonalProfileData> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) throw new Error('Usuário não autenticado');
+
+  const metadata = user.user_metadata || {};
+  const firstName = metadata.first_name || '';
+  const lastName = metadata.last_name || '';
+  const fullName = `${firstName} ${lastName}`.trim() || 'Personal Trainer';
+
+  // 1. Contar Modelos na Biblioteca (Planos onde student_id é nulo)
+  const { count: libraryCount } = await supabase
+    .from('workout_plans')
+    .select('*', { count: 'exact', head: true })
+    .is('student_id', null)
+    .eq('personal_id', user.id);
+
+  // 2. Contar Treinos PrescritOS (Planos atribuídos a alunos)
+  const { count: prescribedCount } = await supabase
+    .from('workout_plans')
+    .select('*', { count: 'exact', head: true })
+    .not('student_id', 'is', null)
+    .eq('personal_id', user.id);
+
+  return {
+    fullName,
+    email: user.email || '',
+    birthDate: metadata.birth_date || '',
+    libraryTemplatesCount: libraryCount || 0,
+    prescribedWorkoutsCount: prescribedCount || 0,
+  };
 }
 
 export default function PersonalProfileScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-
   const systemColorScheme = useColorScheme();
   const isDark = systemColorScheme === 'dark';
 
-  // Estados para gerir os dados da tela
   const [themeMode, setThemeMode] = useState<'light' | 'dark' | 'system'>('system');
-  const [stats, setStats] = useState<PersonalStats>({
-    libraryTemplatesCount: 0,
-    prescribedWorkoutsCount: 0,
+
+  // --- REQUISITION COM TANSTACK QUERY ---
+  const {
+    data: profile,
+    isLoading,
+  } = useQuery({
+    queryKey: ['personal-profile-data'],
+    queryFn: fetchPersonalProfileData,
   });
-  const [profile, setProfile] = useState<UserProfileData>({
-    fullName: 'Personal Trainer',
-    email: 'Carregando...',
-    birthDate: '',
-  });
-  const [loading, setLoading] = useState<boolean>(true);
 
   /**
-   * Altera o tema visual do aplicativo dinamicamente (Claro, Escuro ou Sistema)
+   * Altera o tema visual do aplicativo dinamicamente
    */
   function handleThemeChange(mode: 'light' | 'dark' | 'system') {
     setThemeMode(mode);
@@ -71,67 +103,7 @@ export default function PersonalProfileScreen() {
   }
 
   /**
-   * Busca os dados do Personal Trainer e suas estatísticas de trabalho
-   */
-  const fetchPersonalDataAndStats = useCallback(async () => {
-    try {
-      setLoading(true);
-
-      const { data: { user } } = await supabase.auth.getUser();
-
-      if (user) {
-        // 1. Extrair os dados básicos do perfil
-        const metadata = user.user_metadata || {};
-        const firstName = metadata.first_name || '';
-        const lastName = metadata.last_name || '';
-        const fullName = `${firstName} ${lastName}`.trim() || 'Personal Trainer';
-
-        setProfile({
-          fullName,
-          email: user.email || '',
-          birthDate: metadata.birth_date || '',
-        });
-
-        // 2. Contar Modelos na Biblioteca (Planos onde student_id é nulo)
-        const { count: libraryCount } = await supabase
-          .from('workout_plans')
-          .select('*', { count: 'exact', head: true })
-          .is('student_id', null)
-          .eq('personal_id', user.id);
-
-        // 3. Contar Treinos Prescritos (Planos atribuídos a alunos)
-        const { count: prescribedCount } = await supabase
-          .from('workout_plans')
-          .select('*', { count: 'exact', head: true })
-          .not('student_id', 'is', null)
-          .eq('personal_id', user.id);
-
-        setStats({
-          libraryTemplatesCount: libraryCount || 0,
-          prescribedWorkoutsCount: prescribedCount || 0,
-        });
-      }
-    } catch (err) {
-      console.error('Erro ao carregar perfil do personal:', err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  // Carrega os dados na primeira renderização
-  useEffect(() => {
-    fetchPersonalDataAndStats();
-  }, [fetchPersonalDataAndStats]);
-
-  // Recarrega os dados sempre que o Personal volta para esta aba
-  useFocusEffect(
-    useCallback(() => {
-      fetchPersonalDataAndStats();
-    }, [fetchPersonalDataAndStats])
-  );
-
-  /**
-   * Finaliza a sessão do usuário no Supabase e redireciona para a tela inicial
+   * Encerra a sessão do usuário
    */
   async function handleSignOut() {
     Alert.alert('Sair da Conta', 'Deseja realmente encerrar a sua sessão?', [
@@ -141,28 +113,25 @@ export default function PersonalProfileScreen() {
         style: 'destructive',
         onPress: async () => {
           try {
-            setLoading(true);
-
-            // 1. Encerra a sessão no Supabase
             const { error } = await supabase.auth.signOut();
-
             if (error) {
               Alert.alert('Erro ao sair', error.message);
-              setLoading(false);
               return;
             }
-
-            // 2. Redireciona imediatamente para a tela de login (raiz '/')
             router.replace('/');
           } catch (err) {
             console.error('Erro ao processar logout:', err);
             Alert.alert('Erro', 'Não foi possível encerrar a sessão.');
-            setLoading(false);
           }
         },
       },
     ]);
   }
+
+  const fullName = profile?.fullName || 'Personal Trainer';
+  const email = profile?.email || '';
+  const libraryCount = profile?.libraryTemplatesCount || 0;
+  const prescribedCount = profile?.prescribedWorkoutsCount || 0;
 
   return (
     <View className="flex-1 bg-white dark:bg-zinc-950" style={{ paddingTop: insets.top }}>
@@ -183,10 +152,10 @@ export default function PersonalProfileScreen() {
             <User size={48} color="#ffffff" weight="bold" />
           </View>
           <Text className="text-2xl font-extrabold text-[#1b1b1d] dark:text-white">
-            {profile.fullName}
+            {fullName}
           </Text>
           <Text className="text-sm text-[#414755] dark:text-zinc-400 mt-1 font-medium">
-            {profile.email}
+            {email}
           </Text>
         </View>
 
@@ -195,7 +164,7 @@ export default function PersonalProfileScreen() {
           Visão Geral do Trabalho
         </Text>
 
-        {loading ? (
+        {isLoading ? (
           <View className="py-6 items-center">
             <ActivityIndicator size="small" color="#59C83A" />
           </View>
@@ -209,7 +178,7 @@ export default function PersonalProfileScreen() {
             >
               <ClipboardText size={28} color="#59C83A" weight="bold" />
               <Text className="text-2xl font-extrabold text-[#1b1b1d] dark:text-white mt-1">
-                {stats.prescribedWorkoutsCount}
+                {prescribedCount}
               </Text>
               <Text className="text-xs text-[#414755] dark:text-zinc-400 mt-1 text-center font-medium">
                 Fichas Prescritas
@@ -224,7 +193,7 @@ export default function PersonalProfileScreen() {
             >
               <Books size={28} color="#59C83A" weight="bold" />
               <Text className="text-2xl font-extrabold text-[#1b1b1d] dark:text-white mt-1">
-                {stats.libraryTemplatesCount}
+                {libraryCount}
               </Text>
               <Text className="text-xs text-[#414755] dark:text-zinc-400 mt-1 text-center font-medium">
                 Modelos Salvos
@@ -241,16 +210,18 @@ export default function PersonalProfileScreen() {
         <View className="bg-[#f8f9fa] dark:bg-zinc-900 rounded-2xl p-2 mb-6 border border-[#e2dfe1] dark:border-zinc-800 flex-row">
           <TouchableOpacity
             onPress={() => handleThemeChange('light')}
-            className={`flex-1 py-3 rounded-xl flex-row items-center justify-center gap-1.5 ${themeMode === 'light'
+            className={`flex-1 py-3 rounded-xl flex-row items-center justify-center gap-1.5 ${
+              themeMode === 'light'
                 ? 'bg-white dark:bg-zinc-800 border border-[#e2dfe1] dark:border-zinc-700'
                 : 'bg-transparent'
-              }`}
+            }`}
           >
             <Sun size={16} color={themeMode === 'light' ? '#59C83A' : '#9ca3af'} />
             <Text
               style={themeMode === 'light' ? { color: '#59C83A' } : undefined}
-              className={`font-bold text-xs ${themeMode !== 'light' ? 'text-[#414755] dark:text-zinc-300' : ''
-                }`}
+              className={`font-bold text-xs ${
+                themeMode !== 'light' ? 'text-[#414755] dark:text-zinc-300' : ''
+              }`}
             >
               Claro
             </Text>
@@ -258,16 +229,18 @@ export default function PersonalProfileScreen() {
 
           <TouchableOpacity
             onPress={() => handleThemeChange('dark')}
-            className={`flex-1 py-3 rounded-xl flex-row items-center justify-center gap-1.5 ${themeMode === 'dark'
+            className={`flex-1 py-3 rounded-xl flex-row items-center justify-center gap-1.5 ${
+              themeMode === 'dark'
                 ? 'bg-white dark:bg-zinc-800 border border-[#e2dfe1] dark:border-zinc-700'
                 : 'bg-transparent'
-              }`}
+            }`}
           >
             <Moon size={16} color={themeMode === 'dark' ? '#59C83A' : '#9ca3af'} />
             <Text
               style={themeMode === 'dark' ? { color: '#59C83A' } : undefined}
-              className={`font-bold text-xs ${themeMode !== 'dark' ? 'text-[#414755] dark:text-zinc-300' : ''
-                }`}
+              className={`font-bold text-xs ${
+                themeMode !== 'dark' ? 'text-[#414755] dark:text-zinc-300' : ''
+              }`}
             >
               Escuro
             </Text>
@@ -275,16 +248,18 @@ export default function PersonalProfileScreen() {
 
           <TouchableOpacity
             onPress={() => handleThemeChange('system')}
-            className={`flex-1 py-3 rounded-xl flex-row items-center justify-center gap-1.5 ${themeMode === 'system'
+            className={`flex-1 py-3 rounded-xl flex-row items-center justify-center gap-1.5 ${
+              themeMode === 'system'
                 ? 'bg-white dark:bg-zinc-800 border border-[#e2dfe1] dark:border-zinc-700'
                 : 'bg-transparent'
-              }`}
+            }`}
           >
             <Desktop size={16} color={themeMode === 'system' ? '#59C83A' : '#9ca3af'} />
             <Text
               style={themeMode === 'system' ? { color: '#59C83A' } : undefined}
-              className={`font-bold text-xs ${themeMode !== 'system' ? 'text-[#414755] dark:text-zinc-300' : ''
-                }`}
+              className={`font-bold text-xs ${
+                themeMode !== 'system' ? 'text-[#414755] dark:text-zinc-300' : ''
+              }`}
             >
               Sistema
             </Text>

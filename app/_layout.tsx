@@ -9,15 +9,27 @@ if (SafeAreaProvider) {
 // 3. TERCEIRO: CSS Global
 import '../global.css';
 
-// 4. QUARTO: Importações do React, Expo Router e Supabase
+// 4. QUARTO: Importações do React, Expo Router, Supabase e TanStack Query
 import React, { useEffect, useState } from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
+
+// 5. Configuração e criação da instância do TanStack Query
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 5, // 5 minutos: tempo que o dado é considerado recente sem rebuscar
+      gcTime: 1000 * 60 * 30,    // 30 minutos: tempo que os dados inativos permanecem no cache
+      refetchOnWindowFocus: false, // Evita requisições excessivas ao trocar o foco do app
+    },
+  },
+});
 
 /**
  * Layout Raiz do Aplicativo
- * Gerencia o estado de sessão (logado / deslogado) e redireciona entre (auth) e (app)
+ * Gerencia o estado de sessão, proteção de rotas e o provedor global de cache.
  */
 export default function RootLayout() {
   const [session, setSession] = useState<any>(null);
@@ -70,13 +82,15 @@ export default function RootLayout() {
   }
 
   return (
-    <SafeAreaProvider>
-      {/* Mapeamento explícito de todas as pastas no nível raiz de app/ */}
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="index" />
-        <Stack.Screen name="(auth)" />
-        <Stack.Screen name="(app)" />
-      </Stack>
-    </SafeAreaProvider>
+    <QueryClientProvider client={queryClient}>
+      <SafeAreaProvider>
+        {/* Mapeamento explícito de todas as pastas no nível raiz de app/ */}
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="index" />
+          <Stack.Screen name="(auth)" />
+          <Stack.Screen name="(app)" />
+        </Stack>
+      </SafeAreaProvider>
+    </QueryClientProvider>
   );
 }

@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -8,7 +8,7 @@ import {
   RefreshControl,
   useColorScheme,
 } from 'react-native';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Trophy,
@@ -19,16 +19,71 @@ import {
   ArrowLeft,
   CheckCircle,
 } from 'phosphor-react-native';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../../../lib/supabase';
 
-/**
- * Estrutura de dados de um registro de treino salvo no banco
- */
+// --- TIPAGEM DE DADOS ---
 interface WorkoutLog {
   id: string;
   workout_title: string;
   duration_seconds: number;
   created_at: string;
+}
+
+/**
+ * Função responsável por buscar os logs de treino do aluno no Supabase.
+ * Executada pelo TanStack Query e mantida em cache global.
+ */
+async function fetchWorkoutHistory(): Promise<WorkoutLog[]> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) throw new Error('Usuário não autenticado');
+
+  const { data, error } = await supabase
+    .from('workout_logs')
+    .select('id, workout_title, duration_seconds, created_at')
+    .eq('student_id', user.id)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return (data || []) as WorkoutLog[];
+}
+
+/**
+ * Converte segundos para um formato legível em Português
+ */
+function formatDuration(totalSeconds: number): string {
+  if (!totalSeconds || totalSeconds <= 0) return '0 min';
+
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+
+  if (hours > 0) {
+    return `${hours}h ${String(minutes).padStart(2, '0')}m`;
+  }
+  return `${minutes > 0 ? minutes : 1} min`;
+}
+
+/**
+ * Formata a data ISO para o padrão brasileiro
+ */
+function formatDate(isoString: string): string {
+  if (!isoString) return '';
+  const date = new Date(isoString);
+
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = date.getFullYear();
+
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+
+  return `${day}/${month}/${year} às ${hours}:${minutes}`;
 }
 
 export default function StudentWorkoutHistoryScreen() {
@@ -37,96 +92,16 @@ export default function StudentWorkoutHistoryScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
-  // --- ESTADOS DA TELA ---
-  const [logs, setLogs] = useState<WorkoutLog[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [refreshing, setRefreshing] = useState<boolean>(false);
-
-  // Recarrega o histórico sempre que a tela entra em foco
-  useFocusEffect(
-    useCallback(() => {
-      fetchWorkoutHistory();
-    }, [])
-  );
-
-  /**
-   * Busca no Supabase o histórico de treinos do aluno logado
-   */
-  async function fetchWorkoutHistory() {
-    try {
-      setLoading(true);
-
-      // 1. Obtém o usuário logado
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user) {
-        setLoading(false);
-        return;
-      }
-
-      // 2. Consulta os logs de treino na tabela workout_logs
-      const { data, error } = await supabase
-        .from('workout_logs')
-        .select('id, workout_title, duration_seconds, created_at')
-        .eq('student_id', user.id)
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error('Erro ao buscar histórico de treinos:', error.message);
-      } else if (data) {
-        setLogs(data as WorkoutLog[]);
-      }
-    } catch (err) {
-      console.error('Erro inesperado ao buscar histórico:', err);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }
-
-  /**
-   * Função para atualizar a lista ao puxar para baixo
-   */
-  function handleRefresh() {
-    setRefreshing(true);
-    fetchWorkoutHistory();
-  }
-
-  /**
-   * Converte segundos para um formato legível em Português
-   * Exemplo: 120 seg -> "2 min" | 3700 seg -> "1h 01m"
-   */
-  function formatDuration(totalSeconds: number): string {
-    if (!totalSeconds || totalSeconds <= 0) return '0 min';
-
-    const hours = Math.floor(totalSeconds / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-
-    if (hours > 0) {
-      return `${hours}h ${String(minutes).padStart(2, '0')}m`;
-    }
-    return `${minutes > 0 ? minutes : 1} min`;
-  }
-
-  /**
-   * Formata a data ISO para o padrão brasileiro
-   * Exemplo: "2026-08-18T10:30:00Z" -> "18/08/2026 às 10:30"
-   */
-  function formatDate(isoString: string): string {
-    if (!isoString) return '';
-    const date = new Date(isoString);
-
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const year = date.getFullYear();
-
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-
-    return `${day}/${month}/${year} às ${hours}:${minutes}`;
-  }
+  // --- REQUISITION COM TANSTACK QUERY ---
+  const {
+    data: logs = [],
+    isLoading,
+    isRefetching,
+    refetch,
+  } = useQuery({
+    queryKey: ['workout-history'],
+    queryFn: fetchWorkoutHistory,
+  });
 
   // --- CÁLCULO DAS ESTATÍSTICAS TOTAIS ---
   const totalWorkouts = logs.length;
@@ -165,8 +140,8 @@ export default function StudentWorkoutHistoryScreen() {
         contentContainerStyle={{ paddingBottom: 40 }}
         refreshControl={
           <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
+            refreshing={isRefetching}
+            onRefresh={refetch}
             colors={['#59C83A']}
             tintColor="#59C83A"
           />
@@ -207,7 +182,7 @@ export default function StudentWorkoutHistoryScreen() {
         </Text>
 
         {/* LISTAGEM DOS LOGS */}
-        {loading && !refreshing ? (
+        {isLoading ? (
           <View className="py-12 items-center">
             <ActivityIndicator size="large" color="#59C83A" />
             <Text className="text-xs text-[#71717a] dark:text-zinc-400 mt-3 font-medium">

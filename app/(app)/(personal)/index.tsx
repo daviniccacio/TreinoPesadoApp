@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -9,9 +9,10 @@ import {
   RefreshControl,
   useColorScheme,
 } from 'react-native';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { MagnifyingGlass, Users, CaretRight, User, X, Sparkle } from 'phosphor-react-native';
+import { MagnifyingGlass, Users, CaretRight, X, Sparkle } from 'phosphor-react-native';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../../lib/supabase';
 
 /**
@@ -24,68 +25,46 @@ interface Student {
 }
 
 /**
- * Tela Principal de Gestão de Alunos do Personal Trainer
+ * Função de busca de alunos cadastrados no Supabase
  */
+async function fetchStudents(): Promise<Student[]> {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, full_name, role');
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  // Filtra apenas perfis com papel de aluno
+  return ((data || []).filter(
+    (user) =>
+      user.role?.toLowerCase() === 'student' ||
+      user.role?.toLowerCase() === 'aluno'
+  ) as Student[]);
+}
+
 export default function PersonalStudentsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
-  // --- ESTADOS DA TELA ---
-  const [students, setStudents] = useState<Student[]>([]);
+  // Estado local para pesquisa em texto
   const [searchQuery, setSearchQuery] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Recarrega a lista sempre que a tela ganha foco
-  useFocusEffect(
-    useCallback(() => {
-      fetchStudents();
-    }, [])
-  );
-
-  /**
-   * Busca no Supabase todos os perfis com função de aluno
-   */
-  async function fetchStudents() {
-    try {
-      setErrorMessage(null);
-
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, full_name, role');
-
-      if (error) {
-        console.error('Erro ao buscar no Supabase:', error.message);
-        setErrorMessage(error.message);
-      } else if (data) {
-        // Aceita 'student' ou 'aluno'
-        const studentList = data.filter(
-          (user) =>
-            user.role?.toLowerCase() === 'student' ||
-            user.role?.toLowerCase() === 'aluno'
-        );
-
-        setStudents(studentList);
-      }
-    } catch (err: any) {
-      console.error('Erro inesperado:', err);
-      setErrorMessage('Ocorreu um erro ao carregar os dados.');
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }
-
-  /**
-   * Executado quando o usuário puxa a lista para baixo
-   */
-  function handleRefresh() {
-    setRefreshing(true);
-    fetchStudents();
-  }
+  // --- BUSCA REATIVA COM TANSTACK QUERY ---
+  const {
+    data: students = [],
+    isLoading,
+    isError,
+    error,
+    isRefetching,
+    refetch,
+  } = useQuery({
+    queryKey: ['personal-students'],
+    queryFn: fetchStudents,
+  });
 
   /**
    * Função auxiliar para pegar a primeira letra do nome
@@ -95,7 +74,7 @@ export default function PersonalStudentsScreen() {
     return name.trim().charAt(0).toUpperCase();
   }
 
-  // Filtra os alunos com base na pesquisa por nome
+  // Filtra os alunos com base na pesquisa por nome em memória
   const filteredStudents = students.filter((student) =>
     student.full_name?.toLowerCase().includes(searchQuery.toLowerCase().trim())
   );
@@ -125,7 +104,7 @@ export default function PersonalStudentsScreen() {
         </View>
       </View>
 
-      {/* BARRA DE PESQUISA REPINADA */}
+      {/* BARRA DE PESQUISA */}
       <View className="flex-row items-center bg-[#f8f9fa] dark:bg-zinc-900 border border-[#e2dfe1] dark:border-zinc-800 rounded-2xl px-4 py-3 mb-5">
         <MagnifyingGlass size={20} color={isDark ? '#59C83A' : '#71717a'} />
         <TextInput
@@ -143,17 +122,17 @@ export default function PersonalStudentsScreen() {
         )}
       </View>
 
-      {/* MENSAGEM DE ERRO (SE HOUVER) */}
-      {errorMessage && (
+      {/* MENSAGEM DE ERRO */}
+      {isError && (
         <View className="bg-red-500/10 border border-red-500/30 p-3.5 rounded-2xl mb-4">
           <Text className="text-red-500 text-xs font-bold text-center">
-            {errorMessage}
+            {error?.message || 'Ocorreu um erro ao carregar os dados.'}
           </Text>
         </View>
       )}
 
       {/* LISTA DE ALUNOS */}
-      {loading ? (
+      {isLoading ? (
         <View className="flex-1 justify-center items-center">
           <ActivityIndicator size="large" color="#59C83A" />
           <Text className="text-xs font-medium text-[#71717a] dark:text-zinc-400 mt-3">
@@ -182,8 +161,8 @@ export default function PersonalStudentsScreen() {
           contentContainerStyle={{ paddingBottom: 20 }}
           refreshControl={
             <RefreshControl
-              refreshing={refreshing}
-              onRefresh={handleRefresh}
+              refreshing={isRefetching}
+              onRefresh={refetch}
               tintColor="#59C83A"
               colors={['#59C83A']}
             />
@@ -200,14 +179,12 @@ export default function PersonalStudentsScreen() {
               className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl mb-3 border border-[#e2dfe1] dark:border-zinc-800 flex-row items-center justify-between"
             >
               <View className="flex-row items-center flex-1 mr-2">
-                {/* Avatar com a Inicial do Nome */}
                 <View className="w-12 h-12 rounded-2xl bg-[#59C83A]/10 items-center justify-center border border-[#59C83A]/30 mr-3.5">
                   <Text className="text-lg font-black color-[#59C83A]">
                     {getInitials(item.full_name)}
                   </Text>
                 </View>
 
-                {/* Nome e Tag de Status */}
                 <View className="flex-1">
                   <Text
                     className="text-base font-extrabold text-[#1b1b1d] dark:text-white"
@@ -224,7 +201,6 @@ export default function PersonalStudentsScreen() {
                 </View>
               </View>
 
-              {/* Seta Indicativa */}
               <View className="w-8 h-8 rounded-xl bg-white dark:bg-zinc-950 items-center justify-center border border-[#e2dfe1] dark:border-zinc-800">
                 <CaretRight size={16} color={isDark ? '#ffffff' : '#1b1b1d'} />
               </View>

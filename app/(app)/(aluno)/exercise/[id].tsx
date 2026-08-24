@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ArrowLeft, Stack, Repeat, Barbell } from 'phosphor-react-native';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../../../lib/supabase';
 import { getExerciseGif } from '../../../../lib/exerciseGifs';
 
@@ -25,8 +26,21 @@ interface ExerciseDetail {
 }
 
 /**
- * Tela de Detalhes do Exercício (Sem favoritos e com título centralizado)
+ * Função de busca de detalhes do exercício no Supabase
  */
+async function fetchExerciseDetail(exerciseId: string): Promise<ExerciseDetail> {
+  if (!exerciseId) throw new Error('ID do exercício não fornecido');
+
+  const { data, error } = await supabase
+    .from('exercises')
+    .select('*')
+    .eq('id', exerciseId)
+    .single();
+
+  if (error) throw new Error(error.message);
+  return data as ExerciseDetail;
+}
+
 export default function ExerciseDetailScreen() {
   const { id, from, categoryId, workoutId } = useLocalSearchParams<{
     id: string;
@@ -41,49 +55,31 @@ export default function ExerciseDetailScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
-  const [exercise, setExercise] = useState<ExerciseDetail | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
-
-  useEffect(() => {
-    if (id) {
-      fetchExerciseDetails();
-    }
-  }, [id]);
-
-  async function fetchExerciseDetails() {
-    try {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from('exercises')
-        .select('*')
-        .eq('id', id)
-        .single();
-
-      if (!error && data) {
-        setExercise(data);
-      }
-    } catch (err) {
-      console.error('Erro de conexão:', err);
-    } finally {
-      setLoading(false);
-    }
-  }
+  // --- REQUISITION COM TANSTACK QUERY ---
+  const {
+    data: exercise,
+    isLoading,
+  } = useQuery({
+    queryKey: ['exercise-detail', id],
+    queryFn: () => fetchExerciseDetail(id || ''),
+    enabled: !!id,
+  });
 
   function handleGoBack() {
     if (from === 'category' && categoryId) {
-      router.push(`/category/${categoryId}`);
+      router.push(`/(aluno)/category/${categoryId}`);
     } else if (from === 'custom-workout' && workoutId) {
-      router.push(`/custom-workout/${workoutId}`);
+      router.push(`/(aluno)/custom-workout/${workoutId}`);
     } else if (router.canGoBack()) {
       router.back();
     } else {
-      router.replace('/my-workouts');
+      router.replace('/(aluno)/(tabs)/my-workouts');
     }
   }
 
   return (
     <View className="flex-1 bg-white dark:bg-zinc-950" style={{ paddingTop: insets.top }}>
-      {/* 1. Cabeçalho com Título Centralizado */}
+      {/* 1. Cabeçalho */}
       <View className="flex-row items-center justify-between px-5 py-3 border-b border-[#f0edef] dark:border-zinc-800">
         <TouchableOpacity
           onPress={handleGoBack}
@@ -93,17 +89,15 @@ export default function ExerciseDetailScreen() {
           <ArrowLeft size={20} color={isDark ? '#59C83A' : '#1b1b1d'} />
         </TouchableOpacity>
 
-        {/* Título perfeitamente centralizado */}
         <Text className="text-lg font-bold text-[#1b1b1d] dark:text-white text-center flex-1">
           Detalhes do Exercício
         </Text>
 
-        {/* Espaçador invisível para equilibrar o layout do cabeçalho */}
         <View className="w-10" />
       </View>
 
       {/* 2. Conteúdo Principal */}
-      {loading ? (
+      {isLoading ? (
         <View className="flex-1 justify-center items-center">
           <ActivityIndicator size="large" color="#59C83A" />
         </View>

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -18,6 +18,7 @@ import {
   XCircle,
   WarningCircle,
 } from 'phosphor-react-native';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../../../lib/supabase';
 
 interface Exercise {
@@ -30,58 +31,49 @@ interface Exercise {
 }
 
 /**
- * Tela de Exercícios por Categoria com Phosphor Icons
+ * Função de busca dos exercícios de uma categoria específica no Supabase
  */
+async function fetchExercisesByCategory(categoryId: string): Promise<Exercise[]> {
+  if (!categoryId) return [];
+
+  const { data, error } = await supabase
+    .from('exercises')
+    .select('*')
+    .eq('category_id', categoryId);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return (data || []) as Exercise[];
+}
+
 export default function CategoryScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
-  const [exercises, setExercises] = useState<Exercise[]>([]);
+  // Estado local apenas para o campo de busca por nome
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [loading, setLoading] = useState<boolean>(true);
-  const [refreshing, setRefreshing] = useState<boolean>(false);
-  const [hasError, setHasError] = useState<boolean>(false);
 
-  const fetchExercises = useCallback(async () => {
-    if (!id) return;
-
-    try {
-      setHasError(false);
-      const { data, error } = await supabase
-        .from('exercises')
-        .select('*')
-        .eq('category_id', id);
-
-      if (error) {
-        console.error('Erro ao buscar exercícios:', error.message);
-        setHasError(true);
-      } else if (data) {
-        setExercises(data);
-      }
-    } catch (err) {
-      console.error('Erro de conexão:', err);
-      setHasError(true);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [id]);
-
-  useEffect(() => {
-    fetchExercises();
-  }, [fetchExercises]);
-
-  function handleRefresh() {
-    setRefreshing(true);
-    fetchExercises();
-  }
+  // --- REQUISITION COM TANSTACK QUERY ---
+  const {
+    data: exercises = [],
+    isLoading,
+    isError,
+    isRefetching,
+    refetch,
+  } = useQuery({
+    queryKey: ['category-exercises', id],
+    queryFn: () => fetchExercisesByCategory(id || ''),
+    enabled: !!id, // Só executa a query se o ID da categoria existir
+  });
 
   const categoryTitle = id ? id.charAt(0).toUpperCase() + id.slice(1) : 'Categoria';
 
+  // Filtra os exercícios em memória conforme a busca do usuário
   const filteredExercises = exercises.filter((item) =>
     item.name.toLowerCase().includes(searchQuery.toLowerCase().trim())
   );
@@ -91,7 +83,7 @@ export default function CategoryScreen() {
       <TouchableOpacity
         onPress={() =>
           router.push({
-            pathname: '/exercise/[id]',
+            pathname: '/(aluno)/exercise/[id]',
             params: { id: item.id, from: 'category', categoryId: id },
           })
         }
@@ -150,25 +142,25 @@ export default function CategoryScreen() {
       </View>
 
       {/* 2. Conteúdo Principal */}
-      {loading ? (
+      {isLoading ? (
         <View className="flex-1 justify-center items-center">
           <ActivityIndicator size="large" color="#59C83A" />
-          <Text className="mt-3 text-[#414755] dark:text-zinc-400 font-medium">
-            Carregando treinos...
+          <Text className="mt-3 text-[#414755] dark:text-zinc-400 font-medium text-xs">
+            Carregando exercícios...
           </Text>
         </View>
-      ) : hasError ? (
+      ) : isError ? (
         <View className="flex-1 justify-center items-center px-5">
           <WarningCircle size={48} color="#e11d48" />
           <Text className="text-base font-bold text-[#1b1b1d] dark:text-white mt-2 text-center">
             Não foi possível carregar os exercícios
           </Text>
           <TouchableOpacity
-            onPress={fetchExercises}
+            onPress={() => refetch()}
             style={{ backgroundColor: '#59C83A' }}
             className="mt-4 px-5 py-2.5 rounded-xl"
           >
-            <Text className="text-white font-bold">Tentar Novamente</Text>
+            <Text className="text-white font-bold text-xs">Tentar Novamente</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -180,9 +172,9 @@ export default function CategoryScreen() {
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
-              refreshing={refreshing}
-              onRefresh={handleRefresh}
-              colors={['#59C83A']}
+              refreshing={isRefetching}
+              onRefresh={refetch}
+              tintColor="#59C83A"
             />
           }
           ListHeaderComponent={
@@ -213,7 +205,7 @@ export default function CategoryScreen() {
           }
           ListEmptyComponent={
             <View className="py-10 items-center">
-              <Text className="text-[#414755] dark:text-zinc-400 font-medium text-center">
+              <Text className="text-[#414755] dark:text-zinc-400 font-medium text-center text-xs">
                 {searchQuery.trim().length > 0
                   ? `Nenhum exercício encontrado com "${searchQuery}" em ${categoryTitle}.`
                   : 'Nenhum exercício cadastrado para esta categoria.'}

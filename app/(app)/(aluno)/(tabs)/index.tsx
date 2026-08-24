@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React from "react";
 import {
   View,
   Text,
@@ -6,12 +6,15 @@ import {
   TouchableOpacity,
   Image,
   ActivityIndicator,
+  RefreshControl,
 } from "react-native";
-import { useRouter, useFocusEffect } from "expo-router";
+import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Heart, Plus, CaretRight } from "phosphor-react-native";
+import { Plus, CaretRight } from "phosphor-react-native";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "../../../../lib/supabase";
 
+// --- TIPAGENS DE DADOS ---
 interface Category {
   id: string;
   title: string;
@@ -25,90 +28,74 @@ interface CustomWorkout {
   custom_workout_exercises: { id: string }[];
 }
 
+interface StudentHomeData {
+  userName: string;
+  categories: Category[];
+  customWorkouts: CustomWorkout[];
+}
+
 /**
- * Tela Inicial do Aplicativo com Phosphor Icons
+ * Função responsável por buscar todos os dados necessários da tela inicial.
+ * Executa as chamadas em paralelo para otimizar o tempo de resposta.
  */
+async function fetchStudentHomeData(): Promise<StudentHomeData> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  let userName = "Atleta";
+  if (user) {
+    const metadata = user.user_metadata || {};
+    const firstName = metadata.first_name || "";
+    if (firstName.trim()) {
+      userName = firstName.trim();
+    }
+  }
+
+  // Execução paralela das consultas no Supabase
+  const [categoriesRes, workoutsRes] = await Promise.all([
+    supabase.from("categories").select("*"),
+    user
+      ? supabase
+          .from("custom_workouts")
+          .select(
+            `
+            id,
+            title,
+            created_at,
+            custom_workout_exercises (id)
+          `
+          )
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false })
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+
+  return {
+    userName,
+    categories: (categoriesRes.data || []) as Category[],
+    customWorkouts: (workoutsRes.data || []) as unknown as CustomWorkout[],
+  };
+}
+
 export default function HomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [customWorkouts, setCustomWorkouts] = useState<CustomWorkout[]>([]);
-  const [userName, setUserName] = useState<string>("Atleta");
-  const [loading, setLoading] = useState<boolean>(true);
+  // --- REQUISITION COM TANSTACK QUERY ---
+  const {
+    data,
+    isLoading,
+    isRefetching,
+    refetch,
+  } = useQuery({
+    queryKey: ["student-home-data"],
+    queryFn: fetchStudentHomeData,
+  });
 
-  useFocusEffect(
-    useCallback(() => {
-      loadAllData();
-    }, []),
-  );
-
-  async function loadAllData() {
-    setLoading(true);
-    await Promise.all([
-      fetchUserData(),
-      fetchCategories(),
-      fetchCustomWorkouts(),
-    ]);
-    setLoading(false);
-  }
-
-  async function fetchUserData() {
-    try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (user) {
-        const metadata = user.user_metadata || {};
-        const firstName = metadata.first_name || "";
-        if (firstName.trim()) {
-          setUserName(firstName.trim());
-        } else {
-          setUserName("Atleta");
-        }
-      }
-    } catch (err) {
-      console.error("Erro ao buscar dados do usuário:", err);
-    }
-  }
-
-  async function fetchCategories() {
-    try {
-      const { data, error } = await supabase.from("categories").select("*");
-      if (!error && data) setCategories(data);
-    } catch (err) {
-      console.error("Erro ao buscar categorias:", err);
-    }
-  }
-
-  async function fetchCustomWorkouts() {
-    try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { data, error } = await supabase
-        .from("custom_workouts")
-        .select(
-          `
-          id,
-          title,
-          created_at,
-          custom_workout_exercises (id)
-        `,
-        )
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false });
-
-      if (!error && data) {
-        setCustomWorkouts(data as unknown as CustomWorkout[]);
-      }
-    } catch (err) {
-      console.error("Erro ao buscar treinos customizados:", err);
-    }
-  }
+  const userName = data?.userName || "Atleta";
+  const categories = data?.categories || [];
+  const customWorkouts = data?.customWorkouts || [];
 
   return (
     <View
@@ -127,11 +114,11 @@ export default function HomeScreen() {
         </View>
       </View>
 
-      {/* Conteúdo da Tela */}
-      {loading ? (
+      {/* Conteúdo da Tela com Pull-to-Refresh */}
+      {isLoading ? (
         <View className="flex-1 justify-center items-center">
           <ActivityIndicator size="large" color="#59C83A" />
-          <Text className="mt-3 text-[#414755] dark:text-zinc-400 font-medium">
+          <Text className="mt-3 text-[#414755] dark:text-zinc-400 font-medium text-xs">
             Carregando seus treinos...
           </Text>
         </View>
@@ -139,10 +126,17 @@ export default function HomeScreen() {
         <ScrollView
           className="flex-1 px-5 pt-4"
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefetching}
+              onRefresh={refetch}
+              tintColor="#59C83A"
+            />
+          }
         >
           {/* Botão Principal: Montar Meu Treino */}
           <TouchableOpacity
-            onPress={() => router.push("/create-workout")}
+            onPress={() => router.push("/(aluno)/create-workout")}
             style={{ backgroundColor: "#59C83A" }}
             className="p-4 rounded-2xl flex-row items-center justify-between mb-6 shadow-sm active:opacity-90"
             activeOpacity={0.8}
@@ -172,7 +166,12 @@ export default function HomeScreen() {
               {customWorkouts.map((workout) => (
                 <TouchableOpacity
                   key={workout.id}
-                  onPress={() => router.push(`/custom-workout/${workout.id}`)}
+                  onPress={() =>
+                    router.push({
+                      pathname: "/(aluno)/execute-workout",
+                      params: { id: workout.id, type: "custom" },
+                    })
+                  }
                   className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl mb-3 flex-row items-center justify-between border border-[#e2dfe1] dark:border-zinc-800"
                   activeOpacity={0.8}
                 >
@@ -205,7 +204,12 @@ export default function HomeScreen() {
             {categories.map((category) => (
               <TouchableOpacity
                 key={category.id}
-                onPress={() => router.push(`/category/${category.id}`)}
+                onPress={() =>
+                  router.push({
+                    pathname: "/(aluno)/category/[id]",
+                    params: { id: category.id, title: category.title },
+                  })
+                }
                 className="w-[48%] h-44 rounded-2xl overflow-hidden mb-4 relative bg-[#f8f9fa] dark:bg-zinc-900 border border-[#e2dfe1] dark:border-zinc-800"
                 activeOpacity={0.8}
               >

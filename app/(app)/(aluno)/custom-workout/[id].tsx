@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ArrowLeft, Trash, CaretRight } from 'phosphor-react-native';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../../../lib/supabase';
 
 interface WorkoutExerciseItem {
@@ -32,62 +33,59 @@ interface CustomWorkoutDetail {
 }
 
 /**
- * Tela de Detalhes do Treino Personalizado com Phosphor Icons
+ * Função de busca dos detalhes do treino personalizado no Supabase
  */
+async function fetchCustomWorkoutDetail(workoutId: string): Promise<CustomWorkoutDetail> {
+  if (!workoutId) throw new Error('ID do treino não fornecido');
+
+  const { data, error } = await supabase
+    .from('custom_workouts')
+    .select(`
+      id,
+      title,
+      custom_workout_exercises (
+        id,
+        sets,
+        reps,
+        weight,
+        exercises (
+          id,
+          name,
+          category_id
+        )
+      )
+    `)
+    .eq('id', workoutId)
+    .single();
+
+  if (error) throw new Error(error.message);
+  return data as unknown as CustomWorkoutDetail;
+}
+
 export default function CustomWorkoutDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const queryClient = useQueryClient(); // Instância para invalidar o cache ao deletar
 
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
-  const [workout, setWorkout] = useState<CustomWorkoutDetail | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
   const [deleting, setDeleting] = useState<boolean>(false);
 
-  useEffect(() => {
-    if (id) {
-      fetchWorkoutDetails();
-    }
-  }, [id]);
+  // --- REQUISITION COM TANSTACK QUERY ---
+  const {
+    data: workout,
+    isLoading,
+  } = useQuery({
+    queryKey: ['custom-workout-detail', id],
+    queryFn: () => fetchCustomWorkoutDetail(id || ''),
+    enabled: !!id,
+  });
 
-  async function fetchWorkoutDetails() {
-    try {
-      setLoading(true);
-
-      const { data, error } = await supabase
-        .from('custom_workouts')
-        .select(`
-          id,
-          title,
-          custom_workout_exercises (
-            id,
-            sets,
-            reps,
-            weight,
-            exercises (
-              id,
-              name,
-              category_id
-            )
-          )
-        `)
-        .eq('id', id)
-        .single();
-
-      if (error) {
-        console.error('Erro ao buscar detalhes do treino:', error.message);
-      } else if (data) {
-        setWorkout(data as unknown as CustomWorkoutDetail);
-      }
-    } catch (err) {
-      console.error('Erro de conexão:', err);
-    } finally {
-      setLoading(false);
-    }
-  }
-
+  /**
+   * Exclui o treino e invalida as queries para atualizar as listas automaticamente
+   */
   async function handleDeleteWorkout() {
     Alert.alert(
       'Excluir Treino',
@@ -106,8 +104,14 @@ export default function CustomWorkoutDetailScreen() {
                 .eq('id', id);
 
               if (!error) {
+                // Invalida o cache das listas para forçar atualização automática
+                await queryClient.invalidateQueries({ queryKey: ['student-workouts'] });
+                await queryClient.invalidateQueries({ queryKey: ['student-home-data'] });
+
                 Alert.alert('Sucesso', 'Treino excluído com sucesso!');
-                router.replace('/my-workouts');
+                router.replace('/(aluno)/(tabs)/my-workouts');
+              } else {
+                Alert.alert('Erro', error.message || 'Não foi possível excluir o treino.');
               }
             } catch (err) {
               console.error('Erro ao excluir treino:', err);
@@ -121,7 +125,7 @@ export default function CustomWorkoutDetailScreen() {
   }
 
   function handleGoBack() {
-    router.push('/my-workouts');
+    router.replace('/(aluno)/(tabs)/my-workouts');
   }
 
   return (
@@ -158,10 +162,10 @@ export default function CustomWorkoutDetailScreen() {
       </View>
 
       {/* 2. Conteúdo Principal */}
-      {loading ? (
+      {isLoading ? (
         <View className="flex-1 justify-center items-center">
           <ActivityIndicator size="large" color="#59C83A" />
-          <Text className="mt-3 text-[#414755] dark:text-zinc-400 font-medium">
+          <Text className="mt-3 text-[#414755] dark:text-zinc-400 font-medium text-xs">
             Carregando exercícios do treino...
           </Text>
         </View>
@@ -172,18 +176,18 @@ export default function CustomWorkoutDetailScreen() {
             {workout.title}
           </Text>
           <Text style={{ color: '#59C83A' }} className="text-xs font-bold uppercase mb-6">
-            {workout.custom_workout_exercises.length} Exercícios no Total
+            {workout.custom_workout_exercises?.length || 0} Exercícios no Total
           </Text>
 
           {/* Lista de Exercícios do Treino */}
-          {workout.custom_workout_exercises.map((item, index) => (
+          {workout.custom_workout_exercises?.map((item, index) => (
             <TouchableOpacity
               key={item.id}
               onPress={() =>
                 router.push({
-                  pathname: '/exercise/[id]',
+                  pathname: '/(aluno)/exercise/[id]',
                   params: {
-                    id: item.exercises.id,
+                    id: item.exercises?.id,
                     from: 'custom-workout',
                     workoutId: id,
                   },

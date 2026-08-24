@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -8,8 +8,9 @@ import {
   Alert,
   useColorScheme,
   Appearance,
+  RefreshControl,
 } from "react-native";
-import { useRouter, useFocusEffect } from "expo-router";
+import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   User,
@@ -24,6 +25,7 @@ import {
   Shield,
   Bell,
 } from "phosphor-react-native";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "../../../../lib/supabase";
 
 // --- TIPAGENS DE DADOS ---
@@ -38,6 +40,89 @@ interface UserProfileData {
   birthDate: string;
 }
 
+interface StudentProfileResponse {
+  profile: UserProfileData;
+  stats: UserStats;
+}
+
+/**
+ * Função responsável por buscar os dados do perfil e estatísticas do aluno.
+ * Executada pelo TanStack Query e salva no cache global.
+ */
+async function fetchStudentProfileAndStats(): Promise<StudentProfileResponse> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) throw new Error("Usuário não autenticado");
+
+  // 1. Dados Básicos do Perfil
+  const metadata = user.user_metadata || {};
+  const firstName = metadata.first_name || "";
+  const lastName = metadata.last_name || "";
+  const fullName =
+    `${firstName} ${lastName}`.trim() || "Atleta Treino Pesado";
+
+  const profileData: UserProfileData = {
+    fullName,
+    email: user.email || "",
+    birthDate: metadata.birth_date || "",
+  };
+
+  // 2. Busca de Treinos Criados pelo Aluno
+  let workoutCount = 0;
+
+  const { count: countByUserId, error: errUserId } = await supabase
+    .from("custom_workouts")
+    .select("*", { count: "exact", head: true })
+    .eq("user_id", user.id);
+
+  if (!errUserId && countByUserId !== null) {
+    workoutCount = countByUserId;
+  } else {
+    const { count: countByStudentId } = await supabase
+      .from("custom_workouts")
+      .select("*", { count: "exact", head: true })
+      .eq("student_id", user.id);
+
+    workoutCount = countByStudentId || 0;
+  }
+
+  // 3. Busca de Tempo Acumulado na Tabela workout_logs
+  const { data: logsData } = await supabase
+    .from("workout_logs")
+    .select("duration_seconds")
+    .eq("student_id", user.id);
+
+  const totalSeconds = (logsData || []).reduce(
+    (acc, item) => acc + (item.duration_seconds || 0),
+    0
+  );
+
+  return {
+    profile: profileData,
+    stats: {
+      customWorkoutsCount: workoutCount,
+      totalSecondsTrained: totalSeconds,
+    },
+  };
+}
+
+/**
+ * Formata os segundos totais acumulados em texto legível (ex: "45 min" ou "2h 15m")
+ */
+function formatTotalTime(seconds: number): string {
+  if (!seconds || seconds <= 0) return "0 min";
+
+  const hrs = Math.floor(seconds / 3600);
+  const mins = Math.floor((seconds % 3600) / 60);
+
+  if (hrs > 0) {
+    return `${hrs}h ${mins}m`;
+  }
+  return `${mins} min`;
+}
+
 export default function ProfileScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -45,21 +130,32 @@ export default function ProfileScreen() {
   const systemColorScheme = useColorScheme();
   const isDark = systemColorScheme === "dark";
 
-  // --- ESTADOS DA TELA ---
+  // Estado local exclusivo para controle visual do tema
   const [themeMode, setThemeMode] = useState<"light" | "dark" | "system">(
-    "system",
+    "system"
   );
 
-  const [stats, setStats] = useState<UserStats>({
-    customWorkoutsCount: 0,
-    totalSecondsTrained: 0,
+  // --- REQUISITION COM TANSTACK QUERY ---
+  const {
+    data,
+    isLoading,
+    isRefetching,
+    refetch,
+  } = useQuery({
+    queryKey: ["student-profile-stats"],
+    queryFn: fetchStudentProfileAndStats,
   });
-  const [profile, setProfile] = useState<UserProfileData>({
+
+  const profile = data?.profile || {
     fullName: "Atleta",
     email: "Carregando...",
     birthDate: "",
-  });
-  const [loading, setLoading] = useState<boolean>(true);
+  };
+
+  const stats = data?.stats || {
+    customWorkoutsCount: 0,
+    totalSecondsTrained: 0,
+  };
 
   /**
    * Altera o tema visual do aplicativo dinamicamente (Claro, Escuro ou Sistema)
@@ -72,114 +168,6 @@ export default function ProfileScreen() {
       Appearance.setColorScheme(mode);
     }
   }
-
-  /**
-   * Formata os segundos totais acumulados em texto legível (ex: "45 min" ou "2h 15m")
-   */
-  function formatTotalTime(seconds: number): string {
-    if (!seconds || seconds <= 0) return "0 min";
-
-    const hrs = Math.floor(seconds / 3600);
-    const mins = Math.floor((seconds % 3600) / 60);
-
-    if (hrs > 0) {
-      return `${hrs}h ${mins}m`;
-    }
-    return `${mins} min`;
-  }
-
-  /**
-   * Busca os dados do perfil e calcula o resumo de atividades do aluno
-   */
-  const fetchUserDataAndStats = useCallback(async () => {
-    try {
-      setLoading(true);
-
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (user) {
-        console.log(
-          "🔎 [PERFIL] Buscando estatísticas para o aluno ID:",
-          user.id,
-        );
-
-        // 1. Dados Básicos do Perfil
-        const metadata = user.user_metadata || {};
-        const firstName = metadata.first_name || "";
-        const lastName = metadata.last_name || "";
-        const fullName =
-          `${firstName} ${lastName}`.trim() || "Atleta Treino Pesado";
-
-        setProfile({
-          fullName,
-          email: user.email || "",
-          birthDate: metadata.birth_date || "",
-        });
-
-        // 2. Busca de Treinos Criados pelo Aluno (Verifica por user_id ou student_id)
-        let workoutCount = 0;
-
-        const { count: countByUserId, error: errUserId } = await supabase
-          .from("custom_workouts")
-          .select("*", { count: "exact", head: true })
-          .eq("user_id", user.id);
-
-        if (!errUserId && countByUserId !== null) {
-          workoutCount = countByUserId;
-        } else {
-          // Fallback: se user_id falhar ou não existir, testa student_id
-          const { count: countByStudentId } = await supabase
-            .from("custom_workouts")
-            .select("*", { count: "exact", head: true })
-            .eq("student_id", user.id);
-
-          workoutCount = countByStudentId || 0;
-        }
-
-        // 3. Busca de Tempo Acumulado na Tabela workout_logs
-        const { data: logsData, error: logsError } = await supabase
-          .from("workout_logs")
-          .select("duration_seconds")
-          .eq("student_id", user.id);
-
-        if (logsError) {
-          console.error("❌ Erro ao buscar workout_logs:", logsError.message);
-        }
-
-        const totalSeconds = (logsData || []).reduce(
-          (acc, item) => acc + (item.duration_seconds || 0),
-          0,
-        );
-
-        console.log(
-          `📊 [DIAGNÓSTICO] Treinos Criados: ${workoutCount} | Tempo Total: ${totalSeconds}s`,
-        );
-
-        setStats({
-          customWorkoutsCount: workoutCount,
-          totalSecondsTrained: totalSeconds,
-        });
-      }
-    } catch (err) {
-      console.error("Erro ao carregar perfil do aluno:", err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  // Carrega os dados na montagem inicial
-  useEffect(() => {
-    fetchUserDataAndStats();
-  }, [fetchUserDataAndStats]);
-
-  // Recarrega sempre que o aluno volta para esta aba
-  useFocusEffect(
-    useCallback(() => {
-      fetchUserDataAndStats();
-    }, [fetchUserDataAndStats]),
-  );
 
   /**
    * Encerra a sessão do usuário com confirmação
@@ -222,6 +210,13 @@ export default function ProfileScreen() {
       <ScrollView
         className="flex-1 px-5 pt-6"
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefetching}
+            onRefresh={refetch}
+            tintColor="#59C83A"
+          />
+        }
       >
         {/* CARTÃO DO USUÁRIO */}
         <View className="items-center mb-6">
@@ -247,12 +242,12 @@ export default function ProfileScreen() {
           ) : null}
         </View>
 
-        {/* RESUMO DE ATIVIDADES (DOIS CARTÕES LADO A LADO) */}
+        {/* RESUMO DE ATIVIDADES */}
         <Text className="text-lg font-bold text-[#1b1b1d] dark:text-white mb-3">
           Resumo de Atividades
         </Text>
 
-        {loading ? (
+        {isLoading ? (
           <View className="py-6 items-center">
             <ActivityIndicator size="small" color="#59C83A" />
           </View>
@@ -391,7 +386,7 @@ export default function ProfileScreen() {
             onPress={() =>
               Alert.alert(
                 "Privacidade",
-                "Seus dados estão protegidos via Supabase.",
+                "Seus dados estão protegidos via Supabase."
               )
             }
             className="flex-row items-center justify-between p-4"

@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   Alert,
   Modal,
   useColorScheme,
+  RefreshControl,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -20,7 +21,8 @@ import {
   X,
   Users,
 } from 'phosphor-react-native';
-import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../../lib/supabase';
 
 // --- TIPAGENS DE DADOS ---
@@ -38,75 +40,191 @@ interface StudentItem {
   full_name: string;
 }
 
+/**
+ * Busca os modelos de treino (onde student_id é NULL) do Personal no Supabase
+ */
+async function fetchLibraryRoutines(): Promise<RoutineItem[]> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return [];
+
+  const { data, error } = await supabase
+    .from('workout_plans')
+    .select(`
+      id,
+      name,
+      description,
+      objective,
+      days_of_week,
+      plan_exercises (id)
+    `)
+    .is('student_id', null)
+    .eq('personal_id', user.id)
+    .order('created_at', { ascending: false });
+
+  if (error) throw new Error(error.message);
+  return (data || []) as unknown as RoutineItem[];
+}
+
+/**
+ * Busca a lista de alunos cadastrados para exibição na modal de atribuição
+ */
+async function fetchStudentsList(): Promise<StudentItem[]> {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, full_name, role')
+    .order('full_name', { ascending: true });
+
+  if (error) throw new Error(error.message);
+
+  return (data || []).filter(
+    (user) =>
+      user.role?.toLowerCase() === 'student' ||
+      user.role?.toLowerCase() === 'aluno'
+  ) as StudentItem[];
+}
+
 export default function PersonalRoutinesScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
+  const queryClient = useQueryClient();
 
   // Parâmetro opcional caso venha do perfil de um aluno específico
   const params = useLocalSearchParams<{ assignToStudentId?: string }>();
   const initialStudentId = params.assignToStudentId;
 
-  // --- ESTADOS DA TELA ---
-  const [routines, setRoutines] = useState<RoutineItem[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-
-  // --- ESTADOS DO MODAL DE SELEÇÃO DE ALUNOS ---
+  // --- ESTADOS LOCAIS DE INTERFACE ---
   const [studentsModalVisible, setStudentsModalVisible] = useState<boolean>(false);
-  const [students, setStudents] = useState<StudentItem[]>([]);
-  const [loadingStudents, setLoadingStudents] = useState<boolean>(false);
   const [selectedRoutine, setSelectedRoutine] = useState<RoutineItem | null>(null);
 
-  // Carrega as rotinas sempre que a tela entra em foco
-  useFocusEffect(
-    useCallback(() => {
-      fetchLibraryRoutines();
-    }, [])
-  );
+  // --- BUSCA DAS ROTINAS COM TANSTACK QUERY ---
+  const {
+    data: routines = [],
+    isLoading: loadingRoutines,
+    isRefetching,
+    refetch,
+  } = useQuery({
+    queryKey: ['personal-library-routines'],
+    queryFn: fetchLibraryRoutines,
+  });
 
-  /**
-   * Busca os modelos de treino (onde student_id é NULL) do Personal no Supabase
-   */
-  async function fetchLibraryRoutines() {
-    try {
-      setLoading(true);
-      const { data: { user } } = await supabase.auth.getUser();
+  // --- BUSCA DE ALUNOS (SÓ EXECUTA QUANDO O MODAL ESTIVER ABERTO) ---
+  const {
+    data: students = [],
+    isLoading: loadingStudents,
+  } = useQuery({
+    queryKey: ['personal-students-list'],
+    queryFn: fetchStudentsList,
+    enabled: studentsModalVisible,
+  });
 
-      if (!user) {
-        setLoading(false);
-        return;
-      }
-
-      const { data, error } = await supabase
+  // --- MUTAÇÃO PARA EXCLUIR MODELO ---
+  const deleteRoutineMutation = useMutation({
+    mutationFn: async (routineId: string) => {
+      const { error } = await supabase
         .from('workout_plans')
-        .select(`
-          id,
-          name,
-          description,
-          objective,
-          days_of_week,
-          plan_exercises (id)
-        `)
-        .is('student_id', null)
-        .eq('personal_id', user.id)
-        .order('created_at', { ascending: false });
+        .delete()
+        .eq('id', routineId);
 
-      if (error) {
-        console.error('Erro ao buscar rotinas da biblioteca:', error.message);
-      } else if (data) {
-        setRoutines(data as unknown as RoutineItem[]);
+      if (error) throw new Error(error.message);
+      return routineId;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['personal-library-routines'] });
+      queryClient.invalidateQueries({ queryKey: ['personal-profile-data'] });
+      Alert.alert('Sucesso', 'Modelo removido da biblioteca!');
+    },
+    onError: (err: any) => {
+      Alert.alert('Erro', err.message || 'Não foi possível excluir o modelo.');
+    },
+  });
+
+  // --- MUTAÇÃO PARA CLONAR E ATRIBUIR O TREINO AO ALUNO ---
+  const assignRoutineMutation = useMutation({
+    mutationFn: async ({
+      routine,
+      studentId,
+    }: {
+      routine: RoutineItem;
+      studentId: string;
+    }) => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      // 1. Cria a nova ficha vinculada ao student_id
+      const { data: newPlan, error: planError } = await supabase
+        .from('workout_plans')
+        .insert({
+          name: routine.name,
+          description: routine.description,
+          objective: routine.objective,
+          days_of_week: routine.days_of_week,
+          student_id: studentId,
+          personal_id: user?.id,
+        })
+        .select('id')
+        .single();
+
+      if (planError) throw new Error(planError.message);
+
+      // 2. Busca os exercícios do modelo original
+      const { data: originalExercises, error: fetchExError } = await supabase
+        .from('plan_exercises')
+        .select('*')
+        .eq('plan_id', routine.id);
+
+      if (fetchExError) throw new Error(fetchExError.message);
+
+      // 3. Copia os exercícios para o novo plano
+      if (originalExercises && originalExercises.length > 0) {
+        const newExercisesPayload = originalExercises.map((ex) => ({
+          plan_id: newPlan.id,
+          exercise_id: ex.exercise_id,
+          name: ex.name,
+          sets: ex.sets,
+          reps: ex.reps,
+          notes: ex.notes,
+          order_index: ex.order_index,
+        }));
+
+        const { error: insertExError } = await supabase
+          .from('plan_exercises')
+          .insert(newExercisesPayload);
+
+        if (insertExError) throw new Error(insertExError.message);
       }
-    } catch (err) {
-      console.error('Erro inesperado ao carregar biblioteca:', err);
-    } finally {
-      setLoading(false);
-    }
-  }
 
-  /**
-   * Apaga um modelo de treino da biblioteca no Supabase
-   */
+      return studentId;
+    },
+    onSuccess: (studentId) => {
+      setStudentsModalVisible(false);
+
+      // Atualiza os caches globais das telas afetadas
+      queryClient.invalidateQueries({
+        queryKey: ['personal-student-detail', studentId],
+      });
+      queryClient.invalidateQueries({ queryKey: ['student-workouts'] });
+      queryClient.invalidateQueries({ queryKey: ['personal-profile-data'] });
+
+      Alert.alert('Sucesso! 🎉', 'Treino atribuído com sucesso!', [
+        {
+          text: 'OK',
+          onPress: () => {
+            if (initialStudentId) router.back();
+          },
+        },
+      ]);
+    },
+    onError: (err: any) => {
+      Alert.alert('Erro ao Atribuir', err.message || 'Ocorreu uma falha ao vincular o treino.');
+    },
+  });
+
   function handleDeleteRoutine(routineId: string, routineName: string) {
     Alert.alert(
       'Excluir Modelo',
@@ -116,65 +234,27 @@ export default function PersonalRoutinesScreen() {
         {
           text: 'Excluir',
           style: 'destructive',
-          onPress: async () => {
-            try {
-              const { error } = await supabase
-                .from('workout_plans')
-                .delete()
-                .eq('id', routineId);
-
-              if (error) {
-                Alert.alert('Erro', 'Não foi possível excluir o modelo.');
-              } else {
-                setRoutines((prev) => prev.filter((item) => item.id !== routineId));
-                Alert.alert('Sucesso', 'Modelo removido da biblioteca!');
-              }
-            } catch (err) {
-              console.error('Erro ao deletar modelo:', err);
-            }
-          },
+          onPress: () => deleteRoutineMutation.mutate(routineId),
         },
       ]
     );
   }
 
-  /**
-   * Abre a seleção de alunos para vincular o treino
-   */
-  async function handleOpenAssignFlow(routine: RoutineItem) {
+  function handleOpenAssignFlow(routine: RoutineItem) {
     setSelectedRoutine(routine);
 
-    // Se já sabemos qual é o aluno (veio da tela do aluno)
     if (initialStudentId) {
       confirmAndAssignToStudent(routine, initialStudentId, 'este aluno');
-      return;
-    }
-
-    // Se não sabemos, abre o Modal para listar todos os alunos cadastrados
-    try {
+    } else {
       setStudentsModalVisible(true);
-      setLoadingStudents(true);
-
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, full_name')
-        .eq('role', 'aluno')
-        .order('full_name', { ascending: true });
-
-      if (error) throw error;
-      if (data) setStudents(data);
-    } catch (err) {
-      Alert.alert('Erro', 'Não foi possível carregar a lista de alunos.');
-      setStudentsModalVisible(false);
-    } finally {
-      setLoadingStudents(false);
     }
   }
 
-  /**
-   * Executa a clonagem do treino modelo para o aluno escolhido
-   */
-  function confirmAndAssignToStudent(routine: RoutineItem, studentId: string, studentName: string) {
+  function confirmAndAssignToStudent(
+    routine: RoutineItem,
+    studentId: string,
+    studentName: string
+  ) {
     Alert.alert(
       'Confirmar Atribuição',
       `Deseja atribuir uma cópia de "${routine.name}" para ${studentName}?`,
@@ -182,77 +262,15 @@ export default function PersonalRoutinesScreen() {
         { text: 'Cancelar', style: 'cancel' },
         {
           text: 'Atribuir',
-          onPress: async () => {
-            try {
-              setLoading(true);
-              setStudentsModalVisible(false);
-              const { data: { user } } = await supabase.auth.getUser();
-
-              // 1. Cria a nova ficha com o student_id preenchido
-              const { data: newPlan, error: planError } = await supabase
-                .from('workout_plans')
-                .insert({
-                  name: routine.name,
-                  description: routine.description,
-                  objective: routine.objective,
-                  days_of_week: routine.days_of_week,
-                  student_id: studentId,
-                  personal_id: user?.id,
-                })
-                .select('id')
-                .single();
-
-              if (planError) throw planError;
-
-              // 2. Busca os exercícios do modelo original
-              const { data: originalExercises, error: fetchExError } = await supabase
-                .from('plan_exercises')
-                .select('*')
-                .eq('plan_id', routine.id);
-
-              if (fetchExError) throw fetchExError;
-
-              // 3. Copia os exercícios para o novo plano do aluno
-              if (originalExercises && originalExercises.length > 0) {
-                const newExercisesPayload = originalExercises.map((ex) => ({
-                  plan_id: newPlan.id,
-                  exercise_id: ex.exercise_id,
-                  name: ex.name,
-                  sets: ex.sets,
-                  reps: ex.reps,
-                  notes: ex.notes,
-                  order_index: ex.order_index,
-                }));
-
-                const { error: insertExError } = await supabase
-                  .from('plan_exercises')
-                  .insert(newExercisesPayload);
-
-                if (insertExError) throw insertExError;
-              }
-
-              Alert.alert('Sucesso! 🎉', `Treino atribuído com sucesso para ${studentName}!`, [
-                {
-                  text: 'OK',
-                  onPress: () => {
-                    if (initialStudentId) router.back();
-                  },
-                },
-              ]);
-            } catch (err: any) {
-              Alert.alert('Erro ao Atribuir', err.message || 'Ocorreu uma falha.');
-            } finally {
-              setLoading(false);
-            }
-          },
+          onPress: () => assignRoutineMutation.mutate({ routine, studentId }),
         },
       ]
     );
   }
 
   return (
-    <View 
-      className="flex-1 bg-white dark:bg-zinc-950 px-5" 
+    <View
+      className="flex-1 bg-white dark:bg-zinc-950 px-5"
       style={{ paddingTop: insets.top + 10 }}
     >
       {/* CABEÇALHO */}
@@ -266,7 +284,6 @@ export default function PersonalRoutinesScreen() {
           </Text>
         </View>
 
-        {/* Botão de Criar Novo Modelo */}
         <TouchableOpacity
           activeOpacity={0.8}
           onPress={() => router.push('/(personal)/create-workout')}
@@ -277,7 +294,7 @@ export default function PersonalRoutinesScreen() {
       </View>
 
       {/* CONTEÚDO DA LISTA */}
-      {loading ? (
+      {loadingRoutines ? (
         <View className="flex-1 justify-center items-center">
           <ActivityIndicator size="large" color="#59C83A" />
         </View>
@@ -296,6 +313,13 @@ export default function PersonalRoutinesScreen() {
           data={routines}
           keyExtractor={(item) => item.id}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefetching}
+              onRefresh={refetch}
+              tintColor="#59C83A"
+            />
+          }
           renderItem={({ item }) => {
             const exerciseCount = item.plan_exercises?.length || 0;
 
@@ -317,11 +341,12 @@ export default function PersonalRoutinesScreen() {
                   </View>
                 </View>
 
-                {/* AÇÕES EXPLÍCITAS DO CARTÃO */}
+                {/* AÇÕES DO CARTÃO */}
                 <View className="flex-row items-center gap-2">
                   {/* 1. Botão Atribuir a Aluno */}
                   <TouchableOpacity
                     onPress={() => handleOpenAssignFlow(item)}
+                    disabled={assignRoutineMutation.isPending}
                     className="w-9 h-9 rounded-xl bg-[#59C83A]/10 items-center justify-center border border-[#59C83A]/30"
                   >
                     <UserPlus size={18} color="#59C83A" weight="bold" />
@@ -343,6 +368,7 @@ export default function PersonalRoutinesScreen() {
                   {/* 3. Botão Excluir Modelo */}
                   <TouchableOpacity
                     onPress={() => handleDeleteRoutine(item.id, item.name)}
+                    disabled={deleteRoutineMutation.isPending}
                     className="w-9 h-9 rounded-xl bg-red-500/10 items-center justify-center border border-red-500/20"
                   >
                     <Trash size={18} color="#ef4444" />
@@ -404,7 +430,7 @@ export default function PersonalRoutinesScreen() {
                       {item.full_name}
                     </Text>
                     <Text className="text-xs font-bold text-[#59C83A]">
-                      Selecionar $\rightarrow$
+                      Selecionar →
                     </Text>
                   </TouchableOpacity>
                 )}
