@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -6,17 +6,16 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
+  Modal,
+  TextInput,
   useColorScheme,
   Appearance,
-  RefreshControl,
-} from "react-native";
-import { useRouter } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+} from 'react-native';
+import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   User,
-  CalendarBlank,
-  Barbell,
-  Clock,
+  UserPlus,
   Moon,
   Sun,
   Desktop,
@@ -24,182 +23,163 @@ import {
   CaretRight,
   Shield,
   Bell,
-} from "phosphor-react-native";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "../../../../lib/supabase";
+  X,
+  CheckCircle,
+  Key,
+} from 'phosphor-react-native';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '../../../../lib/supabase';
 
 // --- TIPAGENS DE DADOS ---
-interface UserStats {
-  customWorkoutsCount: number;
-  totalSecondsTrained: number;
-}
-
-interface UserProfileData {
+interface StudentProfileData {
   fullName: string;
   email: string;
-  birthDate: string;
-}
-
-interface StudentProfileResponse {
-  profile: UserProfileData;
-  stats: UserStats;
+  personalName: string | null;
 }
 
 /**
- * Função responsável por buscar os dados do perfil e estatísticas do aluno.
- * Executada pelo TanStack Query e salva no cache global.
+ * Busca as informações de perfil do aluno logado e o nome do seu personal (caso vinculado)
  */
-async function fetchStudentProfileAndStats(): Promise<StudentProfileResponse> {
+async function fetchStudentProfileData(): Promise<StudentProfileData> {
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) throw new Error("Usuário não autenticado");
+  if (!user) throw new Error('Usuário não autenticado');
 
-  // 1. Dados Básicos do Perfil
-  const metadata = user.user_metadata || {};
-  const firstName = metadata.first_name || "";
-  const lastName = metadata.last_name || "";
-  const fullName =
-    `${firstName} ${lastName}`.trim() || "Atleta Treino Pesado";
+  const { data: profile, error } = await supabase
+    .from('profiles')
+    .select('full_name, personal_id')
+    .eq('id', user.id)
+    .single();
 
-  const profileData: UserProfileData = {
-    fullName,
-    email: user.email || "",
-    birthDate: metadata.birth_date || "",
-  };
+  if (error) throw new Error(error.message);
 
-  // 2. Busca de Treinos Criados pelo Aluno
-  let workoutCount = 0;
+  let personalName: string | null = null;
 
-  const { count: countByUserId, error: errUserId } = await supabase
-    .from("custom_workouts")
-    .select("*", { count: "exact", head: true })
-    .eq("user_id", user.id);
+  // Se o aluno possui um personal_id, busca o nome do Personal
+  if (profile?.personal_id) {
+    const { data: personalProfile } = await supabase
+      .from('profiles')
+      .select('full_name')
+      .eq('id', profile.personal_id)
+      .single();
 
-  if (!errUserId && countByUserId !== null) {
-    workoutCount = countByUserId;
-  } else {
-    const { count: countByStudentId } = await supabase
-      .from("custom_workouts")
-      .select("*", { count: "exact", head: true })
-      .eq("student_id", user.id);
-
-    workoutCount = countByStudentId || 0;
+    if (personalProfile) {
+      personalName = personalProfile.full_name;
+    }
   }
 
-  // 3. Busca de Tempo Acumulado na Tabela workout_logs
-  const { data: logsData } = await supabase
-    .from("workout_logs")
-    .select("duration_seconds")
-    .eq("student_id", user.id);
-
-  const totalSeconds = (logsData || []).reduce(
-    (acc, item) => acc + (item.duration_seconds || 0),
-    0
-  );
-
   return {
-    profile: profileData,
-    stats: {
-      customWorkoutsCount: workoutCount,
-      totalSecondsTrained: totalSeconds,
-    },
+    fullName: profile?.full_name || 'Aluno',
+    email: user.email || '',
+    personalName,
   };
 }
 
 /**
- * Formata os segundos totais acumulados em texto legível (ex: "45 min" ou "2h 15m")
+ * Função que valida o código digitado e realiza o vínculo no Supabase
  */
-function formatTotalTime(seconds: number): string {
-  if (!seconds || seconds <= 0) return "0 min";
+async function linkStudentToPersonalByCode(inviteCode: string) {
+  const cleanCode = inviteCode.trim().toUpperCase();
 
-  const hrs = Math.floor(seconds / 3600);
-  const mins = Math.floor((seconds % 3600) / 60);
-
-  if (hrs > 0) {
-    return `${hrs}h ${mins}m`;
+  if (!cleanCode) {
+    throw new Error('Por favor, digite o código de acesso do seu Personal.');
   }
-  return `${mins} min`;
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) throw new Error('Sessão expirada. Faça login novamente.');
+
+  // 1. Localiza o Personal pelo código de convite
+  const { data: personalProfile, error: searchError } = await supabase
+    .from('profiles')
+    .select('id, full_name')
+    .eq('invite_code', cleanCode)
+    .single();
+
+  if (searchError || !personalProfile) {
+    throw new Error('Código inválido. Nenhum Personal Trainer foi encontrado.');
+  }
+
+  // 2. Atualiza a coluna personal_id do perfil do Aluno
+  const { error: updateError } = await supabase
+    .from('profiles')
+    .update({ personal_id: personalProfile.id })
+    .eq('id', user.id);
+
+  if (updateError) throw new Error(updateError.message);
+
+  return personalProfile.full_name;
 }
 
-export default function ProfileScreen() {
+export default function StudentProfileScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-
   const systemColorScheme = useColorScheme();
-  const isDark = systemColorScheme === "dark";
+  const isDark = systemColorScheme === 'dark';
+  const queryClient = useQueryClient();
 
-  // Estado local exclusivo para controle visual do tema
-  const [themeMode, setThemeMode] = useState<"light" | "dark" | "system">(
-    "system"
-  );
+  // --- ESTADOS LOCAIS ---
+  const [themeMode, setThemeMode] = useState<'light' | 'dark' | 'system'>('system');
+  const [isLinkModalOpen, setIsLinkModalOpen] = useState<boolean>(false);
+  const [inviteCodeInput, setInviteCodeInput] = useState<string>('');
 
-  // --- REQUISITION COM TANSTACK QUERY ---
-  const {
-    data,
-    isLoading,
-    isRefetching,
-    refetch,
-  } = useQuery({
-    queryKey: ["student-profile-stats"],
-    queryFn: fetchStudentProfileAndStats,
+  // --- CONSULTA DOS DADOS DO PERFIL ---
+  const { data: profile, isLoading } = useQuery({
+    queryKey: ['student-profile-data'],
+    queryFn: fetchStudentProfileData,
   });
 
-  const profile = data?.profile || {
-    fullName: "Atleta",
-    email: "Carregando...",
-    birthDate: "",
-  };
+  // --- MUTAÇÃO PARA VINCULAR O PERSONAL ---
+  const linkMutation = useMutation({
+    mutationFn: linkStudentToPersonalByCode,
+    onSuccess: (personalName) => {
+      setIsLinkModalOpen(false);
+      setInviteCodeInput('');
 
-  const stats = data?.stats || {
-    customWorkoutsCount: 0,
-    totalSecondsTrained: 0,
-  };
+      // Invalida os caches para re-renderizar dados na hora
+      queryClient.invalidateQueries({ queryKey: ['student-profile-data'] });
+      queryClient.invalidateQueries({ queryKey: ['student-home-data'] });
+      queryClient.invalidateQueries({ queryKey: ['personal-students'] });
 
-  /**
-   * Altera o tema visual do aplicativo dinamicamente (Claro, Escuro ou Sistema)
-   */
-  function handleThemeChange(mode: "light" | "dark" | "system") {
+      Alert.alert(
+        'Sucesso! 🎉',
+        `Você foi vinculado com sucesso ao Personal Trainer ${personalName}!`
+      );
+    },
+    onError: (err: any) => {
+      Alert.alert('Erro ao Vincular', err.message || 'Não foi possível realizar o vínculo.');
+    },
+  });
+
+  function handleThemeChange(mode: 'light' | 'dark' | 'system') {
     setThemeMode(mode);
-    if (mode === "system") {
+    if (mode === 'system') {
       Appearance.setColorScheme(null);
     } else {
       Appearance.setColorScheme(mode);
     }
   }
 
-  /**
-   * Encerra a sessão do usuário com confirmação
-   */
   async function handleSignOut() {
-    Alert.alert("Sair da Conta", "Deseja realmente encerrar a sua sessão?", [
-      { text: "Cancelar", style: "cancel" },
+    Alert.alert('Sair da Conta', 'Deseja realmente encerrar sua sessão?', [
+      { text: 'Cancelar', style: 'cancel' },
       {
-        text: "Sair",
-        style: "destructive",
+        text: 'Sair',
+        style: 'destructive',
         onPress: async () => {
-          try {
-            const { error } = await supabase.auth.signOut();
-            if (error) {
-              Alert.alert("Erro ao sair", error.message);
-              return;
-            }
-            router.replace("/");
-          } catch (err) {
-            console.error("Erro ao processar logout:", err);
-            Alert.alert("Erro", "Não foi possível encerrar a sessão.");
-          }
+          await supabase.auth.signOut();
+          router.replace('/');
         },
       },
     ]);
   }
 
   return (
-    <View
-      className="flex-1 bg-white dark:bg-zinc-950"
-      style={{ paddingTop: insets.top }}
-    >
+    <View className="flex-1 bg-white dark:bg-zinc-950" style={{ paddingTop: insets.top }}>
       {/* CABEÇALHO */}
       <View className="px-5 py-4 border-b border-[#f0edef] dark:border-zinc-800 flex-row justify-between items-center">
         <Text className="text-xl font-extrabold text-[#1b1b1d] dark:text-white">
@@ -207,106 +187,88 @@ export default function ProfileScreen() {
         </Text>
       </View>
 
-      <ScrollView
-        className="flex-1 px-5 pt-6"
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefetching}
-            onRefresh={refetch}
-            tintColor="#59C83A"
-          />
-        }
-      >
-        {/* CARTÃO DO USUÁRIO */}
+      <ScrollView className="flex-1 px-5 pt-6" showsVerticalScrollIndicator={false}>
+        {/* CARTÃO DO ALUNO */}
         <View className="items-center mb-6">
           <View
-            style={{ backgroundColor: "#59C83A" }}
+            style={{ backgroundColor: '#59C83A' }}
             className="w-24 h-24 rounded-full items-center justify-center mb-3 shadow-sm border border-[#46ab2b]"
           >
             <User size={48} color="#ffffff" weight="bold" />
           </View>
-          <Text className="text-2xl font-extrabold text-[#1b1b1d] dark:text-white">
-            {profile.fullName}
-          </Text>
-          <Text className="text-sm text-[#414755] dark:text-zinc-400 mt-1 font-medium">
-            {profile.email}
-          </Text>
-          {profile.birthDate ? (
-            <View className="flex-row items-center mt-2 bg-[#f8f9fa] dark:bg-zinc-800 px-3 py-1 rounded-full border border-[#e2dfe1] dark:border-zinc-700">
-              <CalendarBlank size={14} color={isDark ? "#a1a1aa" : "#414755"} />
-              <Text className="text-xs text-[#414755] dark:text-zinc-400 ml-1 font-medium">
-                Nascimento: {profile.birthDate}
+
+          {isLoading ? (
+            <ActivityIndicator size="small" color="#59C83A" className="my-2" />
+          ) : (
+            <>
+              <Text className="text-2xl font-extrabold text-[#1b1b1d] dark:text-white">
+                {profile?.fullName}
               </Text>
-            </View>
-          ) : null}
+              <Text className="text-sm text-[#414755] dark:text-zinc-400 mt-0.5 font-medium">
+                {profile?.email}
+              </Text>
+
+              {/* Status do Vínculo com Personal */}
+              <View className="mt-2 bg-[#59C83A]/10 border border-[#59C83A]/30 px-3 py-1 rounded-full flex-row items-center">
+                <Text className="text-xs font-bold text-[#59C83A]">
+                  {profile?.personalName
+                    ? `Personal: ${profile.personalName}`
+                    : 'Sem Personal Vinculado'}
+                </Text>
+              </View>
+            </>
+          )}
         </View>
 
-        {/* RESUMO DE ATIVIDADES */}
+        {/* OPÇÃO DE VÍNCULO DE PERSONAL */}
         <Text className="text-lg font-bold text-[#1b1b1d] dark:text-white mb-3">
-          Resumo de Atividades
+          Instrutor
         </Text>
 
-        {isLoading ? (
-          <View className="py-6 items-center">
-            <ActivityIndicator size="small" color="#59C83A" />
-          </View>
-        ) : (
-          <View className="flex-row justify-between gap-3 mb-6">
-            {/* Cartão 1: Treinos Criados */}
-            <TouchableOpacity
-              onPress={() => router.push("/(aluno)/my-workouts")}
-              className="flex-1 bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl items-center border border-[#e2dfe1] dark:border-zinc-800"
-              activeOpacity={0.8}
-            >
-              <Barbell size={28} color="#59C83A" weight="bold" />
-              <Text className="text-2xl font-extrabold text-[#1b1b1d] dark:text-white mt-1">
-                {stats.customWorkoutsCount}
-              </Text>
-              <Text className="text-xs text-[#414755] dark:text-zinc-400 mt-1 text-center font-medium">
-                Treinos Criados
-              </Text>
-            </TouchableOpacity>
-
-            {/* Cartão 2: Tempo Treinado */}
-            <TouchableOpacity
-              onPress={() => router.push("/(aluno)/history")}
-              className="flex-1 bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl items-center border border-[#e2dfe1] dark:border-zinc-800"
-              activeOpacity={0.8}
-            >
-              <Clock size={28} color="#59C83A" weight="bold" />
-              <Text className="text-2xl font-extrabold text-[#1b1b1d] dark:text-white mt-1">
-                {formatTotalTime(stats.totalSecondsTrained)}
-              </Text>
-              <Text className="text-xs text-[#414755] dark:text-zinc-400 mt-1 text-center font-medium">
-                Tempo Treinado
-              </Text>
-            </TouchableOpacity>
-          </View>
-        )}
+        <View className="bg-[#f8f9fa] dark:bg-zinc-900 rounded-2xl overflow-hidden mb-6 border border-[#e2dfe1] dark:border-zinc-800">
+          <TouchableOpacity
+            onPress={() => setIsLinkModalOpen(true)}
+            className="flex-row items-center justify-between p-4"
+            activeOpacity={0.7}
+          >
+            <View className="flex-row items-center gap-3">
+              <View className="w-9 h-9 rounded-xl bg-[#59C83A]/10 items-center justify-center border border-[#59C83A]/30">
+                <UserPlus size={20} color="#59C83A" weight="bold" />
+              </View>
+              <View>
+                <Text className="font-bold text-[#1b1b1d] dark:text-white text-sm">
+                  Conectar com meu Personal
+                </Text>
+                <Text className="text-xs text-[#71717a] dark:text-zinc-400">
+                  {profile?.personalName
+                    ? 'Trocar ou redefinir seu instrutor'
+                    : 'Inserir código de acesso do personal'}
+                </Text>
+              </View>
+            </View>
+            <CaretRight size={18} color={isDark ? '#a1a1aa' : '#414755'} />
+          </TouchableOpacity>
+        </View>
 
         {/* SELETOR DE TEMA */}
         <Text className="text-lg font-bold text-[#1b1b1d] dark:text-white mb-3">
-          Aparência do Aplicativo
+          Aparência
         </Text>
 
         <View className="bg-[#f8f9fa] dark:bg-zinc-900 rounded-2xl p-2 mb-6 border border-[#e2dfe1] dark:border-zinc-800 flex-row">
           <TouchableOpacity
-            onPress={() => handleThemeChange("light")}
+            onPress={() => handleThemeChange('light')}
             className={`flex-1 py-3 rounded-xl flex-row items-center justify-center gap-1.5 ${
-              themeMode === "light"
-                ? "bg-white dark:bg-zinc-800 border border-[#e2dfe1] dark:border-zinc-700"
-                : "bg-transparent"
+              themeMode === 'light'
+                ? 'bg-white dark:bg-zinc-800 border border-[#e2dfe1] dark:border-zinc-700'
+                : 'bg-transparent'
             }`}
           >
-            <Sun
-              size={16}
-              color={themeMode === "light" ? "#59C83A" : "#9ca3af"}
-            />
+            <Sun size={16} color={themeMode === 'light' ? '#59C83A' : '#9ca3af'} />
             <Text
-              style={themeMode === "light" ? { color: "#59C83A" } : undefined}
+              style={themeMode === 'light' ? { color: '#59C83A' } : undefined}
               className={`font-bold text-xs ${
-                themeMode !== "light" ? "text-[#414755] dark:text-zinc-300" : ""
+                themeMode !== 'light' ? 'text-[#414755] dark:text-zinc-300' : ''
               }`}
             >
               Claro
@@ -314,21 +276,18 @@ export default function ProfileScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            onPress={() => handleThemeChange("dark")}
+            onPress={() => handleThemeChange('dark')}
             className={`flex-1 py-3 rounded-xl flex-row items-center justify-center gap-1.5 ${
-              themeMode === "dark"
-                ? "bg-white dark:bg-zinc-800 border border-[#e2dfe1] dark:border-zinc-700"
-                : "bg-transparent"
+              themeMode === 'dark'
+                ? 'bg-white dark:bg-zinc-800 border border-[#e2dfe1] dark:border-zinc-700'
+                : 'bg-transparent'
             }`}
           >
-            <Moon
-              size={16}
-              color={themeMode === "dark" ? "#59C83A" : "#9ca3af"}
-            />
+            <Moon size={16} color={themeMode === 'dark' ? '#59C83A' : '#9ca3af'} />
             <Text
-              style={themeMode === "dark" ? { color: "#59C83A" } : undefined}
+              style={themeMode === 'dark' ? { color: '#59C83A' } : undefined}
               className={`font-bold text-xs ${
-                themeMode !== "dark" ? "text-[#414755] dark:text-zinc-300" : ""
+                themeMode !== 'dark' ? 'text-[#414755] dark:text-zinc-300' : ''
               }`}
             >
               Escuro
@@ -336,23 +295,18 @@ export default function ProfileScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            onPress={() => handleThemeChange("system")}
+            onPress={() => handleThemeChange('system')}
             className={`flex-1 py-3 rounded-xl flex-row items-center justify-center gap-1.5 ${
-              themeMode === "system"
-                ? "bg-white dark:bg-zinc-800 border border-[#e2dfe1] dark:border-zinc-700"
-                : "bg-transparent"
+              themeMode === 'system'
+                ? 'bg-white dark:bg-zinc-800 border border-[#e2dfe1] dark:border-zinc-700'
+                : 'bg-transparent'
             }`}
           >
-            <Desktop
-              size={16}
-              color={themeMode === "system" ? "#59C83A" : "#9ca3af"}
-            />
+            <Desktop size={16} color={themeMode === 'system' ? '#59C83A' : '#9ca3af'} />
             <Text
-              style={themeMode === "system" ? { color: "#59C83A" } : undefined}
+              style={themeMode === 'system' ? { color: '#59C83A' } : undefined}
               className={`font-bold text-xs ${
-                themeMode !== "system"
-                  ? "text-[#414755] dark:text-zinc-300"
-                  : ""
+                themeMode !== 'system' ? 'text-[#414755] dark:text-zinc-300' : ''
               }`}
             >
               Sistema
@@ -360,45 +314,38 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* OPÇÕES DA CONTA */}
+        {/* OPÇÕES ADICIONAIS */}
         <Text className="text-lg font-bold text-[#1b1b1d] dark:text-white mb-3">
-          Opções da Conta
+          Configurações
         </Text>
 
         <View className="bg-[#f8f9fa] dark:bg-zinc-900 rounded-2xl overflow-hidden mb-6 border border-[#e2dfe1] dark:border-zinc-800">
           <TouchableOpacity
-            onPress={() =>
-              Alert.alert("Notificações", "Lembretes em desenvolvimento.")
-            }
+            onPress={() => Alert.alert('Notificações', 'Recurso em desenvolvimento.')}
             className="flex-row items-center justify-between p-4 border-b border-[#e2dfe1] dark:border-zinc-800"
             activeOpacity={0.7}
           >
             <View className="flex-row items-center gap-3">
-              <Bell size={20} color={isDark ? "#ffffff" : "#1b1b1d"} />
+              <Bell size={20} color={isDark ? '#ffffff' : '#1b1b1d'} />
               <Text className="font-semibold text-[#1b1b1d] dark:text-white">
-                Notificações e Lembretes
+                Notificações
               </Text>
             </View>
-            <CaretRight size={18} color={isDark ? "#a1a1aa" : "#414755"} />
+            <CaretRight size={18} color={isDark ? '#a1a1aa' : '#414755'} />
           </TouchableOpacity>
 
           <TouchableOpacity
-            onPress={() =>
-              Alert.alert(
-                "Privacidade",
-                "Seus dados estão protegidos via Supabase."
-              )
-            }
+            onPress={() => Alert.alert('Privacidade', 'Seus dados estão protegidos.')}
             className="flex-row items-center justify-between p-4"
             activeOpacity={0.7}
           >
             <View className="flex-row items-center gap-3">
-              <Shield size={20} color={isDark ? "#ffffff" : "#1b1b1d"} />
+              <Shield size={20} color={isDark ? '#ffffff' : '#1b1b1d'} />
               <Text className="font-semibold text-[#1b1b1d] dark:text-white">
-                Privacidade e Dados
+                Privacidade
               </Text>
             </View>
-            <CaretRight size={18} color={isDark ? "#a1a1aa" : "#414755"} />
+            <CaretRight size={18} color={isDark ? '#a1a1aa' : '#414755'} />
           </TouchableOpacity>
         </View>
 
@@ -409,11 +356,69 @@ export default function ProfileScreen() {
           activeOpacity={0.8}
         >
           <SignOut size={20} color="#e11d48" />
-          <Text className="text-[#e11d48] font-bold text-base ml-2">
-            Sair da Conta
-          </Text>
+          <Text className="text-[#e11d48] font-bold text-base ml-2">Sair da Conta</Text>
         </TouchableOpacity>
       </ScrollView>
+
+      {/* MODAL DE INSERÇÃO DO CÓDIGO DO PERSONAL */}
+      <Modal visible={isLinkModalOpen} animationType="slide" transparent>
+        <View className="flex-1 bg-black/60 justify-end">
+          <View className="bg-white dark:bg-zinc-900 rounded-t-3xl p-6 border-t border-[#e2dfe1] dark:border-zinc-800">
+            {/* Cabeçalho do Modal */}
+            <View className="flex-row items-center justify-between mb-4 pb-3 border-b border-[#e2dfe1] dark:border-zinc-800">
+              <View className="flex-row items-center gap-2">
+                <View className="w-9 h-9 rounded-xl bg-[#59C83A]/10 items-center justify-center border border-[#59C83A]/30">
+                  <Key size={20} color="#59C83A" weight="bold" />
+                </View>
+                <Text className="text-lg font-extrabold text-[#1b1b1d] dark:text-white">
+                  Código do Personal
+                </Text>
+              </View>
+
+              <TouchableOpacity
+                onPress={() => setIsLinkModalOpen(false)}
+                className="w-8 h-8 rounded-full bg-zinc-100 dark:bg-zinc-800 items-center justify-center"
+              >
+                <X size={18} color={isDark ? '#ffffff' : '#1b1b1d'} />
+              </TouchableOpacity>
+            </View>
+
+            <Text className="text-xs text-[#71717a] dark:text-zinc-400 mb-4 leading-5">
+              Peça o código exclusivo de convite (ex: <Text className="font-bold text-[#59C83A]">PERS-A1B2</Text>) ao seu Personal Trainer para permitir a prescrição de suas fichas.
+            </Text>
+
+            {/* Campo do Código */}
+            <TextInput
+              className="bg-[#f8f9fa] dark:bg-zinc-950 border border-[#e2dfe1] dark:border-zinc-800 rounded-2xl px-4 py-3.5 text-lg font-extrabold text-[#1b1b1d] dark:text-white tracking-widest uppercase mb-5 text-center"
+              placeholder="PERS-XXXX"
+              placeholderTextColor={isDark ? '#71717a' : '#a09da1'}
+              value={inviteCodeInput}
+              onChangeText={setInviteCodeInput}
+              autoCapitalize="characters"
+              autoCorrect={false}
+            />
+
+            {/* Botão de Confirmação */}
+            <TouchableOpacity
+              onPress={() => linkMutation.mutate(inviteCodeInput)}
+              disabled={linkMutation.isPending}
+              className="bg-[#59C83A] py-4 rounded-2xl items-center flex-row justify-center mb-2"
+              activeOpacity={0.8}
+            >
+              {linkMutation.isPending ? (
+                <ActivityIndicator color="#FFFFFF" size="small" />
+              ) : (
+                <>
+                  <CheckCircle size={20} color="#FFFFFF" weight="bold" />
+                  <Text className="text-white font-extrabold text-base ml-2">
+                    Confirmar Vínculo
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }

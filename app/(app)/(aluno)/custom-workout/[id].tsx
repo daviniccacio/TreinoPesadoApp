@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -10,8 +10,8 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ArrowLeft, Trash, CaretRight } from 'phosphor-react-native';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { ArrowLeft, Trash, CaretRight, PencilSimple } from 'phosphor-react-native';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../../../lib/supabase';
 
 interface WorkoutExerciseItem {
@@ -33,7 +33,7 @@ interface CustomWorkoutDetail {
 }
 
 /**
- * Função de busca dos detalhes do treino personalizado no Supabase
+ * Busca os detalhes do treino personalizado no Supabase
  */
 async function fetchCustomWorkoutDetail(workoutId: string): Promise<CustomWorkoutDetail> {
   if (!workoutId) throw new Error('ID do treino não fornecido');
@@ -66,14 +66,12 @@ export default function CustomWorkoutDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const queryClient = useQueryClient(); // Instância para invalidar o cache ao deletar
+  const queryClient = useQueryClient();
 
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
-  const [deleting, setDeleting] = useState<boolean>(false);
-
-  // --- REQUISITION COM TANSTACK QUERY ---
+  // --- BUSCA DETALHES COM TANSTACK QUERY ---
   const {
     data: workout,
     isLoading,
@@ -83,10 +81,30 @@ export default function CustomWorkoutDetailScreen() {
     enabled: !!id,
   });
 
-  /**
-   * Exclui o treino e invalida as queries para atualizar as listas automaticamente
-   */
-  async function handleDeleteWorkout() {
+  // --- MUTAÇÃO PARA DELETAR O TREINO ---
+  const deleteWorkoutMutation = useMutation({
+    mutationFn: async (workoutId: string) => {
+      const { error } = await supabase
+        .from('custom_workouts')
+        .delete()
+        .eq('id', workoutId);
+
+      if (error) throw new Error(error.message);
+      return workoutId;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['student-workouts'] });
+      queryClient.invalidateQueries({ queryKey: ['student-home-data'] });
+
+      Alert.alert('Sucesso', 'Treino excluído com sucesso!');
+      router.replace('/(aluno)/(tabs)/my-workouts');
+    },
+    onError: (err: any) => {
+      Alert.alert('Erro', err.message || 'Não foi possível excluir o treino.');
+    },
+  });
+
+  function handleDeleteWorkout() {
     Alert.alert(
       'Excluir Treino',
       'Tem certeza de que deseja apagar este treino personalizado?',
@@ -95,30 +113,7 @@ export default function CustomWorkoutDetailScreen() {
         {
           text: 'Excluir',
           style: 'destructive',
-          onPress: async () => {
-            try {
-              setDeleting(true);
-              const { error } = await supabase
-                .from('custom_workouts')
-                .delete()
-                .eq('id', id);
-
-              if (!error) {
-                // Invalida o cache das listas para forçar atualização automática
-                await queryClient.invalidateQueries({ queryKey: ['student-workouts'] });
-                await queryClient.invalidateQueries({ queryKey: ['student-home-data'] });
-
-                Alert.alert('Sucesso', 'Treino excluído com sucesso!');
-                router.replace('/(aluno)/(tabs)/my-workouts');
-              } else {
-                Alert.alert('Erro', error.message || 'Não foi possível excluir o treino.');
-              }
-            } catch (err) {
-              console.error('Erro ao excluir treino:', err);
-            } finally {
-              setDeleting(false);
-            }
-          },
+          onPress: () => deleteWorkoutMutation.mutate(id || ''),
         },
       ]
     );
@@ -147,18 +142,34 @@ export default function CustomWorkoutDetailScreen() {
           {workout?.title || 'Detalhes do Treino'}
         </Text>
 
-        <TouchableOpacity
-          onPress={handleDeleteWorkout}
-          disabled={deleting}
-          className="w-10 h-10 rounded-full bg-[#ffebe8] dark:bg-red-950/40 items-center justify-center border border-transparent dark:border-red-900/30"
-          activeOpacity={0.7}
-        >
-          {deleting ? (
-            <ActivityIndicator size="small" color="#e11d48" />
-          ) : (
-            <Trash size={20} color="#e11d48" />
-          )}
-        </TouchableOpacity>
+        {/* Botões de Ação (Editar e Excluir) */}
+        <View className="flex-row items-center gap-2">
+          <TouchableOpacity
+            onPress={() =>
+              router.push({
+                pathname: '/(aluno)/create-workout',
+                params: { planId: id },
+              })
+            }
+            className="w-10 h-10 rounded-full bg-zinc-100 dark:bg-zinc-800 items-center justify-center border border-zinc-200 dark:border-zinc-700"
+            activeOpacity={0.7}
+          >
+            <PencilSimple size={18} color={isDark ? '#ffffff' : '#1b1b1d'} weight="bold" />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={handleDeleteWorkout}
+            disabled={deleteWorkoutMutation.isPending}
+            className="w-10 h-10 rounded-full bg-[#ffebe8] dark:bg-red-950/40 items-center justify-center border border-transparent dark:border-red-900/30"
+            activeOpacity={0.7}
+          >
+            {deleteWorkoutMutation.isPending ? (
+              <ActivityIndicator size="small" color="#e11d48" />
+            ) : (
+              <Trash size={20} color="#e11d48" />
+            )}
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* 2. Conteúdo Principal */}

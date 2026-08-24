@@ -15,9 +15,6 @@ import { MagnifyingGlass, Users, CaretRight, X, Sparkle } from 'phosphor-react-n
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../../lib/supabase';
 
-/**
- * Estrutura de dados de um aluno
- */
 interface Student {
   id: string;
   full_name: string;
@@ -25,23 +22,35 @@ interface Student {
 }
 
 /**
- * Função de busca de alunos cadastrados no Supabase
+ * Busca estritamente os alunos vinculados ao ID do Personal Trainer autenticado
  */
-async function fetchStudents(): Promise<Student[]> {
+async function fetchMyStudents(): Promise<Student[]> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return [];
+
+  // Consulta estrita: busca apenas onde personal_id é IGUAL ao ID do Personal logado
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, full_name, role');
+    .select('id, name, full_name, role')
+    .eq('personal_id', user.id)
+    .order('created_at', { ascending: false });
 
   if (error) {
+    console.error('Erro ao buscar alunos vinculados:', error.message);
     throw new Error(error.message);
   }
 
-  // Filtra apenas perfis com papel de aluno
-  return ((data || []).filter(
-    (user) =>
-      user.role?.toLowerCase() === 'student' ||
-      user.role?.toLowerCase() === 'aluno'
-  ) as Student[]);
+  // Mapeia o nome considerando tanto a coluna 'name' quanto 'full_name'
+  const formattedStudents = (data || []).map((item: any) => ({
+    id: item.id,
+    full_name: item.name || item.full_name || 'Aluno Sem Nome',
+    role: item.role,
+  }));
+
+  return formattedStudents as Student[];
 }
 
 export default function PersonalStudentsScreen() {
@@ -50,10 +59,9 @@ export default function PersonalStudentsScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
-  // Estado local para pesquisa em texto
   const [searchQuery, setSearchQuery] = useState('');
 
-  // --- BUSCA REATIVA COM TANSTACK QUERY ---
+  // --- CONSULTA TANSTACK QUERY ---
   const {
     data: students = [],
     isLoading,
@@ -63,18 +71,14 @@ export default function PersonalStudentsScreen() {
     refetch,
   } = useQuery({
     queryKey: ['personal-students'],
-    queryFn: fetchStudents,
+    queryFn: fetchMyStudents,
   });
 
-  /**
-   * Função auxiliar para pegar a primeira letra do nome
-   */
   function getInitials(name: string) {
     if (!name) return 'A';
     return name.trim().charAt(0).toUpperCase();
   }
 
-  // Filtra os alunos com base na pesquisa por nome em memória
   const filteredStudents = students.filter((student) =>
     student.full_name?.toLowerCase().includes(searchQuery.toLowerCase().trim())
   );
@@ -84,18 +88,17 @@ export default function PersonalStudentsScreen() {
       className="flex-1 bg-white dark:bg-zinc-950 px-5"
       style={{ paddingTop: insets.top + 10 }}
     >
-      {/* CABEÇALHO COM CONTADOR DE ALUNOS */}
+      {/* CABEÇALHO */}
       <View className="flex-row items-center justify-between mb-5">
         <View className="flex-1 mr-2">
           <Text className="text-2xl font-extrabold text-[#1b1b1d] dark:text-white">
             Gestão de Alunos
           </Text>
           <Text className="text-xs text-[#71717a] dark:text-zinc-400 mt-0.5">
-            Acompanhe a evolução da sua equipe
+            Seus alunos vinculados
           </Text>
         </View>
 
-        {/* Badge com a contagem total de alunos */}
         <View className="bg-[#59C83A]/10 border border-[#59C83A]/30 px-3 py-1.5 rounded-full flex-row items-center">
           <Sparkle size={14} color="#59C83A" weight="bold" />
           <Text className="text-xs font-extrabold text-[#59C83A] ml-1.5">
@@ -122,22 +125,17 @@ export default function PersonalStudentsScreen() {
         )}
       </View>
 
-      {/* MENSAGEM DE ERRO */}
       {isError && (
         <View className="bg-red-500/10 border border-red-500/30 p-3.5 rounded-2xl mb-4">
           <Text className="text-red-500 text-xs font-bold text-center">
-            {error?.message || 'Ocorreu um erro ao carregar os dados.'}
+            {error?.message || 'Erro ao carregar lista de alunos.'}
           </Text>
         </View>
       )}
 
-      {/* LISTA DE ALUNOS */}
       {isLoading ? (
         <View className="flex-1 justify-center items-center">
           <ActivityIndicator size="large" color="#59C83A" />
-          <Text className="text-xs font-medium text-[#71717a] dark:text-zinc-400 mt-3">
-            Carregando lista de alunos...
-          </Text>
         </View>
       ) : filteredStudents.length === 0 ? (
         <View className="flex-1 justify-center items-center px-6">
@@ -145,12 +143,10 @@ export default function PersonalStudentsScreen() {
             <Users size={32} color={isDark ? '#71717a' : '#a1a1aa'} />
           </View>
           <Text className="text-[#1b1b1d] dark:text-white font-extrabold text-base text-center">
-            Nenhum aluno encontrado
+            Nenhum aluno vinculado
           </Text>
           <Text className="text-xs text-[#71717a] dark:text-zinc-400 text-center mt-1">
-            {searchQuery
-              ? 'Nenhum resultado corresponde à sua pesquisa.'
-              : 'Verifique se a coluna "role" no Supabase está cadastrada como "aluno".'}
+            Peça aos seus alunos para inserirem o seu código no perfil deles.
           </Text>
         </View>
       ) : (
@@ -190,7 +186,7 @@ export default function PersonalStudentsScreen() {
                     className="text-base font-extrabold text-[#1b1b1d] dark:text-white"
                     numberOfLines={1}
                   >
-                    {item.full_name || 'Aluno Sem Nome'}
+                    {item.full_name}
                   </Text>
                   <View className="flex-row items-center mt-1">
                     <View className="w-2 h-2 rounded-full bg-[#59C83A] mr-1.5" />

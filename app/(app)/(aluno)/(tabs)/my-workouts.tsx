@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   RefreshControl,
   useColorScheme,
+  Alert,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -16,8 +17,10 @@ import {
   User,
   Plus,
   PlayCircle,
+  PencilSimple,
+  Trash,
 } from "phosphor-react-native";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../../../../lib/supabase";
 
 // --- TIPAGENS DE DADOS ---
@@ -37,8 +40,7 @@ const CATEGORY_FILTERS = [
 type FilterType = "all" | "personal" | "custom";
 
 /**
- * Função responsável por buscar e unificar os treinos do aluno no Supabase.
- * É executada pelo TanStack Query e seu resultado é salvo em cache.
+ * Busca e unifica os treinos do aluno no Supabase
  */
 async function fetchStudentWorkouts(): Promise<WorkoutCardItem[]> {
   const {
@@ -49,15 +51,13 @@ async function fetchStudentWorkouts(): Promise<WorkoutCardItem[]> {
 
   const combinedList: WorkoutCardItem[] = [];
 
-  // 1. Busca treinos prescritos pelo Personal Trainer (workout_plans)
+  // 1. Busca treinos prescritos pelo Personal Trainer
   const { data: prescribedData, error: errorPrescribed } = await supabase
     .from("workout_plans")
     .select("*")
     .eq("student_id", user.id);
 
-  if (errorPrescribed) {
-    console.error("Erro na consulta workout_plans:", errorPrescribed.message);
-  } else if (prescribedData) {
+  if (!errorPrescribed && prescribedData) {
     prescribedData.forEach((item: any) => {
       combinedList.push({
         id: item.id,
@@ -68,13 +68,12 @@ async function fetchStudentWorkouts(): Promise<WorkoutCardItem[]> {
     });
   }
 
-  // 2. Busca treinos criados pelo próprio Aluno (custom_workouts)
+  // 2. Busca treinos criados pelo próprio Aluno
   let { data: customData, error: errorCustom } = await supabase
     .from("custom_workouts")
     .select("*")
     .eq("user_id", user.id);
 
-  // Tenta recuperar por student_id caso user_id não traga registros
   if (errorCustom || !customData || customData.length === 0) {
     const { data: customDataStudent } = await supabase
       .from("custom_workouts")
@@ -105,24 +104,42 @@ export default function MyWorkoutsScreen() {
   const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
+  const queryClient = useQueryClient();
 
-  // Estado local apenas para o filtro visual de categoria
   const [selectedFilter, setSelectedFilter] = useState<FilterType>("all");
 
-  // --- REQUISITION COM TANSTACK QUERY ---
+  // --- CONSULTA TANSTACK QUERY ---
   const {
     data: workouts = [],
     isLoading,
     isRefetching,
     refetch,
   } = useQuery({
-    queryKey: ["student-workouts"], // Chave única para o cache
-    queryFn: fetchStudentWorkouts,  // Função de busca
+    queryKey: ["student-workouts"],
+    queryFn: fetchStudentWorkouts,
   });
 
-  /**
-   * Navega para a execução da ficha selecionada
-   */
+  // --- MUTAÇÃO PARA APAGAR TREINO PERSONALIZADO ---
+  const deleteWorkoutMutation = useMutation({
+    mutationFn: async (workoutId: string) => {
+      const { error } = await supabase
+        .from("custom_workouts")
+        .delete()
+        .eq("id", workoutId);
+
+      if (error) throw new Error(error.message);
+      return workoutId;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["student-workouts"] });
+      queryClient.invalidateQueries({ queryKey: ["student-home-data"] });
+      Alert.alert("Sucesso", "Treino excluído com sucesso!");
+    },
+    onError: (err: any) => {
+      Alert.alert("Erro", err.message || "Não foi possível excluir o treino.");
+    },
+  });
+
   function handleOpenWorkout(workout: WorkoutCardItem) {
     router.push({
       pathname: "/(aluno)/execute-workout",
@@ -133,7 +150,21 @@ export default function MyWorkoutsScreen() {
     });
   }
 
-  // Filtra a lista em memória com base na categoria selecionada
+  function handleDeleteCustomWorkout(workoutId: string, title: string) {
+    Alert.alert(
+      "Excluir Treino",
+      `Tem certeza de que deseja apagar o treino "${title}"?`,
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Excluir",
+          style: "destructive",
+          onPress: () => deleteWorkoutMutation.mutate(workoutId),
+        },
+      ]
+    );
+  }
+
   const filteredWorkouts = workouts.filter((item) => {
     if (selectedFilter === "personal") return item.type === "personal";
     if (selectedFilter === "custom") return item.type === "custom";
@@ -200,7 +231,7 @@ export default function MyWorkoutsScreen() {
         </ScrollView>
       </View>
 
-      {/* LISTA DE TREINOS COM SUPORTE A REFRESH E CACHE */}
+      {/* LISTA DE TREINOS */}
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 40 }}
@@ -238,13 +269,21 @@ export default function MyWorkoutsScreen() {
             const isPersonal = workout.type === "personal";
 
             return (
-              <TouchableOpacity
+              <View
                 key={`workout-${workout.id}`}
-                activeOpacity={0.8}
-                onPress={() => handleOpenWorkout(workout)}
                 className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl mb-3 border border-[#e2dfe1] dark:border-zinc-800 flex-row items-center justify-between"
               >
-                <View className="flex-row items-center flex-1 mr-3">
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  onPress={() => {
+                    if (isPersonal) {
+                      router.push(`/(aluno)/workout-detail?id=${workout.id}`);
+                    } else {
+                      router.push(`/(aluno)/custom-workout/${workout.id}`);
+                    }
+                  }}
+                  className="flex-row items-center flex-1 mr-2"
+                >
                   <View
                     className={`w-11 h-11 rounded-2xl items-center justify-center mr-3 border ${
                       isPersonal
@@ -273,15 +312,54 @@ export default function MyWorkoutsScreen() {
                       {workout.subtitle}
                     </Text>
                   </View>
-                </View>
+                </TouchableOpacity>
 
-                <View className="flex-row items-center gap-1 bg-[#59C83A]/10 border border-[#59C83A]/30 px-3 py-1.5 rounded-xl">
-                  <PlayCircle size={16} color="#59C83A" weight="bold" />
-                  <Text className="text-xs font-bold text-[#59C83A]">
-                    Iniciar
-                  </Text>
+                {/* BOTOES DE ACAO CONDICIONAIS */}
+                <View className="flex-row items-center gap-1.5">
+                  {!isPersonal && (
+                    <>
+                      {/* Botão Editar Treino do Aluno */}
+                      <TouchableOpacity
+                        onPress={() =>
+                          router.push({
+                            pathname: "/(aluno)/create-workout",
+                            params: { planId: workout.id },
+                          })
+                        }
+                        className="w-8 h-8 rounded-lg bg-zinc-200 dark:bg-zinc-800 items-center justify-center border border-zinc-300 dark:border-zinc-700"
+                      >
+                        <PencilSimple
+                          size={16}
+                          color={isDark ? "#ffffff" : "#1b1b1d"}
+                          weight="bold"
+                        />
+                      </TouchableOpacity>
+
+                      {/* Botão Excluir Treino do Aluno */}
+                      <TouchableOpacity
+                        onPress={() =>
+                          handleDeleteCustomWorkout(workout.id, workout.title)
+                        }
+                        disabled={deleteWorkoutMutation.isPending}
+                        className="w-8 h-8 rounded-lg bg-red-500/10 items-center justify-center border border-red-500/20"
+                      >
+                        <Trash size={16} color="#ef4444" />
+                      </TouchableOpacity>
+                    </>
+                  )}
+
+                  {/* Botão Iniciar Treino */}
+                  <TouchableOpacity
+                    onPress={() => handleOpenWorkout(workout)}
+                    className="flex-row items-center gap-1 bg-[#59C83A]/10 border border-[#59C83A]/30 px-2.5 py-1.5 rounded-xl ml-0.5"
+                  >
+                    <PlayCircle size={16} color="#59C83A" weight="bold" />
+                    <Text className="text-xs font-bold text-[#59C83A]">
+                      Iniciar
+                    </Text>
+                  </TouchableOpacity>
                 </View>
-              </TouchableOpacity>
+              </View>
             );
           })
         )}

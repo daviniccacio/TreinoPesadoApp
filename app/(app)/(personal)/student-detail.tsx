@@ -60,22 +60,35 @@ async function fetchStudentDetailData(
     };
   }
 
-  // 1. Perfil do aluno
-  const { data: profileData } = await supabase
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  // Valida se o aluno pertence ao Personal logado
+  const { data: profileData, error: profileError } = await supabase
     .from('profiles')
-    .select('full_name')
+    .select('full_name, personal_id')
     .eq('id', studentId)
     .single();
 
-  const studentName = profileData?.full_name || fallbackName || 'Aluno';
+  if (profileError || !profileData) {
+    throw new Error('Aluno não encontrado ou acesso não autorizado.');
+  }
 
-  // 2. Contagem de treinos concluídos
+  // Se o aluno não for deste personal e não for o próprio usuário, lança erro
+  if (profileData.personal_id !== user?.id && studentId !== user?.id) {
+    throw new Error('Acesso negado: este aluno pertence a outro personal.');
+  }
+
+  const studentName = profileData.full_name || fallbackName || 'Aluno';
+
+  // Contagem de treinos concluídos do aluno
   const { count } = await supabase
     .from('workout_logs')
     .select('*', { count: 'exact', head: true })
     .eq('student_id', studentId);
 
-  // 3. Último treino concluído
+  // Data da última atividade
   const { data: lastWorkout } = await supabase
     .from('workout_logs')
     .select('created_at')
@@ -84,16 +97,12 @@ async function fetchStudentDetailData(
     .limit(1)
     .maybeSingle();
 
-  // 4. Planos de treino atribuídos ao aluno
-  const { data: plansData, error: plansError } = await supabase
+  // Fichas de treino do aluno
+  const { data: plansData } = await supabase
     .from('workout_plans')
     .select('id, name, description, objective, days_of_week, created_at')
     .eq('student_id', studentId)
     .order('created_at', { ascending: false });
-
-  if (plansError) {
-    console.error('Erro ao buscar planos do aluno:', plansError.message);
-  }
 
   return {
     studentName,

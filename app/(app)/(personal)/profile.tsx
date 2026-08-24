@@ -22,6 +22,7 @@ import {
   Bell,
   Books,
   ClipboardText,
+  Key,
 } from 'phosphor-react-native';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../../lib/supabase';
@@ -30,13 +31,14 @@ import { supabase } from '../../../lib/supabase';
 interface PersonalProfileData {
   fullName: string;
   email: string;
+  inviteCode: string;
   birthDate: string;
   libraryTemplatesCount: number;
   prescribedWorkoutsCount: number;
 }
 
 /**
- * Busca os dados do perfil e as métricas do Personal Trainer no Supabase
+ * Busca os dados do perfil, código de acesso e métricas do Personal Trainer no Supabase
  */
 async function fetchPersonalProfileData(): Promise<PersonalProfileData> {
   const {
@@ -45,10 +47,18 @@ async function fetchPersonalProfileData(): Promise<PersonalProfileData> {
 
   if (!user) throw new Error('Usuário não autenticado');
 
-  const metadata = user.user_metadata || {};
-  const firstName = metadata.first_name || '';
-  const lastName = metadata.last_name || '';
-  const fullName = `${firstName} ${lastName}`.trim() || 'Personal Trainer';
+  // Busca o perfil e o código exclusivo de acesso na tabela profiles
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('name, full_name, invite_code')
+    .eq('id', user.id)
+    .single();
+
+  const fullName =
+    profile?.name ||
+    profile?.full_name ||
+    `${user.user_metadata?.first_name || ''} ${user.user_metadata?.last_name || ''}`.trim() ||
+    'Personal Trainer';
 
   // 1. Contar Modelos na Biblioteca (Planos onde student_id é nulo)
   const { count: libraryCount } = await supabase
@@ -57,7 +67,7 @@ async function fetchPersonalProfileData(): Promise<PersonalProfileData> {
     .is('student_id', null)
     .eq('personal_id', user.id);
 
-  // 2. Contar Treinos PrescritOS (Planos atribuídos a alunos)
+  // 2. Contar Treinos Prescritos (Planos atribuídos a alunos)
   const { count: prescribedCount } = await supabase
     .from('workout_plans')
     .select('*', { count: 'exact', head: true })
@@ -67,7 +77,8 @@ async function fetchPersonalProfileData(): Promise<PersonalProfileData> {
   return {
     fullName,
     email: user.email || '',
-    birthDate: metadata.birth_date || '',
+    inviteCode: profile?.invite_code || 'PERS-XXXX',
+    birthDate: user.user_metadata?.birth_date || '',
     libraryTemplatesCount: libraryCount || 0,
     prescribedWorkoutsCount: prescribedCount || 0,
   };
@@ -81,18 +92,12 @@ export default function PersonalProfileScreen() {
 
   const [themeMode, setThemeMode] = useState<'light' | 'dark' | 'system'>('system');
 
-  // --- REQUISITION COM TANSTACK QUERY ---
-  const {
-    data: profile,
-    isLoading,
-  } = useQuery({
+  // --- CONSULTA COM TANSTACK QUERY ---
+  const { data: profile, isLoading } = useQuery({
     queryKey: ['personal-profile-data'],
     queryFn: fetchPersonalProfileData,
   });
 
-  /**
-   * Altera o tema visual do aplicativo dinamicamente
-   */
   function handleThemeChange(mode: 'light' | 'dark' | 'system') {
     setThemeMode(mode);
     if (mode === 'system') {
@@ -102,9 +107,6 @@ export default function PersonalProfileScreen() {
     }
   }
 
-  /**
-   * Encerra a sessão do usuário
-   */
   async function handleSignOut() {
     Alert.alert('Sair da Conta', 'Deseja realmente encerrar a sua sessão?', [
       { text: 'Cancelar', style: 'cancel' },
@@ -130,6 +132,7 @@ export default function PersonalProfileScreen() {
 
   const fullName = profile?.fullName || 'Personal Trainer';
   const email = profile?.email || '';
+  const inviteCode = profile?.inviteCode || 'PERS-XXXX';
   const libraryCount = profile?.libraryTemplatesCount || 0;
   const prescribedCount = profile?.prescribedWorkoutsCount || 0;
 
@@ -157,6 +160,41 @@ export default function PersonalProfileScreen() {
           <Text className="text-sm text-[#414755] dark:text-zinc-400 mt-1 font-medium">
             {email}
           </Text>
+        </View>
+
+        {/* CARD DO CÓDIGO DE ACESSO PARA ALUNOS */}
+        <View className="bg-[#59C83A]/10 border border-[#59C83A]/30 p-4 rounded-2xl mb-6 flex-row items-center justify-between">
+          <View className="flex-row items-center flex-1 mr-2">
+            <View className="w-10 h-10 rounded-xl bg-[#59C83A]/20 justify-center items-center mr-3 border border-[#59C83A]/40">
+              <Key size={22} color="#59C83A" weight="bold" />
+            </View>
+            <View className="flex-1">
+              <Text className="text-xs font-bold text-[#59C83A]">
+                Seu Código de Acesso para Alunos
+              </Text>
+
+              {isLoading ? (
+                <ActivityIndicator size="small" color="#59C83A" className="self-start mt-1" />
+              ) : (
+                <Text className="text-xl font-black text-[#1b1b1d] dark:text-white mt-0.5 tracking-wider">
+                  {inviteCode}
+                </Text>
+              )}
+            </View>
+          </View>
+
+          <TouchableOpacity
+            onPress={() => {
+              Alert.alert(
+                'Código de Acesso',
+                `Compartilhe este código com seus alunos:\n\n${inviteCode}`
+              );
+            }}
+            className="bg-[#59C83A] px-3.5 py-2 rounded-xl"
+            activeOpacity={0.8}
+          >
+            <Text className="text-xs font-extrabold text-white">Copiar</Text>
+          </TouchableOpacity>
         </View>
 
         {/* RESUMO DE ATIVIDADES (MÉTRICAS DO PERSONAL) */}
