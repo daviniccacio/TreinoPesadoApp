@@ -1,15 +1,14 @@
 {
   "expo": {
-    "name": "Treino Pesado Academia",
+    "name": "Treino Pesado",
     "slug": "treino-pesado",
-    "scheme": "treinopesado",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
-    "icon": "./assets/logo-treino-pesado.png",
-    "userInterfaceStyle": "light",
-    "newArchEnabled": true,
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "jsEngine": "hermes",
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/logo-treino-pesado-branco.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
@@ -17,25 +16,16 @@
       "supportsTablet": true
     },
     "android": {
+      "jsEngine": "hermes",
+      "versionCode": 2,
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/logo-treino-pesado.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false,
       "package": "com.daviniccacio.treinopesado"
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    },
-    "plugins": [
-      "expo-router"
-    ],
-    "extra": {
-      "router": {},
-      "eas": {
-        "projectId": "94a45cee-7aa6-42d1-9c27-7faeade308ca"
-      }
     }
   }
 }
