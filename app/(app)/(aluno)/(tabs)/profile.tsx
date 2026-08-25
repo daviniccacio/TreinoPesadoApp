@@ -26,6 +26,8 @@ import {
   X,
   CheckCircle,
   Key,
+  Barbell,
+  Timer,
 } from 'phosphor-react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../../../lib/supabase';
@@ -35,10 +37,12 @@ interface StudentProfileData {
   fullName: string;
   email: string;
   personalName: string | null;
+  totalWorkoutsCompleted: number;
+  totalWorkoutMinutes: number;
 }
 
 /**
- * Busca as informações de perfil do aluno logado e o nome do seu personal (caso vinculado)
+ * Busca as informações de perfil do aluno, nome do personal e estatísticas de treino
  */
 async function fetchStudentProfileData(): Promise<StudentProfileData> {
   const {
@@ -47,38 +51,67 @@ async function fetchStudentProfileData(): Promise<StudentProfileData> {
 
   if (!user) throw new Error('Usuário não autenticado');
 
-  const { data: profile, error } = await supabase
+  // 1. Busca o perfil do aluno no Supabase lendo a coluna 'name'
+  const { data: profile } = await supabase
     .from('profiles')
-    .select('full_name, personal_id')
+    .select('name, personal_id')
     .eq('id', user.id)
-    .single();
+    .maybeSingle();
 
-  if (error) throw new Error(error.message);
+  let fullName = profile?.name ? profile.name.trim() : 'Atleta';
+  if (fullName === 'Atleta' && user.email) {
+    fullName = user.email.split('@')[0];
+  }
 
   let personalName: string | null = null;
 
-  // Se o aluno possui um personal_id, busca o nome do Personal
+  // 2. Se o aluno possui um personal_id, busca o nome do Personal
   if (profile?.personal_id) {
     const { data: personalProfile } = await supabase
       .from('profiles')
-      .select('full_name')
+      .select('name')
       .eq('id', profile.personal_id)
-      .single();
+      .maybeSingle();
 
-    if (personalProfile) {
-      personalName = personalProfile.full_name;
+    if (personalProfile?.name) {
+      personalName = personalProfile.name.trim();
     }
   }
 
+  // 3. Busca estatísticas do histórico de treinos (se a tabela de histórico existir)
+  let totalWorkoutsCompleted = 0;
+  let totalWorkoutMinutes = 0;
+
+  try {
+    const { data: historyData } = await supabase
+      .from('workout_history')
+      .select('duration_minutes')
+      .eq('user_id', user.id);
+
+    if (historyData) {
+      totalWorkoutsCompleted = historyData.length;
+      totalWorkoutMinutes = historyData.reduce(
+        (acc, item) => acc + (item.duration_minutes || 0),
+        0
+      );
+    }
+  } catch (err) {
+    // Caso a tabela de histórico ainda não esteja criada no banco, assume 0
+    totalWorkoutsCompleted = 0;
+    totalWorkoutMinutes = 0;
+  }
+
   return {
-    fullName: profile?.full_name || 'Aluno',
+    fullName,
     email: user.email || '',
     personalName,
+    totalWorkoutsCompleted,
+    totalWorkoutMinutes,
   };
 }
 
 /**
- * Função que valida o código digitado e realiza o vínculo no Supabase
+ * Função que valida o código digitado e realiza o vínculo com o personal
  */
 async function linkStudentToPersonalByCode(inviteCode: string) {
   const cleanCode = inviteCode.trim().toUpperCase();
@@ -93,16 +126,18 @@ async function linkStudentToPersonalByCode(inviteCode: string) {
 
   if (!user) throw new Error('Sessão expirada. Faça login novamente.');
 
-  // 1. Localiza o Personal pelo código de convite
+  // 1. Localiza o Personal pelo código de convite na coluna 'name'
   const { data: personalProfile, error: searchError } = await supabase
     .from('profiles')
-    .select('id, full_name')
+    .select('id, name')
     .eq('invite_code', cleanCode)
     .single();
 
   if (searchError || !personalProfile) {
     throw new Error('Código inválido. Nenhum Personal Trainer foi encontrado.');
   }
+
+  const foundPersonalName = personalProfile.name ? personalProfile.name.trim() : 'Personal Trainer';
 
   // 2. Atualiza a coluna personal_id do perfil do Aluno
   const { error: updateError } = await supabase
@@ -112,7 +147,7 @@ async function linkStudentToPersonalByCode(inviteCode: string) {
 
   if (updateError) throw new Error(updateError.message);
 
-  return personalProfile.full_name;
+  return foundPersonalName;
 }
 
 export default function StudentProfileScreen() {
@@ -140,10 +175,9 @@ export default function StudentProfileScreen() {
       setIsLinkModalOpen(false);
       setInviteCodeInput('');
 
-      // Invalida os caches para re-renderizar dados na hora
+      // Invalida os caches para atualizar as telas instantaneamente
       queryClient.invalidateQueries({ queryKey: ['student-profile-data'] });
       queryClient.invalidateQueries({ queryKey: ['student-home-data'] });
-      queryClient.invalidateQueries({ queryKey: ['personal-students'] });
 
       Alert.alert(
         'Sucesso! 🎉',
@@ -178,6 +212,14 @@ export default function StudentProfileScreen() {
     ]);
   }
 
+  // Formata o tempo de treino em horas e minutos
+  function formatWorkoutTime(totalMinutes: number) {
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    if (hours === 0) return `${minutes} min`;
+    return `${hours}h ${minutes}m`;
+  }
+
   return (
     <View className="flex-1 bg-white dark:bg-zinc-950" style={{ paddingTop: insets.top }}>
       {/* CABEÇALHO */}
@@ -201,7 +243,7 @@ export default function StudentProfileScreen() {
             <ActivityIndicator size="small" color="#59C83A" className="my-2" />
           ) : (
             <>
-              <Text className="text-2xl font-extrabold text-[#1b1b1d] dark:text-white">
+              <Text className="text-2xl font-extrabold text-[#1b1b1d] dark:text-white text-center">
                 {profile?.fullName}
               </Text>
               <Text className="text-sm text-[#414755] dark:text-zinc-400 mt-0.5 font-medium">
@@ -225,7 +267,7 @@ export default function StudentProfileScreen() {
           Instrutor
         </Text>
 
-        <View className="bg-[#f8f9fa] dark:bg-zinc-900 rounded-2xl overflow-hidden mb-6 border border-[#e2dfe1] dark:border-zinc-800">
+        <View className="bg-[#f8f9fa] dark:bg-zinc-900 rounded-2xl overflow-hidden mb-5 border border-[#e2dfe1] dark:border-zinc-800">
           <TouchableOpacity
             onPress={() => setIsLinkModalOpen(true)}
             className="flex-row items-center justify-between p-4"
@@ -248,6 +290,33 @@ export default function StudentProfileScreen() {
             </View>
             <CaretRight size={18} color={isDark ? '#a1a1aa' : '#414755'} />
           </TouchableOpacity>
+        </View>
+
+        {/* --- CARDS DE ESTATÍSTICAS (TREINOS REALIZADOS E TEMPO DE TREINO) --- */}
+        <View className="flex-row justify-between mb-6">
+          <View className="w-[48%] bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl border border-[#e2dfe1] dark:border-zinc-800 items-center">
+            <View className="w-10 h-10 rounded-xl bg-[#59C83A]/10 items-center justify-center mb-2 border border-[#59C83A]/30">
+              <Barbell size={22} color="#59C83A" weight="bold" />
+            </View>
+            <Text className="text-xs text-[#71717a] dark:text-zinc-400 font-medium">
+              Treinos Realizados
+            </Text>
+            <Text className="text-xl font-black text-[#1b1b1d] dark:text-white mt-0.5">
+              {profile?.totalWorkoutsCompleted || 0}
+            </Text>
+          </View>
+
+          <View className="w-[48%] bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl border border-[#e2dfe1] dark:border-zinc-800 items-center">
+            <View className="w-10 h-10 rounded-xl bg-[#59C83A]/10 items-center justify-center mb-2 border border-[#59C83A]/30">
+              <Timer size={22} color="#59C83A" weight="bold" />
+            </View>
+            <Text className="text-xs text-[#71717a] dark:text-zinc-400 font-medium">
+              Tempo de Treino
+            </Text>
+            <Text className="text-xl font-black text-[#1b1b1d] dark:text-white mt-0.5">
+              {formatWorkoutTime(profile?.totalWorkoutMinutes || 0)}
+            </Text>
+          </View>
         </View>
 
         {/* SELETOR DE TEMA */}
