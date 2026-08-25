@@ -35,24 +35,36 @@ interface StudentHomeData {
 }
 
 /**
- * Função responsável por buscar todos os dados necessários da tela inicial.
- * Executa as chamadas em paralelo para otimizar o tempo de resposta.
+ * Função responsável por buscar os dados da tela inicial do aluno.
+ * Consulta o nome na coluna 'name' da tabela 'profiles' do Supabase.
  */
 async function fetchStudentHomeData(): Promise<StudentHomeData> {
+  // 1. Obtém o usuário logado na sessão atual
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
   let userName = "Atleta";
+
   if (user) {
-    const metadata = user.user_metadata || {};
-    const firstName = metadata.first_name || "";
-    if (firstName.trim()) {
-      userName = firstName.trim();
+    // 2. Consulta o registro do usuário na tabela 'profiles'
+    const { data: profile, error } = await supabase
+      .from("profiles")
+      .select("name")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (error) {
+      console.log("Erro ao buscar perfil do aluno:", error.message);
+    }
+
+    // 3. Se encontrou o nome, pega o primeiro nome para a saudação
+    if (profile?.name && profile.name.trim() !== "") {
+      userName = profile.name.trim().split(" ")[0]; // Transforma "Davi Nicacio" em "Davi"
     }
   }
 
-  // Execução paralela das consultas no Supabase
+  // 4. Executa as consultas de Categorias e Treinos em paralelo
   const [categoriesRes, workoutsRes] = await Promise.all([
     supabase.from("categories").select("*"),
     user
@@ -82,7 +94,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
-  // --- REQUISITION COM TANSTACK QUERY ---
+  // --- REQUISIÇÃO COM TANSTACK QUERY ---
   const {
     data,
     isLoading,
@@ -114,7 +126,7 @@ export default function HomeScreen() {
         </View>
       </View>
 
-      {/* Conteúdo da Tela com Pull-to-Refresh */}
+      {/* Conteúdo com Carregamento e Pull-to-Refresh */}
       {isLoading ? (
         <View className="flex-1 justify-center items-center">
           <ActivityIndicator size="large" color="#59C83A" />
