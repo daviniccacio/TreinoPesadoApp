@@ -12,7 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ArrowLeft, Stack, Repeat, Barbell } from 'phosphor-react-native';
 import { useQuery } from '@tanstack/react-query';
 
-// Importação do expo-image para carregamento direto via internet
+// Componente otimizado para exibição de imagens e GIFs da web
 import { Image } from 'expo-image';
 
 import { supabase } from '../../../../lib/supabase';
@@ -67,14 +67,13 @@ export default function ExerciseDetailScreen() {
   });
 
   /**
-   * FUNÇÃO CORRIGIDA DE RETORNO:
-   * Usa router.back() para fechar esta tela e revelar a tela anterior da pilha.
+   * Função para retornar à tela anterior da pilha
    */
   function handleGoBack() {
     if (router.canGoBack()) {
-      router.back(); // Desempilha esta tela e volta exatamente para o Treino
+      router.back();
     } else {
-      router.replace('/(aluno)/(tabs)/my-workouts'); // Fallback caso seja aberto por link direto
+      router.replace('/(aluno)/(tabs)/my-workouts');
     }
   }
 
@@ -121,7 +120,7 @@ export default function ExerciseDetailScreen() {
             </View>
           </View>
 
-          {/* GIF Demonstrativo (Carregamento via Internet sem salvar no disco) */}
+          {/* GIF Demonstrativo com suporte a evento de erro */}
           <View className="w-full h-72 bg-[#f8f9fa] dark:bg-zinc-900 rounded-3xl overflow-hidden mb-6 items-center justify-center p-2 border border-[#e2dfe1] dark:border-zinc-800 relative">
             {isGifLoading && (
               <View className="absolute inset-0 justify-center items-center bg-[#f8f9fa] dark:bg-zinc-900 z-10">
@@ -137,10 +136,13 @@ export default function ExerciseDetailScreen() {
               style={{ width: '100%', height: '100%', borderRadius: 16 }}
               contentFit="contain"
               autoplay={true}
-              transition={150}
-              cachePolicy="none"
+              transition={200}
               onLoadStart={() => setIsGifLoading(true)}
-              onLoadEnd={() => setIsGifLoading(false)}
+              onLoad={() => setIsGifLoading(false)}
+              onError={() => {
+                console.log('⚠️ [Image Error] Não foi possível carregar a imagem do GIF.');
+                setIsGifLoading(false);
+              }}
             />
           </View>
 
