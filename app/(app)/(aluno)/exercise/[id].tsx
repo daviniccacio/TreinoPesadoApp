@@ -1,17 +1,20 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
-  Image,
   useColorScheme,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ArrowLeft, Stack, Repeat, Barbell } from 'phosphor-react-native';
 import { useQuery } from '@tanstack/react-query';
+
+// Importação do expo-image para carregamento direto via internet
+import { Image } from 'expo-image';
+
 import { supabase } from '../../../../lib/supabase';
 import { getExerciseGif } from '../../../../lib/exerciseGifs';
 
@@ -26,7 +29,7 @@ interface ExerciseDetail {
 }
 
 /**
- * Função de busca de detalhes do exercício no Supabase
+ * Busca as informações do exercício no Supabase
  */
 async function fetchExerciseDetail(exerciseId: string): Promise<ExerciseDetail> {
   if (!exerciseId) throw new Error('ID do exercício não fornecido');
@@ -42,12 +45,7 @@ async function fetchExerciseDetail(exerciseId: string): Promise<ExerciseDetail> 
 }
 
 export default function ExerciseDetailScreen() {
-  const { id, from, categoryId, workoutId } = useLocalSearchParams<{
-    id: string;
-    from?: string;
-    categoryId?: string;
-    workoutId?: string;
-  }>();
+  const { id } = useLocalSearchParams<{ id: string }>();
 
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -55,7 +53,10 @@ export default function ExerciseDetailScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
-  // --- REQUISITION COM TANSTACK QUERY ---
+  // Estado local para controlar o indicador de carregamento do GIF
+  const [isGifLoading, setIsGifLoading] = useState<boolean>(true);
+
+  // Consulta dos dados do exercício via TanStack Query
   const {
     data: exercise,
     isLoading,
@@ -65,21 +66,21 @@ export default function ExerciseDetailScreen() {
     enabled: !!id,
   });
 
+  /**
+   * FUNÇÃO CORRIGIDA DE RETORNO:
+   * Usa router.back() para fechar esta tela e revelar a tela anterior da pilha.
+   */
   function handleGoBack() {
-    if (from === 'category' && categoryId) {
-      router.push(`/(aluno)/category/${categoryId}`);
-    } else if (from === 'custom-workout' && workoutId) {
-      router.push(`/(aluno)/custom-workout/${workoutId}`);
-    } else if (router.canGoBack()) {
-      router.back();
+    if (router.canGoBack()) {
+      router.back(); // Desempilha esta tela e volta exatamente para o Treino
     } else {
-      router.replace('/(aluno)/(tabs)/my-workouts');
+      router.replace('/(aluno)/(tabs)/my-workouts'); // Fallback caso seja aberto por link direto
     }
   }
 
   return (
     <View className="flex-1 bg-white dark:bg-zinc-950" style={{ paddingTop: insets.top }}>
-      {/* 1. Cabeçalho */}
+      {/* 1. Cabeçalho Superior */}
       <View className="flex-row items-center justify-between px-5 py-3 border-b border-[#f0edef] dark:border-zinc-800">
         <TouchableOpacity
           onPress={handleGoBack}
@@ -120,16 +121,30 @@ export default function ExerciseDetailScreen() {
             </View>
           </View>
 
-          {/* GIF Demonstrativo */}
-          <View className="w-full h-72 bg-white dark:bg-white rounded-3xl overflow-hidden mb-6 items-center justify-center p-2 border border-[#e2dfe1] dark:border-zinc-800">
+          {/* GIF Demonstrativo (Carregamento via Internet sem salvar no disco) */}
+          <View className="w-full h-72 bg-[#f8f9fa] dark:bg-zinc-900 rounded-3xl overflow-hidden mb-6 items-center justify-center p-2 border border-[#e2dfe1] dark:border-zinc-800 relative">
+            {isGifLoading && (
+              <View className="absolute inset-0 justify-center items-center bg-[#f8f9fa] dark:bg-zinc-900 z-10">
+                <ActivityIndicator size="large" color="#59C83A" />
+                <Text className="text-xs text-[#71717a] dark:text-zinc-400 mt-2 font-medium">
+                  Carregando via internet...
+                </Text>
+              </View>
+            )}
+
             <Image
               source={getExerciseGif(exercise.gif_key)}
-              className="w-full h-full rounded-2xl"
-              resizeMode="contain"
+              style={{ width: '100%', height: '100%', borderRadius: 16 }}
+              contentFit="contain"
+              autoplay={true}
+              transition={150}
+              cachePolicy="none"
+              onLoadStart={() => setIsGifLoading(true)}
+              onLoadEnd={() => setIsGifLoading(false)}
             />
           </View>
 
-          {/* Cards de Métricas (Séries, Repetições, Carga) */}
+          {/* Cards de Métricas */}
           <View className="flex-row justify-between mb-6">
             <View className="w-[31%] bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl items-center border border-[#e2dfe1] dark:border-zinc-800">
               <Stack size={22} color="#59C83A" />

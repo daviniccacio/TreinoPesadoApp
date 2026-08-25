@@ -42,7 +42,7 @@ interface StudentProfileData {
 }
 
 /**
- * Busca as informações de perfil do aluno, nome do personal e estatísticas de treino
+ * Busca o perfil do aluno e calcula o resumo lendo a tabela 'workout_logs'
  */
 async function fetchStudentProfileData(): Promise<StudentProfileData> {
   const {
@@ -51,7 +51,7 @@ async function fetchStudentProfileData(): Promise<StudentProfileData> {
 
   if (!user) throw new Error('Usuário não autenticado');
 
-  // 1. Busca o perfil do aluno no Supabase lendo a coluna 'name'
+  // 1. Busca o nome do aluno na tabela 'profiles'
   const { data: profile } = await supabase
     .from('profiles')
     .select('name, personal_id')
@@ -65,7 +65,7 @@ async function fetchStudentProfileData(): Promise<StudentProfileData> {
 
   let personalName: string | null = null;
 
-  // 2. Se o aluno possui um personal_id, busca o nome do Personal
+  // 2. Busca o nome do Personal Trainer caso esteja vinculado
   if (profile?.personal_id) {
     const { data: personalProfile } = await supabase
       .from('profiles')
@@ -78,25 +78,33 @@ async function fetchStudentProfileData(): Promise<StudentProfileData> {
     }
   }
 
-  // 3. Busca estatísticas do histórico de treinos (se a tabela de histórico existir)
+  // 3. Consulta a tabela 'workout_logs' selecionando apenas a coluna existente 'duration_seconds'
   let totalWorkoutsCompleted = 0;
   let totalWorkoutMinutes = 0;
 
   try {
-    const { data: historyData } = await supabase
-      .from('workout_history')
-      .select('duration_minutes')
-      .eq('user_id', user.id);
+    const { data: logsData, error: logsError } = await supabase
+      .from('workout_logs')
+      .select('duration_seconds')
+      .or(`student_id.eq.${user.id},user_id.eq.${user.id}`);
 
-    if (historyData) {
-      totalWorkoutsCompleted = historyData.length;
-      totalWorkoutMinutes = historyData.reduce(
-        (acc, item) => acc + (item.duration_minutes || 0),
-        0
-      );
+    if (logsError) {
+      console.log('Aviso ao consultar workout_logs:', logsError.message);
+    }
+
+    if (logsData && logsData.length > 0) {
+      // Quantidade de sessões concluídas
+      totalWorkoutsCompleted = logsData.length;
+
+      // Soma os segundos e converte para minutos arredondados
+      totalWorkoutMinutes = logsData.reduce((acc, item) => {
+        const seconds = item.duration_seconds || 0;
+        const minutes = Math.round(seconds / 60);
+        return acc + minutes;
+      }, 0);
     }
   } catch (err) {
-    // Caso a tabela de histórico ainda não esteja criada no banco, assume 0
+    console.log('Erro ao calcular resumo dos treinos:', err);
     totalWorkoutsCompleted = 0;
     totalWorkoutMinutes = 0;
   }
@@ -111,7 +119,7 @@ async function fetchStudentProfileData(): Promise<StudentProfileData> {
 }
 
 /**
- * Função que valida o código digitado e realiza o vínculo com o personal
+ * Realiza o vínculo do aluno com o Personal Trainer via código de convite
  */
 async function linkStudentToPersonalByCode(inviteCode: string) {
   const cleanCode = inviteCode.trim().toUpperCase();
@@ -126,7 +134,6 @@ async function linkStudentToPersonalByCode(inviteCode: string) {
 
   if (!user) throw new Error('Sessão expirada. Faça login novamente.');
 
-  // 1. Localiza o Personal pelo código de convite na coluna 'name'
   const { data: personalProfile, error: searchError } = await supabase
     .from('profiles')
     .select('id, name')
@@ -139,7 +146,6 @@ async function linkStudentToPersonalByCode(inviteCode: string) {
 
   const foundPersonalName = personalProfile.name ? personalProfile.name.trim() : 'Personal Trainer';
 
-  // 2. Atualiza a coluna personal_id do perfil do Aluno
   const { error: updateError } = await supabase
     .from('profiles')
     .update({ personal_id: personalProfile.id })
@@ -157,25 +163,23 @@ export default function StudentProfileScreen() {
   const isDark = systemColorScheme === 'dark';
   const queryClient = useQueryClient();
 
-  // --- ESTADOS LOCAIS ---
   const [themeMode, setThemeMode] = useState<'light' | 'dark' | 'system'>('system');
   const [isLinkModalOpen, setIsLinkModalOpen] = useState<boolean>(false);
   const [inviteCodeInput, setInviteCodeInput] = useState<string>('');
 
-  // --- CONSULTA DOS DADOS DO PERFIL ---
+  // --- CONSULTA COM RECARREGAMENTO AUTOMÁTICO ---
   const { data: profile, isLoading } = useQuery({
     queryKey: ['student-profile-data'],
     queryFn: fetchStudentProfileData,
+    refetchOnMount: 'always',
   });
 
-  // --- MUTAÇÃO PARA VINCULAR O PERSONAL ---
   const linkMutation = useMutation({
     mutationFn: linkStudentToPersonalByCode,
     onSuccess: (personalName) => {
       setIsLinkModalOpen(false);
       setInviteCodeInput('');
 
-      // Invalida os caches para atualizar as telas instantaneamente
       queryClient.invalidateQueries({ queryKey: ['student-profile-data'] });
       queryClient.invalidateQueries({ queryKey: ['student-home-data'] });
 
@@ -212,7 +216,6 @@ export default function StudentProfileScreen() {
     ]);
   }
 
-  // Formata o tempo de treino em horas e minutos
   function formatWorkoutTime(totalMinutes: number) {
     const hours = Math.floor(totalMinutes / 60);
     const minutes = totalMinutes % 60;
@@ -292,7 +295,7 @@ export default function StudentProfileScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* --- CARDS DE ESTATÍSTICAS (TREINOS REALIZADOS E TEMPO DE TREINO) --- */}
+        {/* CARDS DE ESTATÍSTICAS */}
         <View className="flex-row justify-between mb-6">
           <View className="w-[48%] bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl border border-[#e2dfe1] dark:border-zinc-800 items-center">
             <View className="w-10 h-10 rounded-xl bg-[#59C83A]/10 items-center justify-center mb-2 border border-[#59C83A]/30">
@@ -319,7 +322,7 @@ export default function StudentProfileScreen() {
           </View>
         </View>
 
-        {/* SELETOR DE TEMA */}
+        {/* APARÊNCIA */}
         <Text className="text-lg font-bold text-[#1b1b1d] dark:text-white mb-3">
           Aparência
         </Text>
@@ -383,7 +386,7 @@ export default function StudentProfileScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* OPÇÕES ADICIONAIS */}
+        {/* CONFIGURAÇÕES */}
         <Text className="text-lg font-bold text-[#1b1b1d] dark:text-white mb-3">
           Configurações
         </Text>
@@ -429,11 +432,10 @@ export default function StudentProfileScreen() {
         </TouchableOpacity>
       </ScrollView>
 
-      {/* MODAL DE INSERÇÃO DO CÓDIGO DO PERSONAL */}
+      {/* MODAL CÓDIGO PERSONAL */}
       <Modal visible={isLinkModalOpen} animationType="slide" transparent>
         <View className="flex-1 bg-black/60 justify-end">
           <View className="bg-white dark:bg-zinc-900 rounded-t-3xl p-6 border-t border-[#e2dfe1] dark:border-zinc-800">
-            {/* Cabeçalho do Modal */}
             <View className="flex-row items-center justify-between mb-4 pb-3 border-b border-[#e2dfe1] dark:border-zinc-800">
               <View className="flex-row items-center gap-2">
                 <View className="w-9 h-9 rounded-xl bg-[#59C83A]/10 items-center justify-center border border-[#59C83A]/30">
@@ -453,10 +455,9 @@ export default function StudentProfileScreen() {
             </View>
 
             <Text className="text-xs text-[#71717a] dark:text-zinc-400 mb-4 leading-5">
-              Peça o código exclusivo de convite (ex: <Text className="font-bold text-[#59C83A]">PERS-A1B2</Text>) ao seu Personal Trainer para permitir a prescrição de suas fichas.
+              Peça o código exclusivo de convite ao seu Personal Trainer para permitir a prescrição de suas fichas.
             </Text>
 
-            {/* Campo do Código */}
             <TextInput
               className="bg-[#f8f9fa] dark:bg-zinc-950 border border-[#e2dfe1] dark:border-zinc-800 rounded-2xl px-4 py-3.5 text-lg font-extrabold text-[#1b1b1d] dark:text-white tracking-widest uppercase mb-5 text-center"
               placeholder="PERS-XXXX"
@@ -467,7 +468,6 @@ export default function StudentProfileScreen() {
               autoCorrect={false}
             />
 
-            {/* Botão de Confirmação */}
             <TouchableOpacity
               onPress={() => linkMutation.mutate(inviteCodeInput)}
               disabled={linkMutation.isPending}
