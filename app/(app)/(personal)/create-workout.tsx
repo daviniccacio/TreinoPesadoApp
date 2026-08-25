@@ -23,6 +23,9 @@ import {
   Barbell,
   Check,
 } from 'phosphor-react-native';
+
+// Importação do TanStack Query para atualização instantânea
+import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../../lib/supabase';
 
 interface RegisteredExercise {
@@ -61,6 +64,9 @@ export default function CreateWorkoutPlanScreen() {
   const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
+
+  // Gerenciador de cache do TanStack Query
+  const queryClient = useQueryClient();
 
   // Parâmetros recebidos da navegação
   const { planId, studentId, studentName } = useLocalSearchParams<{
@@ -231,7 +237,7 @@ export default function CreateWorkoutPlanScreen() {
   }
 
   /**
-   * Salva ou Atualiza o Plano de Treino no Supabase
+   * Salva/Atualiza o Plano de Treino e invalida o cache para atualizar as listas
    */
   async function handleSavePlan() {
     if (!planName.trim()) {
@@ -280,6 +286,13 @@ export default function CreateWorkoutPlanScreen() {
 
         if (exercisesError) throw exercisesError;
 
+        // Invalidação de cache instantânea
+        queryClient.invalidateQueries({
+          queryKey: ['personal-student-detail', studentId],
+        });
+        queryClient.invalidateQueries({ queryKey: ['student-workouts'] });
+        queryClient.invalidateQueries({ queryKey: ['personal-profile-data'] });
+
         Alert.alert('Sucesso!', 'Plano de treino atualizado com sucesso!', [
           { text: 'OK', onPress: () => handleNavigateBack() },
         ]);
@@ -315,6 +328,13 @@ export default function CreateWorkoutPlanScreen() {
           .insert(exercisesPayload);
 
         if (exercisesError) throw exercisesError;
+
+        // Invalidação de cache instantânea
+        queryClient.invalidateQueries({
+          queryKey: ['personal-student-detail', studentId],
+        });
+        queryClient.invalidateQueries({ queryKey: ['student-workouts'] });
+        queryClient.invalidateQueries({ queryKey: ['personal-profile-data'] });
 
         Alert.alert('Sucesso!', 'Plano de treino criado com sucesso!', [
           { text: 'OK', onPress: () => handleNavigateBack() },
