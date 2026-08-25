@@ -1,4 +1,7 @@
-// lib/supabase.ts
+// ============================================================================
+// DOCUMENTAÇÃO: CONEXÃO COM O SUPABASE
+// ============================================================================
+import 'react-native-url-polyfill/auto';
 import { createClient } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
