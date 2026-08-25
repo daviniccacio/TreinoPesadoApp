@@ -1,0 +1,502 @@
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  ScrollView,
+  ActivityIndicator,
+  Alert,
+  useColorScheme,
+  Modal,
+} from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import {
+  ArrowLeft,
+  Plus,
+  Trash,
+  Check,
+  Barbell,
+  PencilSimple,
+} from 'phosphor-react-native';
+import { useQueryClient } from '@tanstack/react-query';
+import { supabase } from '../../../lib/supabase';
+
+interface ExerciseOption {
+  id: string;
+  name: string;
+  category_id: string;
+}
+
+interface SelectedExercise {
+  exercise_id: string;
+  name: string;
+  category_id: string;
+  sets: string;
+  reps: string;
+  weight: string;
+}
+
+export default function CreateOrEditWorkoutScreen() {
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
+  const queryClient = useQueryClient();
+
+  // Captura o planId caso tenhamos vindo da opção "Editar"
+  const { planId } = useLocalSearchParams<{ planId?: string }>();
+  const isEditing = !!planId;
+
+  // ESTADOS DO FORMULÁRIO
+  const [workoutTitle, setWorkoutTitle] = useState('');
+  const [selectedExercises, setSelectedExercises] = useState<SelectedExercise[]>([]);
+  const [isLoadingWorkout, setIsLoadingWorkout] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // ESTADOS DO MODAL DE SELEÇÃO DE EXERCÍCIOS
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [availableExercises, setAvailableExercises] = useState<ExerciseOption[]>([]);
+  const [isLoadingAvailable, setIsLoadingAvailable] = useState(false);
+
+  // 1. CARREGA OS DADOS DO TREINO SE ESTIVER NO MODO DE EDIÇÃO
+  useEffect(() => {
+    async function loadWorkoutForEditing() {
+      if (!planId) return;
+
+      try {
+        setIsLoadingWorkout(true);
+
+        const { data, error } = await supabase
+          .from('custom_workouts')
+          .select(`
+            id,
+            title,
+            custom_workout_exercises (
+              id,
+              sets,
+              reps,
+              weight,
+              exercise_id,
+              exercises (
+                id,
+                name,
+                category_id
+              )
+            )
+          `)
+          .eq('id', planId)
+          .single();
+
+        if (error) throw new Error(error.message);
+
+        if (data) {
+          setWorkoutTitle(data.title || '');
+
+          // Mapeia os exercícios existentes para o formato do estado local
+          const formattedExercises: SelectedExercise[] = (
+            data.custom_workout_exercises || []
+          ).map((item: any) => ({
+            exercise_id: item.exercises?.id || item.exercise_id,
+            name: item.exercises?.name || 'Exercício',
+            category_id: item.exercises?.category_id || '',
+            sets: String(item.sets || '3'),
+            reps: String(item.reps || '10'),
+            weight: String(item.weight || '0kg'),
+          }));
+
+          setSelectedExercises(formattedExercises);
+        }
+      } catch (err: any) {
+        Alert.alert('Erro ao carregar treino', err.message);
+      } finally {
+        setIsLoadingWorkout(false);
+      }
+    }
+
+    loadWorkoutForEditing();
+  }, [planId]);
+
+  // 2. BUSCA A LISTA DE TODOS OS EXERCÍCIOS DISPONÍVEIS NO SUPABASE
+  async function handleOpenAddExerciseModal() {
+    setIsModalOpen(true);
+    if (availableExercises.length > 0) return;
+
+    try {
+      setIsLoadingAvailable(true);
+      const { data, error } = await supabase
+        .from('exercises')
+        .select('id, name, category_id')
+        .order('name', { ascending: true });
+
+      if (error) throw new Error(error.message);
+      setAvailableExercises(data || []);
+    } catch (err: any) {
+      Alert.alert('Erro', 'Não foi possível carregar a lista de exercícios.');
+    } finally {
+      setIsLoadingAvailable(false);
+    }
+  }
+
+  // 3. ADICIONA UM EXERCÍCIO À LISTA LOCAL
+  function handleSelectExercise(exercise: ExerciseOption) {
+    // Verifica se já está adicionado
+    const alreadyExists = selectedExercises.some(
+      (e) => e.exercise_id === exercise.id
+    );
+
+    if (alreadyExists) {
+      Alert.alert('Aviso', 'Este exercício já foi adicionado ao treino.');
+      return;
+    }
+
+    setSelectedExercises((prev) => [
+      ...prev,
+      {
+        exercise_id: exercise.id,
+        name: exercise.name,
+        category_id: exercise.category_id,
+        sets: '3',
+        reps: '10',
+        weight: '0kg',
+      },
+    ]);
+
+    setIsModalOpen(false);
+  }
+
+  // 4. ATUALIZA SÉRIES, REPETIÇÕES OU CARGA DE UM EXERCÍCIO DA LISTA
+  function handleUpdateExerciseField(
+    index: number,
+    field: 'sets' | 'reps' | 'weight',
+    value: string
+  ) {
+    setSelectedExercises((prev) => {
+      const updated = [...prev];
+      updated[index][field] = value;
+      return updated;
+    });
+  }
+
+  // 5. REMOVE UM EXERCÍCIO DA LISTA LOCAL
+  function handleRemoveExercise(index: number) {
+    setSelectedExercises((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  // 6. SALVA OU ATUALIZA O TREINO NO SUPABASE
+  async function handleSaveWorkout() {
+    if (!workoutTitle.trim()) {
+      Alert.alert('Campo Obrigatório', 'Por favor, informe o nome do treino.');
+      return;
+    }
+
+    if (selectedExercises.length === 0) {
+      Alert.alert(
+        'Nenhum Exercício',
+        'Adicione pelo menos um exercício ao seu treino.'
+      );
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) throw new Error('Sessão expirada. Faça login novamente.');
+
+      let currentWorkoutId = planId;
+
+      if (isEditing && planId) {
+        // --- MODO EDIÇÃO: Atualiza o título do treino existente ---
+        const { error: updateError } = await supabase
+          .from('custom_workouts')
+          .update({ title: workoutTitle.trim() })
+          .eq('id', planId);
+
+        if (updateError) throw new Error(updateError.message);
+
+        // Remove os exercícios antigos vinculados a este treino
+        const { error: deleteError } = await supabase
+          .from('custom_workout_exercises')
+          .delete()
+          .eq('custom_workout_id', planId);
+
+        if (deleteError) {
+          // Fallback caso o nome da coluna no banco seja 'workout_id'
+          await supabase
+            .from('custom_workout_exercises')
+            .delete()
+            .eq('workout_id', planId);
+        }
+      } else {
+        // --- MODO CRIAÇÃO: Insere um novo treino ---
+        const { data: newWorkout, error: insertError } = await supabase
+          .from('custom_workouts')
+          .insert({
+            title: workoutTitle.trim(),
+            user_id: user.id,
+            student_id: user.id,
+          })
+          .select('id')
+          .single();
+
+        if (insertError) throw new Error(insertError.message);
+        currentWorkoutId = newWorkout.id;
+      }
+
+      // Insere os exercícios atualizados na tabela de relacionamento
+      if (currentWorkoutId) {
+        const exercisesToInsert = selectedExercises.map((item) => ({
+          custom_workout_id: currentWorkoutId,
+          workout_id: currentWorkoutId, // Preenche ambas para garantir compatibilidade
+          exercise_id: item.exercise_id,
+          sets: parseInt(item.sets, 10) || 3,
+          reps: item.reps || '10',
+          weight: item.weight || '0kg',
+        }));
+
+        await supabase
+          .from('custom_workout_exercises')
+          .insert(exercisesToInsert);
+      }
+
+      // Invalida o cache do TanStack Query para atualizar a lista
+      queryClient.invalidateQueries({ queryKey: ['student-workouts'] });
+      queryClient.invalidateQueries({ queryKey: ['student-home-data'] });
+      queryClient.invalidateQueries({ queryKey: ['custom-workout-detail', planId] });
+
+      Alert.alert(
+        'Sucesso! 🎉',
+        isEditing
+          ? 'Seu treino foi atualizado com sucesso!'
+          : 'Seu novo treino foi criado com sucesso!'
+      );
+
+      router.replace('/(aluno)/(tabs)/my-workouts');
+    } catch (err: any) {
+      Alert.alert('Erro ao Salvar', err.message || 'Ocorreu um erro inesperado.');
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  return (
+    <View
+      className="flex-1 bg-white dark:bg-zinc-950 px-5"
+      style={{ paddingTop: insets.top + 10 }}
+    >
+      {/* CABEÇALHO */}
+      <View className="flex-row items-center justify-between mb-5">
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={() => router.back()}
+          className="w-10 h-10 rounded-xl bg-[#f8f9fa] dark:bg-zinc-900 justify-center items-center border border-[#e2dfe1] dark:border-zinc-800"
+        >
+          <ArrowLeft size={20} color={isDark ? '#ffffff' : '#1b1b1d'} />
+        </TouchableOpacity>
+
+        <Text className="text-xl font-extrabold text-[#1b1b1d] dark:text-white">
+          {isEditing ? 'Editar Treino' : 'Montar Novo Treino'}
+        </Text>
+
+        <View className="w-10" />
+      </View>
+
+      {isLoadingWorkout ? (
+        <View className="flex-1 justify-center items-center">
+          <ActivityIndicator size="large" color="#59C83A" />
+          <Text className="text-xs text-[#71717a] dark:text-zinc-400 mt-3 font-medium">
+            Carregando informações do treino...
+          </Text>
+        </View>
+      ) : (
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 40 }}
+        >
+          {/* CAMPO NOME DO TREINO */}
+          <Text className="text-xs font-bold text-[#71717a] dark:text-zinc-400 uppercase mb-1.5">
+            Nome do Treino
+          </Text>
+          <TextInput
+            className="bg-[#f8f9fa] dark:bg-zinc-900 border border-[#e2dfe1] dark:border-zinc-800 rounded-2xl px-4 py-3.5 text-base font-bold text-[#1b1b1d] dark:text-white mb-6"
+            placeholder="Ex: Treino A - Peito e Tríceps"
+            placeholderTextColor={isDark ? '#71717a' : '#a1a1aa'}
+            value={workoutTitle}
+            onChangeText={setWorkoutTitle}
+          />
+
+          {/* CABEÇALHO DA SEÇÃO DE EXERCÍCIOS */}
+          <View className="flex-row items-center justify-between mb-3">
+            <Text className="text-base font-extrabold text-[#1b1b1d] dark:text-white">
+              Exercícios ({selectedExercises.length})
+            </Text>
+
+            <TouchableOpacity
+              onPress={handleOpenAddExerciseModal}
+              className="bg-[#59C83A]/10 border border-[#59C83A]/30 px-3 py-1.5 rounded-xl flex-row items-center"
+            >
+              <Plus size={16} color="#59C83A" weight="bold" />
+              <Text className="text-xs font-bold text-[#59C83A] ml-1">
+                Adicionar
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* LISTA DE EXERCÍCIOS SELECIONADOS */}
+          {selectedExercises.length === 0 ? (
+            <TouchableOpacity
+              onPress={handleOpenAddExerciseModal}
+              className="bg-[#f8f9fa] dark:bg-zinc-900 p-8 rounded-2xl border border-dashed border-[#e2dfe1] dark:border-zinc-800 items-center mb-6"
+            >
+              <Barbell size={36} color={isDark ? '#71717a' : '#a1a1aa'} />
+              <Text className="text-[#1b1b1d] dark:text-white font-bold mt-2 text-sm">
+                Nenhum exercício adicionado
+              </Text>
+              <Text className="text-[#71717a] dark:text-zinc-400 text-xs text-center mt-1">
+                Toque para escolher exercícios para o seu treino.
+              </Text>
+            </TouchableOpacity>
+          ) : (
+            selectedExercises.map((exercise, index) => (
+              <View
+                key={`selected-${exercise.exercise_id}-${index}`}
+                className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl mb-3 border border-[#e2dfe1] dark:border-zinc-800"
+              >
+                <View className="flex-row items-center justify-between mb-3">
+                  <View className="flex-1 mr-2">
+                    <Text className="text-xs font-bold text-[#59C83A] uppercase">
+                      {exercise.category_id}
+                    </Text>
+                    <Text className="text-base font-bold text-[#1b1b1d] dark:text-white">
+                      {exercise.name}
+                    </Text>
+                  </View>
+
+                  <TouchableOpacity
+                    onPress={() => handleRemoveExercise(index)}
+                    className="w-8 h-8 rounded-lg bg-red-500/10 items-center justify-center border border-red-500/20"
+                  >
+                    <Trash size={16} color="#ef4444" />
+                  </TouchableOpacity>
+                </View>
+
+                {/* CAMPOS DE SÉRIES, REPS E CARGA */}
+                <View className="flex-row justify-between gap-2">
+                  <View className="flex-1">
+                    <Text className="text-[10px] font-bold text-[#71717a] dark:text-zinc-400 mb-1">
+                      SÉRIES
+                    </Text>
+                    <TextInput
+                      className="bg-white dark:bg-zinc-950 border border-[#e2dfe1] dark:border-zinc-800 rounded-xl px-3 py-2 text-center text-sm font-bold text-[#1b1b1d] dark:text-white"
+                      keyboardType="numeric"
+                      value={exercise.sets}
+                      onChangeText={(val) =>
+                        handleUpdateExerciseField(index, 'sets', val)
+                      }
+                    />
+                  </View>
+
+                  <View className="flex-1">
+                    <Text className="text-[10px] font-bold text-[#71717a] dark:text-zinc-400 mb-1">
+                      REPS
+                    </Text>
+                    <TextInput
+                      className="bg-white dark:bg-zinc-950 border border-[#e2dfe1] dark:border-zinc-800 rounded-xl px-3 py-2 text-center text-sm font-bold text-[#1b1b1d] dark:text-white"
+                      value={exercise.reps}
+                      onChangeText={(val) =>
+                        handleUpdateExerciseField(index, 'reps', val)
+                      }
+                    />
+                  </View>
+
+                  <View className="flex-1">
+                    <Text className="text-[10px] font-bold text-[#71717a] dark:text-zinc-400 mb-1">
+                      CARGA
+                    </Text>
+                    <TextInput
+                      className="bg-white dark:bg-zinc-950 border border-[#e2dfe1] dark:border-zinc-800 rounded-xl px-3 py-2 text-center text-sm font-bold text-[#1b1b1d] dark:text-white"
+                      value={exercise.weight}
+                      onChangeText={(val) =>
+                        handleUpdateExerciseField(index, 'weight', val)
+                      }
+                    />
+                  </View>
+                </View>
+              </View>
+            ))
+          )}
+
+          {/* BOTÃO SALVAR / ATUALIZAR */}
+          <TouchableOpacity
+            onPress={handleSaveWorkout}
+            disabled={isSaving}
+            className="bg-[#59C83A] p-4 rounded-2xl flex-row items-center justify-center mt-4 shadow-sm"
+            activeOpacity={0.8}
+          >
+            {isSaving ? (
+              <ActivityIndicator color="#FFFFFF" size="small" />
+            ) : (
+              <>
+                <Check size={20} color="#FFFFFF" weight="bold" />
+                <Text className="text-white font-extrabold text-base ml-2">
+                  {isEditing ? 'Salvar Alterações' : 'Concluir e Criar Treino'}
+                </Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </ScrollView>
+      )}
+
+      {/* MODAL PARA SELEÇÃO DE EXERCÍCIOS */}
+      <Modal visible={isModalOpen} animationType="slide" transparent>
+        <View className="flex-1 bg-black/60 justify-end">
+          <View className="bg-white dark:bg-zinc-900 rounded-t-3xl p-6 h-[80%] border-t border-[#e2dfe1] dark:border-zinc-800">
+            <View className="flex-row items-center justify-between mb-4 pb-3 border-b border-[#e2dfe1] dark:border-zinc-800">
+              <Text className="text-lg font-extrabold text-[#1b1b1d] dark:text-white">
+                Selecione o Exercício
+              </Text>
+              <TouchableOpacity
+                onPress={() => setIsModalOpen(false)}
+                className="bg-zinc-100 dark:bg-zinc-800 px-3 py-1.5 rounded-xl"
+              >
+                <Text className="text-xs font-bold text-[#1b1b1d] dark:text-white">
+                  Fechar
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {isLoadingAvailable ? (
+              <View className="flex-1 justify-center items-center">
+                <ActivityIndicator size="large" color="#59C83A" />
+              </View>
+            ) : (
+              <ScrollView showsVerticalScrollIndicator={false}>
+                {availableExercises.map((item) => (
+                  <TouchableOpacity
+                    key={item.id}
+                    onPress={() => handleSelectExercise(item)}
+                    className="p-3.5 bg-[#f8f9fa] dark:bg-zinc-950 rounded-xl mb-2 border border-[#e2dfe1] dark:border-zinc-800 flex-row justify-between items-center"
+                  >
+                    <View>
+                      <Text className="text-xs font-bold text-[#59C83A] uppercase">
+                        {item.category_id}
+                      </Text>
+                      <Text className="text-sm font-bold text-[#1b1b1d] dark:text-white">
+                        {item.name}
+                      </Text>
+                    </View>
+                    <Plus size={18} color="#59C83A" weight="bold" />
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            )}
+          </View>
+        </View>
+      </Modal>
+    </View>
+  );
+}

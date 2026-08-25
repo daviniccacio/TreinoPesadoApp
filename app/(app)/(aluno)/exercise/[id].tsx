@@ -1,0 +1,183 @@
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  ScrollView,
+  ActivityIndicator,
+  useColorScheme,
+} from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ArrowLeft, Stack, Repeat, Barbell } from 'phosphor-react-native';
+import { useQuery } from '@tanstack/react-query';
+
+// Importação do expo-image para carregamento direto via internet
+import { Image } from 'expo-image';
+
+import { supabase } from '../../../../lib/supabase';
+import { getExerciseGif } from '../../../../lib/exerciseGifs';
+
+interface ExerciseDetail {
+  id: string;
+  name: string;
+  sets: number;
+  reps: string;
+  weight: string;
+  category_id: string;
+  gif_key?: string;
+}
+
+/**
+ * Busca as informações do exercício no Supabase
+ */
+async function fetchExerciseDetail(exerciseId: string): Promise<ExerciseDetail> {
+  if (!exerciseId) throw new Error('ID do exercício não fornecido');
+
+  const { data, error } = await supabase
+    .from('exercises')
+    .select('*')
+    .eq('id', exerciseId)
+    .single();
+
+  if (error) throw new Error(error.message);
+  return data as ExerciseDetail;
+}
+
+export default function ExerciseDetailScreen() {
+  const { id } = useLocalSearchParams<{ id: string }>();
+
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
+
+  // Estado local para controlar o indicador de carregamento do GIF
+  const [isGifLoading, setIsGifLoading] = useState<boolean>(true);
+
+  // Consulta dos dados do exercício via TanStack Query
+  const {
+    data: exercise,
+    isLoading,
+  } = useQuery({
+    queryKey: ['exercise-detail', id],
+    queryFn: () => fetchExerciseDetail(id || ''),
+    enabled: !!id,
+  });
+
+  /**
+   * FUNÇÃO CORRIGIDA DE RETORNO:
+   * Usa router.back() para fechar esta tela e revelar a tela anterior da pilha.
+   */
+  function handleGoBack() {
+    if (router.canGoBack()) {
+      router.back(); // Desempilha esta tela e volta exatamente para o Treino
+    } else {
+      router.replace('/(aluno)/(tabs)/my-workouts'); // Fallback caso seja aberto por link direto
+    }
+  }
+
+  return (
+    <View className="flex-1 bg-white dark:bg-zinc-950" style={{ paddingTop: insets.top }}>
+      {/* 1. Cabeçalho Superior */}
+      <View className="flex-row items-center justify-between px-5 py-3 border-b border-[#f0edef] dark:border-zinc-800">
+        <TouchableOpacity
+          onPress={handleGoBack}
+          className="w-10 h-10 rounded-full bg-[#f8f9fa] dark:bg-zinc-900 items-center justify-center border border-[#e2dfe1] dark:border-zinc-800"
+          activeOpacity={0.7}
+        >
+          <ArrowLeft size={20} color={isDark ? '#59C83A' : '#1b1b1d'} />
+        </TouchableOpacity>
+
+        <Text className="text-lg font-bold text-[#1b1b1d] dark:text-white text-center flex-1">
+          Detalhes do Exercício
+        </Text>
+
+        <View className="w-10" />
+      </View>
+
+      {/* 2. Conteúdo Principal */}
+      {isLoading ? (
+        <View className="flex-1 justify-center items-center">
+          <ActivityIndicator size="large" color="#59C83A" />
+        </View>
+      ) : exercise ? (
+        <ScrollView
+          className="flex-1 px-5 pt-4"
+          contentContainerStyle={{ paddingBottom: 40 }}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Título e Grupo Muscular */}
+          <View className="mb-4">
+            <Text className="text-2xl font-extrabold text-[#1b1b1d] dark:text-white mb-2">
+              {exercise.name}
+            </Text>
+
+            <View className="self-start bg-[#59C83A]/10 px-3 py-1 rounded-full border border-[#59C83A]/30">
+              <Text style={{ color: '#59C83A' }} className="text-xs font-bold uppercase tracking-wider">
+                Grupo: {exercise.category_id}
+              </Text>
+            </View>
+          </View>
+
+          {/* GIF Demonstrativo (Carregamento via Internet sem salvar no disco) */}
+          <View className="w-full h-72 bg-[#f8f9fa] dark:bg-zinc-900 rounded-3xl overflow-hidden mb-6 items-center justify-center p-2 border border-[#e2dfe1] dark:border-zinc-800 relative">
+            {isGifLoading && (
+              <View className="absolute inset-0 justify-center items-center bg-[#f8f9fa] dark:bg-zinc-900 z-10">
+                <ActivityIndicator size="large" color="#59C83A" />
+                <Text className="text-xs text-[#71717a] dark:text-zinc-400 mt-2 font-medium">
+                  Carregando via internet...
+                </Text>
+              </View>
+            )}
+
+            <Image
+              source={getExerciseGif(exercise.gif_key)}
+              style={{ width: '100%', height: '100%', borderRadius: 16 }}
+              contentFit="contain"
+              autoplay={true}
+              transition={150}
+              cachePolicy="none"
+              onLoadStart={() => setIsGifLoading(true)}
+              onLoadEnd={() => setIsGifLoading(false)}
+            />
+          </View>
+
+          {/* Cards de Métricas */}
+          <View className="flex-row justify-between mb-6">
+            <View className="w-[31%] bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl items-center border border-[#e2dfe1] dark:border-zinc-800">
+              <Stack size={22} color="#59C83A" />
+              <Text className="text-xs text-[#414755] dark:text-zinc-400 mt-1 font-medium">
+                Séries
+              </Text>
+              <Text className="text-lg font-extrabold text-[#1b1b1d] dark:text-white mt-1">
+                {exercise.sets}
+              </Text>
+            </View>
+
+            <View className="w-[31%] bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl items-center border border-[#e2dfe1] dark:border-zinc-800">
+              <Repeat size={22} color="#59C83A" />
+              <Text className="text-xs text-[#414755] dark:text-zinc-400 mt-1 font-medium">
+                Reps
+              </Text>
+              <Text className="text-lg font-extrabold text-[#1b1b1d] dark:text-white mt-1">
+                {exercise.reps}
+              </Text>
+            </View>
+
+            <View className="w-[31%] bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl items-center border border-[#e2dfe1] dark:border-zinc-800">
+              <Barbell size={22} color="#59C83A" />
+              <Text className="text-xs text-[#414755] dark:text-zinc-400 mt-1 font-medium">
+                Carga
+              </Text>
+              <Text className="text-lg font-extrabold text-[#1b1b1d] dark:text-white mt-1">
+                {exercise.weight}
+              </Text>
+            </View>
+          </View>
+        </ScrollView>
+      ) : null}
+    </View>
+  );
+}
