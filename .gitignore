@@ -43,3 +43,24 @@ yarn-error.*
 
 repomix-output.xml
 *.xml
+
+# Cache e arquivos locais do Expo
+.expo/
+web-build/
+
+# Dependências
+node_modules/
+
+# Variáveis de ambiente
+.env
+.env*.local
+
+# Logs e utilitários de IA
+.claude/
+AGENTS.md
+CLAUDE.md
+repomix-output.xml
+todo.md
+
+# Configurações de IDE
+.vscode/
