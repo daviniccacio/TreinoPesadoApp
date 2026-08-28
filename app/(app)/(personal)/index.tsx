@@ -34,7 +34,7 @@ async function fetchMyStudents(): Promise<Student[]> {
   // Consulta estrita: busca apenas onde personal_id é IGUAL ao ID do Personal logado
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, name, full_name, role')
+    .select('id, full_name, role')
     .eq('personal_id', user.id)
     .order('created_at', { ascending: false });
 
@@ -43,10 +43,9 @@ async function fetchMyStudents(): Promise<Student[]> {
     throw new Error(error.message);
   }
 
-  // Mapeia o nome considerando tanto a coluna 'name' quanto 'full_name'
   const formattedStudents = (data || []).map((item: any) => ({
     id: item.id,
-    full_name: item.name || item.full_name || 'Aluno Sem Nome',
+    full_name: item.full_name || 'Aluno Sem Nome',
     role: item.role,
   }));
 
@@ -74,9 +73,9 @@ export default function PersonalStudentsScreen() {
     queryFn: fetchMyStudents,
   });
 
-  function getInitials(name: string) {
-    if (!name) return 'A';
-    return name.trim().charAt(0).toUpperCase();
+  function getInitials(full_name: string) {
+    if (!full_name) return 'A';
+    return full_name.trim().charAt(0).toUpperCase();
   }
 
   const filteredStudents = students.filter((student) =>

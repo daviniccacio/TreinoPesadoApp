@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -21,7 +21,9 @@ import {
   X,
   Users,
 } from 'phosphor-react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+
+// Importação do useFocusEffect para recarregar dados ao voltar para esta tela
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../../lib/supabase';
 
@@ -71,19 +73,37 @@ async function fetchLibraryRoutines(): Promise<RoutineItem[]> {
 /**
  * Busca a lista de alunos cadastrados para exibição na modal de atribuição
  */
+/**
+ * Busca APENAS a lista de alunos vinculados ao Personal Trainer logado
+ */
 async function fetchStudentsList(): Promise<StudentItem[]> {
+  // 1. Obtém o usuário (Personal) logado na sessão atual
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return [];
+
+  // 2. Consulta no Supabase filtrando pelo personal_id do usuário logado
   const { data, error } = await supabase
     .from('profiles')
     .select('id, full_name, role')
+    .eq('personal_id', user.id) // <-- FILTRO ESSENCIAL: Traz apenas os seus alunos vinculados
     .order('full_name', { ascending: true });
 
-  if (error) throw new Error(error.message);
+  if (error) {
+    console.error('Erro ao buscar lista de alunos:', error.message);
+    throw new Error(error.message);
+  }
 
-  return (data || []).filter(
-    (user) =>
-      user.role?.toLowerCase() === 'student' ||
-      user.role?.toLowerCase() === 'aluno'
-  ) as StudentItem[];
+  // 3. Retorna os dados garantindo um nome de exibição caso o full_name esteja nulo
+  return (data || []).map((student) => ({
+    id: student.id,
+    full_name:
+      student.full_name && student.full_name.trim() !== ''
+        ? student.full_name.trim()
+        : 'Aluno sem nome',
+  }));
 }
 
 export default function PersonalRoutinesScreen() {
@@ -94,8 +114,26 @@ export default function PersonalRoutinesScreen() {
   const queryClient = useQueryClient();
 
   // Parâmetro opcional caso venha do perfil de um aluno específico
-  const params = useLocalSearchParams<{ assignToStudentId?: string }>();
+  // Lendo os parâmetros da URL:
+  const params = useLocalSearchParams<{
+    assignToStudentId?: string;
+    assignToStudentName?: string;
+  }>();
+
   const initialStudentId = params.assignToStudentId;
+  const initialStudentName = params.assignToStudentName || 'este aluno';
+
+  // Na função de abrir a atribuição:
+  function handleOpenAssignFlow(routine: RoutineItem) {
+    setSelectedRoutine(routine);
+
+    if (initialStudentId) {
+      // Exibe o nome real do aluno na caixa de diálogo!
+      confirmAndAssignToStudent(routine, initialStudentId, initialStudentName);
+    } else {
+      setStudentsModalVisible(true);
+    }
+  }
 
   // --- ESTADOS LOCAIS DE INTERFACE ---
   const [studentsModalVisible, setStudentsModalVisible] = useState<boolean>(false);
@@ -111,6 +149,18 @@ export default function PersonalRoutinesScreen() {
     queryKey: ['personal-library-routines'],
     queryFn: fetchLibraryRoutines,
   });
+
+  // ============================================================================
+  // ATUALIZAÇÃO AUTOMÁTICA AO VOLTAR PARA A TELA
+  // ============================================================================
+  // Sempre que esta tela receber o foco do usuário (ex: ao voltar da tela de
+  // criação ou edição de treinos), o refetch() será executado automaticamente.
+  // ============================================================================
+  useFocusEffect(
+    useCallback(() => {
+      refetch();
+    }, [refetch])
+  );
 
   // --- BUSCA DE ALUNOS (SÓ EXECUTA QUANDO O MODAL ESTIVER ABERTO) ---
   const {
@@ -238,16 +288,6 @@ export default function PersonalRoutinesScreen() {
         },
       ]
     );
-  }
-
-  function handleOpenAssignFlow(routine: RoutineItem) {
-    setSelectedRoutine(routine);
-
-    if (initialStudentId) {
-      confirmAndAssignToStudent(routine, initialStudentId, 'este aluno');
-    } else {
-      setStudentsModalVisible(true);
-    }
   }
 
   function confirmAndAssignToStudent(

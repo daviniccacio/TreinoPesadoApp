@@ -51,14 +51,14 @@ async function fetchStudentProfileData(): Promise<StudentProfileData> {
 
   if (!user) throw new Error('Usuário não autenticado');
 
-  // 1. Busca o nome do aluno na tabela 'profiles'
+  // 1. Busca o nome do aluno na coluna 'full_name' da tabela 'profiles'
   const { data: profile } = await supabase
     .from('profiles')
-    .select('name, personal_id')
+    .select('full_name, personal_id')
     .eq('id', user.id)
     .maybeSingle();
 
-  let fullName = profile?.name ? profile.name.trim() : 'Atleta';
+  let fullName = profile?.full_name ? profile.full_name.trim() : 'Atleta';
   if (fullName === 'Atleta' && user.email) {
     fullName = user.email.split('@')[0];
   }
@@ -69,16 +69,16 @@ async function fetchStudentProfileData(): Promise<StudentProfileData> {
   if (profile?.personal_id) {
     const { data: personalProfile } = await supabase
       .from('profiles')
-      .select('name')
+      .select('full_name')
       .eq('id', profile.personal_id)
       .maybeSingle();
 
-    if (personalProfile?.name) {
-      personalName = personalProfile.name.trim();
+    if (personalProfile?.full_name) {
+      personalName = personalProfile.full_name.trim();
     }
   }
 
-  // 3. Consulta a tabela 'workout_logs' selecionando apenas a coluna existente 'duration_seconds'
+  // 3. Consulta a tabela 'workout_logs'
   let totalWorkoutsCompleted = 0;
   let totalWorkoutMinutes = 0;
 
@@ -93,10 +93,8 @@ async function fetchStudentProfileData(): Promise<StudentProfileData> {
     }
 
     if (logsData && logsData.length > 0) {
-      // Quantidade de sessões concluídas
       totalWorkoutsCompleted = logsData.length;
 
-      // Soma os segundos e converte para minutos arredondados
       totalWorkoutMinutes = logsData.reduce((acc, item) => {
         const seconds = item.duration_seconds || 0;
         const minutes = Math.round(seconds / 60);
@@ -136,7 +134,7 @@ async function linkStudentToPersonalByCode(inviteCode: string) {
 
   const { data: personalProfile, error: searchError } = await supabase
     .from('profiles')
-    .select('id, name')
+    .select('id, full_name')
     .eq('invite_code', cleanCode)
     .single();
 
@@ -144,7 +142,7 @@ async function linkStudentToPersonalByCode(inviteCode: string) {
     throw new Error('Código inválido. Nenhum Personal Trainer foi encontrado.');
   }
 
-  const foundPersonalName = personalProfile.name ? personalProfile.name.trim() : 'Personal Trainer';
+  const foundPersonalName = personalProfile.full_name ? personalProfile.full_name.trim() : 'Personal Trainer';
 
   const { error: updateError } = await supabase
     .from('profiles')

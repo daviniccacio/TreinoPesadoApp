@@ -50,12 +50,11 @@ async function fetchPersonalProfileData(): Promise<PersonalProfileData> {
   // Busca o perfil e o código exclusivo de acesso na tabela profiles
   const { data: profile } = await supabase
     .from('profiles')
-    .select('name, full_name, invite_code')
+    .select('full_name, invite_code')
     .eq('id', user.id)
     .single();
 
   const fullName =
-    profile?.name ||
     profile?.full_name ||
     `${user.user_metadata?.first_name || ''} ${user.user_metadata?.last_name || ''}`.trim() ||
     'Personal Trainer';

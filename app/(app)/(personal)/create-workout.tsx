@@ -292,6 +292,9 @@ export default function CreateWorkoutPlanScreen() {
         });
         queryClient.invalidateQueries({ queryKey: ['student-workouts'] });
         queryClient.invalidateQueries({ queryKey: ['personal-profile-data'] });
+        queryClient.invalidateQueries({ queryKey: ['personal-library-routines'] });
+        queryClient.invalidateQueries({ queryKey: ['personal-profile-data'] });
+
 
         Alert.alert('Sucesso!', 'Plano de treino atualizado com sucesso!', [
           { text: 'OK', onPress: () => handleNavigateBack() },
@@ -445,11 +448,10 @@ export default function CreateWorkoutPlanScreen() {
                 <TouchableOpacity
                   key={item}
                   onPress={() => setObjective(item)}
-                  className={`px-3.5 py-2 rounded-xl mr-2 border ${
-                    active
+                  className={`px-3.5 py-2 rounded-xl mr-2 border ${active
                       ? 'bg-[#59C83A] border-[#59C83A]'
                       : 'bg-white dark:bg-zinc-950 border-[#e2dfe1] dark:border-zinc-800'
-                  }`}
+                    }`}
                 >
                   <Text className={`text-xs font-bold ${active ? 'text-white' : 'text-[#414755] dark:text-zinc-400'}`}>
                     {item}
@@ -469,11 +471,10 @@ export default function CreateWorkoutPlanScreen() {
                 <TouchableOpacity
                   key={day}
                   onPress={() => toggleDay(day)}
-                  className={`px-3 py-1.5 rounded-lg border ${
-                    isSelected
+                  className={`px-3 py-1.5 rounded-lg border ${isSelected
                       ? 'bg-[#59C83A]/20 border-[#59C83A]'
                       : 'bg-white dark:bg-zinc-950 border-[#e2dfe1] dark:border-zinc-800'
-                  }`}
+                    }`}
                 >
                   <Text className={`text-xs font-bold ${isSelected ? 'text-[#59C83A]' : 'text-[#71717a]'}`}>
                     {day}
@@ -611,11 +612,10 @@ export default function CreateWorkoutPlanScreen() {
                   <TouchableOpacity
                     key={cat.id}
                     onPress={() => setSelectedCategoryFilter(cat.id)}
-                    className={`px-3 py-1.5 rounded-lg mr-2 border ${
-                      active
+                    className={`px-3 py-1.5 rounded-lg mr-2 border ${active
                         ? 'bg-[#59C83A] border-[#59C83A]'
                         : 'bg-[#f8f9fa] dark:bg-zinc-950 border-[#e2dfe1] dark:border-zinc-800'
-                    }`}
+                      }`}
                   >
                     <Text className={`text-xs font-bold ${active ? 'text-white' : 'text-[#71717a]'}`}>
                       {cat.label}
@@ -644,11 +644,10 @@ export default function CreateWorkoutPlanScreen() {
                     <TouchableOpacity
                       onPress={() => handleToggleExerciseFromLibrary(item)}
                       activeOpacity={0.7}
-                      className={`p-3.5 rounded-xl border mb-2.5 flex-row items-center justify-between ${
-                        isAdded
+                      className={`p-3.5 rounded-xl border mb-2.5 flex-row items-center justify-between ${isAdded
                           ? 'bg-[#59C83A]/10 border-[#59C83A]'
                           : 'bg-[#f8f9fa] dark:bg-zinc-950 border-[#e2dfe1] dark:border-zinc-800'
-                      }`}
+                        }`}
                     >
                       <View className="flex-1 mr-2">
                         <Text className="text-sm font-bold text-[#1b1b1d] dark:text-white">
