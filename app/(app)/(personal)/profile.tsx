@@ -50,12 +50,11 @@ async function fetchPersonalProfileData(): Promise<PersonalProfileData> {
   // Busca o perfil e o código exclusivo de acesso na tabela profiles
   const { data: profile } = await supabase
     .from('profiles')
-    .select('name, full_name, invite_code')
+    .select('full_name, invite_code')
     .eq('id', user.id)
     .single();
 
   const fullName =
-    profile?.name ||
     profile?.full_name ||
     `${user.user_metadata?.first_name || ''} ${user.user_metadata?.last_name || ''}`.trim() ||
     'Personal Trainer';
@@ -214,12 +213,12 @@ export default function PersonalProfileScreen() {
               className="flex-1 bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl items-center border border-[#e2dfe1] dark:border-zinc-800"
               activeOpacity={0.8}
             >
-              <ClipboardText size={28} color="#59C83A" weight="bold" />
+              <User size={28} color="#59C83A" weight="bold" />
               <Text className="text-2xl font-extrabold text-[#1b1b1d] dark:text-white mt-1">
                 {prescribedCount}
               </Text>
               <Text className="text-xs text-[#414755] dark:text-zinc-400 mt-1 text-center font-medium">
-                Fichas Prescritas
+                Alunos Vinculados
               </Text>
             </TouchableOpacity>
 

@@ -298,7 +298,10 @@ export default function StudentDetailScreen() {
           onPress={() =>
             router.push({
               pathname: '/(personal)/routines',
-              params: { assignToStudentId: studentId },
+              params: { 
+                assignToStudentId: studentId,
+                assignToStudentName: studentName
+              },
             })
           }
           className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl border border-[#e2dfe1] dark:border-zinc-800 flex-row items-center mb-6"

@@ -36,7 +36,7 @@ interface StudentHomeData {
 
 /**
  * Função responsável por buscar os dados da tela inicial do aluno.
- * Consulta o nome na coluna 'name' da tabela 'profiles' do Supabase.
+ * Consulta o nome na coluna 'full_name' da tabela 'profiles' do Supabase.
  */
 async function fetchStudentHomeData(): Promise<StudentHomeData> {
   // 1. Obtém o usuário logado na sessão atual
@@ -47,10 +47,10 @@ async function fetchStudentHomeData(): Promise<StudentHomeData> {
   let userName = "Atleta";
 
   if (user) {
-    // 2. Consulta o registro do usuário na tabela 'profiles'
+    // 2. Consulta o registro do usuário na tabela 'profiles' usando full_name
     const { data: profile, error } = await supabase
       .from("profiles")
-      .select("name")
+      .select("full_name")
       .eq("id", user.id)
       .maybeSingle();
 
@@ -58,9 +58,9 @@ async function fetchStudentHomeData(): Promise<StudentHomeData> {
       console.log("Erro ao buscar perfil do aluno:", error.message);
     }
 
-    // 3. Se encontrou o nome, pega o primeiro nome para a saudação
-    if (profile?.name && profile.name.trim() !== "") {
-      userName = profile.name.trim().split(" ")[0]; // Transforma "Davi Nicacio" em "Davi"
+    // 3. Se encontrou o nome completo, pega o primeiro nome para a saudação
+    if (profile?.full_name && profile.full_name.trim() !== "") {
+      userName = profile.full_name.trim().split(" ")[0]; // Transforma "Davi Nicacio" em "Davi"
     }
   }
 
