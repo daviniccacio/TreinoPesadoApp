@@ -13,6 +13,7 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   User,
+  Users,
   Moon,
   Sun,
   Desktop,
@@ -21,20 +22,19 @@ import {
   Shield,
   Bell,
   Books,
-  ClipboardText,
   Key,
 } from 'phosphor-react-native';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../../lib/supabase';
 
-// --- TIPAGENS ---
+// --- TIPAGENS DE DADOS ---
 interface PersonalProfileData {
   fullName: string;
   email: string;
   inviteCode: string;
   birthDate: string;
   libraryTemplatesCount: number;
-  prescribedWorkoutsCount: number;
+  linkedStudentsCount: number; // <-- Atualizado para guardar o total de alunos
 }
 
 /**
@@ -66,11 +66,10 @@ async function fetchPersonalProfileData(): Promise<PersonalProfileData> {
     .is('student_id', null)
     .eq('personal_id', user.id);
 
-  // 2. Contar Treinos Prescritos (Planos atribuídos a alunos)
-  const { count: prescribedCount } = await supabase
-    .from('workout_plans')
+  // 2. Contar Alunos Vinculados (Usuários na tabela profiles que possuem o personal_id igual ao do usuário)
+  const { count: studentsCount } = await supabase
+    .from('profiles')
     .select('*', { count: 'exact', head: true })
-    .not('student_id', 'is', null)
     .eq('personal_id', user.id);
 
   return {
@@ -79,7 +78,7 @@ async function fetchPersonalProfileData(): Promise<PersonalProfileData> {
     inviteCode: profile?.invite_code || 'PERS-XXXX',
     birthDate: user.user_metadata?.birth_date || '',
     libraryTemplatesCount: libraryCount || 0,
-    prescribedWorkoutsCount: prescribedCount || 0,
+    linkedStudentsCount: studentsCount || 0,
   };
 }
 
@@ -133,7 +132,7 @@ export default function PersonalProfileScreen() {
   const email = profile?.email || '';
   const inviteCode = profile?.inviteCode || 'PERS-XXXX';
   const libraryCount = profile?.libraryTemplatesCount || 0;
-  const prescribedCount = profile?.prescribedWorkoutsCount || 0;
+  const linkedStudentsCount = profile?.linkedStudentsCount || 0;
 
   return (
     <View className="flex-1 bg-white dark:bg-zinc-950" style={{ paddingTop: insets.top }}>
@@ -207,15 +206,15 @@ export default function PersonalProfileScreen() {
           </View>
         ) : (
           <View className="flex-row justify-between gap-3 mb-6">
-            {/* Cartão 1: Treinos Prescritos */}
+            {/* Cartão 1: Alunos Vinculados */}
             <TouchableOpacity
               onPress={() => router.push('/(personal)')}
               className="flex-1 bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl items-center border border-[#e2dfe1] dark:border-zinc-800"
               activeOpacity={0.8}
             >
-              <User size={28} color="#59C83A" weight="bold" />
+              <Users size={28} color="#59C83A" weight="bold" />
               <Text className="text-2xl font-extrabold text-[#1b1b1d] dark:text-white mt-1">
-                {prescribedCount}
+                {linkedStudentsCount}
               </Text>
               <Text className="text-xs text-[#414755] dark:text-zinc-400 mt-1 text-center font-medium">
                 Alunos Vinculados
