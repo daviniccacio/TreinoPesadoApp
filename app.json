@@ -19,7 +19,7 @@
       "jsEngine": "hermes",
       "versionCode": 4,
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptative-icon.png",
+        "foregroundImage": "./assets/logo-treino-pesado-icon.png",
         "backgroundColor": "#1b1b1d"
       },
       "package": "com.daviniccacio.treinopesado"
