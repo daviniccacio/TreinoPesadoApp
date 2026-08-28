@@ -125,8 +125,8 @@ export default function LoginScreen() {
             <Image
               source={
                 isDark
-                  ? require('../../assets/logo-treino-pesado.png')
-                  : require('../../assets/logo-treino-pesado-branco.png')
+                  ? require('../../assets/icon.png')
+                  : require('../../assets/splash.png')
               }
               className="w-full h-full"
               resizeMode="contain"
