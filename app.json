@@ -2,6 +2,7 @@
   "expo": {
     "name": "Treino Pesado",
     "slug": "treino-pesado",
+    "scheme": "treinopesado",
     "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -17,7 +18,7 @@
     },
     "android": {
       "jsEngine": "hermes",
-      "versionCode": 4,
+      "versionCode": 5,
       "adaptiveIcon": {
         "foregroundImage": "./assets/logo-treino-pesado-icon.png",
         "backgroundColor": "#1b1b1d"
@@ -31,6 +32,12 @@
       "eas": {
         "projectId": "94a45cee-7aa6-42d1-9c27-7faeade308ca"
       }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/94a45cee-7aa6-42d1-9c27-7faeade308ca"
     }
   }
 }
