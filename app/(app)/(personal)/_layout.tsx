@@ -1,13 +1,22 @@
+// ============================================================================
+// LAYOUT DE NAVEGAÇÃO POR ABAS (PERSONAL TRAINER)
+// ============================================================================
+// Configura a barra de navegação inferior (Tab Bar) com suporte a modo escuro,
+// ícones interativos e ocultação de rotas internas de navegação.
+// ============================================================================
+
 import React from 'react';
 import { useColorScheme } from 'react-native';
 import { Tabs } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Users, Books, CalendarCheck, User } from 'phosphor-react-native';
+import { Users, Books, CalendarCheck, User, Barbell } from 'phosphor-react-native';
 
 export default function PersonalLayout() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const insets = useSafeAreaInsets();
+  
+  // Altura customizada considerando a barra de navegação inferior dos celulares
   const customTabBarHeight = 60 + insets.bottom;
 
   return (
@@ -29,6 +38,7 @@ export default function PersonalLayout() {
         },
       }}
     >
+      {/* 1. ABA ALUNOS */}
       <Tabs.Screen
         name="index"
         options={{
@@ -38,6 +48,19 @@ export default function PersonalLayout() {
           ),
         }}
       />
+
+      {/* 2. ABA EXERCÍCIOS (CATÁLOGO DA ACADEMIA) */}
+      <Tabs.Screen
+        name="exercises"
+        options={{
+          title: 'Exercícios',
+          tabBarIcon: ({ color, size, focused }) => (
+            <Barbell size={size} color={color} weight={focused ? 'fill' : 'bold'} />
+          ),
+        }}
+      />
+
+      {/* 3. ABA BIBLIOTECA DE MODELOS */}
       <Tabs.Screen
         name="routines"
         options={{
@@ -47,6 +70,8 @@ export default function PersonalLayout() {
           ),
         }}
       />
+
+      {/* 4. ABA FREQUÊNCIA SEMANAL */}
       <Tabs.Screen
         name="attendance"
         options={{
@@ -56,6 +81,8 @@ export default function PersonalLayout() {
           ),
         }}
       />
+
+      {/* 5. ABA PERFIL PROFISSIONAL */}
       <Tabs.Screen
         name="profile"
         options={{
@@ -66,9 +93,13 @@ export default function PersonalLayout() {
         }}
       />
 
-      {/* ROTAS OCULTAS DA NAVBAR */}
+      {/* ==================================================================== */}
+      {/* ROTAS OCULTAS DA NAVBAR (Telas acessadas por botões internos)         */}
+      {/* ==================================================================== */}
       <Tabs.Screen name="create-workout" options={{ href: null }} />
       <Tabs.Screen name="student-detail" options={{ href: null }} />
+      <Tabs.Screen name="category/[id]" options={{ href: null }} />
+      <Tabs.Screen name="exercise/[id]" options={{ href: null }} />
     </Tabs>
   );
 }
