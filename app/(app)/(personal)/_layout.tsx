@@ -94,12 +94,13 @@ export default function PersonalLayout() {
       />
 
       {/* ==================================================================== */}
-      {/* ROTAS OCULTAS DA NAVBAR (Telas acessadas por botões internos)         */}
+      {/* ROTAS OCULTAS DA NAVBAR (Telas acessadas por botões internos)        */}
       {/* ==================================================================== */}
       <Tabs.Screen name="create-workout" options={{ href: null }} />
       <Tabs.Screen name="student-detail" options={{ href: null }} />
       <Tabs.Screen name="category/[id]" options={{ href: null }} />
       <Tabs.Screen name="exercise/[id]" options={{ href: null }} />
+      <Tabs.Screen name="routine/[id]" options={{ href: null }} />
     </Tabs>
   );
 }

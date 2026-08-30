@@ -22,7 +22,6 @@ import {
   Users,
 } from 'phosphor-react-native';
 
-// Importação do useFocusEffect para recarregar dados ao voltar para esta tela
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../../lib/supabase';
@@ -71,24 +70,19 @@ async function fetchLibraryRoutines(): Promise<RoutineItem[]> {
 }
 
 /**
- * Busca a lista de alunos cadastrados para exibição na modal de atribuição
- */
-/**
  * Busca APENAS a lista de alunos vinculados ao Personal Trainer logado
  */
 async function fetchStudentsList(): Promise<StudentItem[]> {
-  // 1. Obtém o usuário (Personal) logado na sessão atual
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
   if (!user) return [];
 
-  // 2. Consulta no Supabase filtrando pelo personal_id do usuário logado
   const { data, error } = await supabase
     .from('profiles')
     .select('id, full_name, role')
-    .eq('personal_id', user.id) // <-- FILTRO ESSENCIAL: Traz apenas os seus alunos vinculados
+    .eq('personal_id', user.id)
     .order('full_name', { ascending: true });
 
   if (error) {
@@ -96,7 +90,6 @@ async function fetchStudentsList(): Promise<StudentItem[]> {
     throw new Error(error.message);
   }
 
-  // 3. Retorna os dados garantindo um nome de exibição caso o full_name esteja nulo
   return (data || []).map((student) => ({
     id: student.id,
     full_name:
@@ -113,8 +106,6 @@ export default function PersonalRoutinesScreen() {
   const isDark = colorScheme === 'dark';
   const queryClient = useQueryClient();
 
-  // Parâmetro opcional caso venha do perfil de um aluno específico
-  // Lendo os parâmetros da URL:
   const params = useLocalSearchParams<{
     assignToStudentId?: string;
     assignToStudentName?: string;
@@ -123,23 +114,21 @@ export default function PersonalRoutinesScreen() {
   const initialStudentId = params.assignToStudentId;
   const initialStudentName = params.assignToStudentName || 'este aluno';
 
-  // Na função de abrir a atribuição:
   function handleOpenAssignFlow(routine: RoutineItem) {
     setSelectedRoutine(routine);
 
     if (initialStudentId) {
-      // Exibe o nome real do aluno na caixa de diálogo!
       confirmAndAssignToStudent(routine, initialStudentId, initialStudentName);
     } else {
       setStudentsModalVisible(true);
     }
   }
 
-  // --- ESTADOS LOCAIS DE INTERFACE ---
+  // --- ESTADOS LOCAIS ---
   const [studentsModalVisible, setStudentsModalVisible] = useState<boolean>(false);
   const [selectedRoutine, setSelectedRoutine] = useState<RoutineItem | null>(null);
 
-  // --- BUSCA DAS ROTINAS COM TANSTACK QUERY ---
+  // --- BUSCA DAS ROTINAS ---
   const {
     data: routines = [],
     isLoading: loadingRoutines,
@@ -150,19 +139,13 @@ export default function PersonalRoutinesScreen() {
     queryFn: fetchLibraryRoutines,
   });
 
-  // ============================================================================
-  // ATUALIZAÇÃO AUTOMÁTICA AO VOLTAR PARA A TELA
-  // ============================================================================
-  // Sempre que esta tela receber o foco do usuário (ex: ao voltar da tela de
-  // criação ou edição de treinos), o refetch() será executado automaticamente.
-  // ============================================================================
   useFocusEffect(
     useCallback(() => {
       refetch();
     }, [refetch])
   );
 
-  // --- BUSCA DE ALUNOS (SÓ EXECUTA QUANDO O MODAL ESTIVER ABERTO) ---
+  // --- BUSCA DE ALUNOS ---
   const {
     data: students = [],
     isLoading: loadingStudents,
@@ -193,7 +176,7 @@ export default function PersonalRoutinesScreen() {
     },
   });
 
-  // --- MUTAÇÃO PARA CLONAR E ATRIBUIR O TREINO AO ALUNO ---
+  // --- MUTAÇÃO PARA ATRIBUIR O TREINO AO ALUNO ---
   const assignRoutineMutation = useMutation({
     mutationFn: async ({
       routine,
@@ -206,7 +189,6 @@ export default function PersonalRoutinesScreen() {
         data: { user },
       } = await supabase.auth.getUser();
 
-      // 1. Cria a nova ficha vinculada ao student_id
       const { data: newPlan, error: planError } = await supabase
         .from('workout_plans')
         .insert({
@@ -222,7 +204,6 @@ export default function PersonalRoutinesScreen() {
 
       if (planError) throw new Error(planError.message);
 
-      // 2. Busca os exercícios do modelo original
       const { data: originalExercises, error: fetchExError } = await supabase
         .from('plan_exercises')
         .select('*')
@@ -230,7 +211,6 @@ export default function PersonalRoutinesScreen() {
 
       if (fetchExError) throw new Error(fetchExError.message);
 
-      // 3. Copia os exercícios para o novo plano
       if (originalExercises && originalExercises.length > 0) {
         const newExercisesPayload = originalExercises.map((ex) => ({
           plan_id: newPlan.id,
@@ -254,7 +234,6 @@ export default function PersonalRoutinesScreen() {
     onSuccess: (studentId) => {
       setStudentsModalVisible(false);
 
-      // Atualiza os caches globais das telas afetadas
       queryClient.invalidateQueries({
         queryKey: ['personal-student-detail', studentId],
       });
@@ -365,7 +344,17 @@ export default function PersonalRoutinesScreen() {
 
             return (
               <View className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl mb-3 border border-[#e2dfe1] dark:border-zinc-800 flex-row items-center justify-between">
-                <View className="flex-row items-center flex-1 mr-2">
+                {/* ÁREA CLICÁVEL DO CARD: NAVEGA PARA OS DETALHES DO TREINO */}
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() =>
+                    router.push({
+                      pathname: '/(personal)/routine/[id]',
+                      params: { id: item.id },
+                    })
+                  }
+                  className="flex-row items-center flex-1 mr-2"
+                >
                   <View className="w-12 h-12 rounded-2xl bg-[#59C83A]/10 items-center justify-center border border-[#59C83A]/30 mr-3">
                     <Barbell size={22} color="#59C83A" weight="bold" />
                   </View>
@@ -379,7 +368,7 @@ export default function PersonalRoutinesScreen() {
                       {item.objective ? ` • ${item.objective}` : ''}
                     </Text>
                   </View>
-                </View>
+                </TouchableOpacity>
 
                 {/* AÇÕES DO CARTÃO */}
                 <View className="flex-row items-center gap-2">
