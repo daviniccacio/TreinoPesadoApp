@@ -10,6 +10,9 @@ import {
   ActivityIndicator,
   Alert,
   useColorScheme,
+  LayoutAnimation,
+  Platform,
+  UIManager,
 } from 'react-native';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -22,12 +25,23 @@ import {
   X,
   Barbell,
   Check,
+  Eye,
+  CaretDown,
+  CaretUp,
 } from 'phosphor-react-native';
 
-// Importação do TanStack Query para atualização instantânea
 import { useQueryClient } from '@tanstack/react-query';
-import { supabase } from '../../../lib/supabase';
+import { Image } from 'expo-image';
 
+import { supabase } from '../../../lib/supabase';
+import { getExerciseGif } from '../../../lib/exerciseGifs';
+
+// Habilita animações de layout suaves no Android
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
+// --- TIPAGENS DE DADOS ---
 interface RegisteredExercise {
   id: string;
   name: string;
@@ -35,6 +49,7 @@ interface RegisteredExercise {
   reps?: string;
   weight?: string;
   category_id?: string;
+  gif_key?: string;
 }
 
 interface SelectedExerciseItem {
@@ -45,6 +60,7 @@ interface SelectedExerciseItem {
   sets: string;
   reps: string;
   notes: string;
+  gif_key?: string;
 }
 
 const DAYS_OF_WEEK = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
@@ -65,10 +81,8 @@ export default function CreateWorkoutPlanScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
-  // Gerenciador de cache do TanStack Query
   const queryClient = useQueryClient();
 
-  // Parâmetros recebidos da navegação
   const { planId, studentId, studentName } = useLocalSearchParams<{
     planId?: string;
     studentId?: string;
@@ -91,9 +105,9 @@ export default function CreateWorkoutPlanScreen() {
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('todos');
   const [loadingModalExercises, setLoadingModalExercises] = useState(false);
 
-  /**
-   * Navegação inteligente de retorno
-   */
+  // ESTADO QUE GUARDA APENAS O EXERCÍCIO COM O GIF EXPANDIDO NO MODAL (Apenas 1 por vez)
+  const [expandedModalExerciseId, setExpandedModalExerciseId] = useState<string | null>(null);
+
   const handleNavigateBack = useCallback(() => {
     if (router.canGoBack()) {
       router.back();
@@ -102,13 +116,10 @@ export default function CreateWorkoutPlanScreen() {
     }
   }, [router]);
 
-  /**
-   * Reseta ou carrega os dados dependendo de haver um planId
-   */
   useFocusEffect(
     useCallback(() => {
       if (planId) {
-        loadExistingPlanData(planId);
+ loadExistingPlanData(planId);
       } else {
         resetForm();
       }
@@ -121,11 +132,9 @@ export default function CreateWorkoutPlanScreen() {
     setObjective('Hipertrofia');
     setSelectedDays(['Segunda']);
     setSelectedExercises([]);
+    setExpandedModalExerciseId(null);
   }
 
-  /**
-   * Carrega os dados de um plano existente para Edição
-   */
   async function loadExistingPlanData(id: string) {
     try {
       setLoadingPlanData(true);
@@ -147,26 +156,31 @@ export default function CreateWorkoutPlanScreen() {
 
       const { data: exercises, error: exercisesError } = await supabase
         .from('plan_exercises')
-        .select('*')
+        .select(`
+          *,
+          exercise:exercises (
+            gif_key
+          )
+        `)
         .eq('plan_id', id)
         .order('order_index', { ascending: true });
 
       if (exercisesError) throw exercisesError;
 
       if (exercises) {
-        const mappedExercises: SelectedExerciseItem[] = exercises.map((ex) => ({
+        const mappedExercises: SelectedExerciseItem[] = exercises.map((ex: any) => ({
           tempId: ex.id || Date.now().toString() + Math.random().toString(),
           exercise_id: ex.exercise_id,
           name: ex.name,
           sets: String(ex.sets || '3'),
           reps: String(ex.reps || '10'),
           notes: ex.notes || '',
+          gif_key: ex.exercise?.gif_key || null,
         }));
         setSelectedExercises(mappedExercises);
       }
     } catch (err: any) {
       Alert.alert('Erro', 'Não foi possível carregar os dados do treino para edição.');
-      console.error(err);
     } finally {
       setLoadingPlanData(false);
     }
@@ -196,7 +210,6 @@ export default function CreateWorkoutPlanScreen() {
       if (data) setRegisteredExercises(data);
     } catch (err: any) {
       Alert.alert('Erro', 'Não foi possível carregar a lista de exercícios.');
-      console.error(err);
     } finally {
       setLoadingModalExercises(false);
     }
@@ -204,15 +217,27 @@ export default function CreateWorkoutPlanScreen() {
 
   function handleOpenExerciseModal() {
     setIsModalVisible(true);
+    setExpandedModalExerciseId(null);
     fetchRegisteredExercises();
   }
 
+  /**
+   * SELECIONA O EXERCÍCIO NO MODAL E EXPANDE O SEU GIF COM ANIMAÇÃO
+   */
   function handleToggleExerciseFromLibrary(item: RegisteredExercise) {
+    // Configura a animação suave de transição de layout
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+
     const existingIndex = selectedExercises.findIndex((ex) => ex.exercise_id === item.id);
 
     if (existingIndex >= 0) {
+      // Se já estava selecionado e clicou novamente, desmarca o exercício
       setSelectedExercises((prev) => prev.filter((ex) => ex.exercise_id !== item.id));
+      if (expandedModalExerciseId === item.id) {
+        setExpandedModalExerciseId(null);
+      }
     } else {
+      // Adiciona o exercício aos selecionados
       const newExerciseItem: SelectedExerciseItem = {
         tempId: Date.now().toString() + Math.random().toString(),
         exercise_id: item.id,
@@ -221,8 +246,12 @@ export default function CreateWorkoutPlanScreen() {
         sets: String(item.sets || '3'),
         reps: item.reps || '10 a 12',
         notes: item.weight ? `Carga sugerida: ${item.weight}` : '',
+        gif_key: item.gif_key,
       };
+
       setSelectedExercises((prev) => [...prev, newExerciseItem]);
+      // Torna este o único exercício com o GIF expandido no Modal
+      setExpandedModalExerciseId(item.id);
     }
   }
 
@@ -236,9 +265,6 @@ export default function CreateWorkoutPlanScreen() {
     setSelectedExercises((prev) => prev.filter((item) => item.tempId !== tempId));
   }
 
-  /**
-   * Salva/Atualiza o Plano de Treino e invalida o cache para atualizar as listas
-   */
   async function handleSavePlan() {
     if (!planName.trim()) {
       Alert.alert('Campo Obrigatório', 'Por favor, informe o nome do plano de treino.');
@@ -255,7 +281,6 @@ export default function CreateWorkoutPlanScreen() {
       const { data: { user } } = await supabase.auth.getUser();
 
       if (planId) {
-        // --- MODO DE EDIÇÃO (UPDATE) ---
         const { error: planError } = await supabase
           .from('workout_plans')
           .update({
@@ -286,21 +311,15 @@ export default function CreateWorkoutPlanScreen() {
 
         if (exercisesError) throw exercisesError;
 
-        // Invalidação de cache instantânea
-        queryClient.invalidateQueries({
-          queryKey: ['personal-student-detail', studentId],
-        });
+        queryClient.invalidateQueries({ queryKey: ['personal-student-detail', studentId] });
         queryClient.invalidateQueries({ queryKey: ['student-workouts'] });
         queryClient.invalidateQueries({ queryKey: ['personal-profile-data'] });
         queryClient.invalidateQueries({ queryKey: ['personal-library-routines'] });
-        queryClient.invalidateQueries({ queryKey: ['personal-profile-data'] });
-
 
         Alert.alert('Sucesso!', 'Plano de treino atualizado com sucesso!', [
           { text: 'OK', onPress: () => handleNavigateBack() },
         ]);
       } else {
-        // --- MODO DE CRIAÇÃO (INSERT) ---
         const { data: planData, error: planError } = await supabase
           .from('workout_plans')
           .insert({
@@ -332,10 +351,7 @@ export default function CreateWorkoutPlanScreen() {
 
         if (exercisesError) throw exercisesError;
 
-        // Invalidação de cache instantânea
-        queryClient.invalidateQueries({
-          queryKey: ['personal-student-detail', studentId],
-        });
+        queryClient.invalidateQueries({ queryKey: ['personal-student-detail', studentId] });
         queryClient.invalidateQueries({ queryKey: ['student-workouts'] });
         queryClient.invalidateQueries({ queryKey: ['personal-profile-data'] });
 
@@ -364,9 +380,6 @@ export default function CreateWorkoutPlanScreen() {
     return (
       <View className="flex-1 bg-white dark:bg-zinc-950 justify-center items-center">
         <ActivityIndicator size="large" color="#59C83A" />
-        <Text className="text-xs text-[#71717a] dark:text-zinc-400 mt-2 font-medium">
-          Carregando dados do treino...
-        </Text>
       </View>
     );
   }
@@ -497,7 +510,7 @@ export default function CreateWorkoutPlanScreen() {
           </Text>
         </TouchableOpacity>
 
-        {/* LISTA DOS EXERCÍCIOS ADICIONADOS */}
+        {/* LISTA DOS EXERCÍCIOS ADICIONADOS AO PLANO */}
         <Text className="text-base font-extrabold text-[#1b1b1d] dark:text-white mb-3">
           Exercícios Selecionados ({selectedExercises.length})
         </Text>
@@ -506,7 +519,7 @@ export default function CreateWorkoutPlanScreen() {
           <View className="p-8 items-center justify-center border border-dashed border-[#e2dfe1] dark:border-zinc-800 rounded-2xl">
             <Barbell size={32} color={isDark ? '#52525b' : '#a1a1aa'} />
             <Text className="text-xs font-medium text-[#71717a] dark:text-zinc-400 mt-2 text-center">
-              Nenhum exercício selecionado.{'\n'}Clica no botão verde para abrir a lista e tocar para adicionar.
+              Nenhum exercício selecionado.{'\n'}Clique no botão verde para abrir a lista e selecionar.
             </Text>
           </View>
         ) : (
@@ -516,10 +529,14 @@ export default function CreateWorkoutPlanScreen() {
               className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl border border-[#e2dfe1] dark:border-zinc-800 mb-3"
             >
               <View className="flex-row items-center justify-between mb-3">
-                <Text className="text-sm font-extrabold text-[#1b1b1d] dark:text-white flex-1 mr-2">
+                <Text className="text-sm font-extrabold text-[#1b1b1d] dark:text-white flex-1 mr-2" numberOfLines={1}>
                   {index + 1}. {item.name}
                 </Text>
-                <TouchableOpacity onPress={() => handleRemoveExercise(item.tempId)}>
+
+                <TouchableOpacity
+                  onPress={() => handleRemoveExercise(item.tempId)}
+                  className="p-1"
+                >
                   <Trash size={18} color="#ef4444" />
                 </TouchableOpacity>
               </View>
@@ -567,7 +584,7 @@ export default function CreateWorkoutPlanScreen() {
         )}
       </ScrollView>
 
-      {/* MODAL DE SELEÇÃO RÁPIDA DE EXERCÍCIOS */}
+      {/* MODAL DA BIBLIOTECA DE EXERCÍCIOS (COM EXPANSÃO AUTOMÁTICA DE GIF) */}
       <Modal visible={isModalVisible} animationType="slide" transparent>
         <View className="flex-1 bg-black/60 justify-end">
           <View className="bg-white dark:bg-zinc-900 rounded-t-3xl p-5 h-[85%] border-t border-[#e2dfe1] dark:border-zinc-800">
@@ -588,6 +605,7 @@ export default function CreateWorkoutPlanScreen() {
               </TouchableOpacity>
             </View>
 
+            {/* BARRINHA DE PESQUISA */}
             <View className="bg-[#f8f9fa] dark:bg-zinc-950 flex-row items-center px-3.5 py-2.5 rounded-xl border border-[#e2dfe1] dark:border-zinc-800 mb-3">
               <MagnifyingGlass size={18} color={isDark ? '#59C83A' : '#71717a'} />
               <TextInput
@@ -605,6 +623,7 @@ export default function CreateWorkoutPlanScreen() {
               ) : null}
             </View>
 
+            {/* FILTROS DE CATEGORIA */}
             <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row mb-4 max-h-10">
               {CATEGORY_FILTERS.map((cat) => {
                 const active = selectedCategoryFilter === cat.id;
@@ -625,12 +644,10 @@ export default function CreateWorkoutPlanScreen() {
               })}
             </ScrollView>
 
+            {/* LISTA DE EXERCÍCIOS NO MODAL COM ACCORDION INLINE */}
             {loadingModalExercises ? (
               <View className="flex-1 items-center justify-center">
                 <ActivityIndicator size="large" color="#59C83A" />
-                <Text className="text-xs text-[#71717a] mt-2 font-medium">
-                  Carregando lista de exercícios...
-                </Text>
               </View>
             ) : (
               <FlatList
@@ -639,44 +656,56 @@ export default function CreateWorkoutPlanScreen() {
                 showsVerticalScrollIndicator={false}
                 renderItem={({ item }) => {
                   const isAdded = selectedExercises.some((ex) => ex.exercise_id === item.id);
+                  const isGifExpanded = expandedModalExerciseId === item.id;
 
                   return (
-                    <TouchableOpacity
-                      onPress={() => handleToggleExerciseFromLibrary(item)}
-                      activeOpacity={0.7}
-                      className={`p-3.5 rounded-xl border mb-2.5 flex-row items-center justify-between ${isAdded
+                    <View
+                      className={`p-3.5 rounded-2xl border mb-2.5 overflow-hidden ${isAdded
                           ? 'bg-[#59C83A]/10 border-[#59C83A]'
                           : 'bg-[#f8f9fa] dark:bg-zinc-950 border-[#e2dfe1] dark:border-zinc-800'
                         }`}
                     >
-                      <View className="flex-1 mr-2">
-                        <Text className="text-sm font-bold text-[#1b1b1d] dark:text-white">
-                          {item.name}
-                        </Text>
-                        <Text className="text-xs text-[#71717a] dark:text-zinc-400 mt-0.5">
-                          Grupo: {item.category_id || 'Geral'} | Séries: {item.sets || 3}
-                        </Text>
-                      </View>
-
-                      {isAdded ? (
-                        <View className="bg-[#59C83A] p-2 rounded-lg">
-                          <Check size={16} color="#ffffff" weight="bold" />
+                      {/* ÁREA CLICÁVEL DO CARD */}
+                      <TouchableOpacity
+                        onPress={() => handleToggleExerciseFromLibrary(item)}
+                        activeOpacity={0.7}
+                        className="flex-row items-center justify-between"
+                      >
+                        <View className="flex-1 mr-2">
+                          <Text className="text-sm font-bold text-[#1b1b1d] dark:text-white" numberOfLines={1}>
+                            {item.name}
+                          </Text>
+                          <Text className="text-xs text-[#71717a] dark:text-zinc-400 mt-0.5">
+                            Grupo: {item.category_id || 'Geral'} | Séries: {item.sets || 3}
+                          </Text>
                         </View>
-                      ) : (
-                        <View className="bg-[#59C83A]/10 p-2 rounded-lg border border-[#59C83A]/30">
-                          <Plus size={16} color="#59C83A" weight="bold" />
+
+                        {/* ÍCONE SELEÇÃO (CHECK VERDE QUANDO MARCADO) */}
+                        {isAdded ? (
+                          <View className="bg-[#59C83A] p-2 rounded-xl">
+                            <Check size={16} color="#ffffff" weight="bold" />
+                          </View>
+                        ) : (
+                          <View className="bg-[#59C83A]/10 p-2 rounded-xl border border-[#59C83A]/30">
+                            <Plus size={16} color="#59C83A" weight="bold" />
+                          </View>
+                        )}
+                      </TouchableOpacity>
+
+                      {/* CONTAINER EXPANSÍVEL COM O GIF ANIMADO NO PRÓPRIO CARD */}
+                      {isGifExpanded && (
+                        <View className="w-full h-52 bg-white dark:bg-zinc-900 rounded-xl overflow-hidden mt-3 border border-[#e2dfe1] dark:border-zinc-800 items-center justify-center">
+                          <Image
+                            source={getExerciseGif(item.gif_key)}
+                            style={{ width: '100%', height: '100%' }}
+                            contentFit="contain"
+                            autoplay={true}
+                          />
                         </View>
                       )}
-                    </TouchableOpacity>
+                    </View>
                   );
                 }}
-                ListEmptyComponent={
-                  <View className="py-10 items-center">
-                    <Text className="text-xs text-[#71717a] dark:text-zinc-400 font-medium text-center">
-                      Nenhum exercício encontrado na biblioteca.
-                    </Text>
-                  </View>
-                }
               />
             )}
           </View>
