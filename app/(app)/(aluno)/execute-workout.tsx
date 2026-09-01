@@ -26,6 +26,7 @@ import {
 } from "phosphor-react-native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../../../lib/supabase";
+import { useThrottledCallback } from '../../../lib/useThrottle';
 
 // --- TIPAGENS DE DADOS ---
 interface ExerciseItem {
@@ -155,6 +156,8 @@ export default function ExecuteWorkoutScreen() {
   // Referências dos intervalos
   const workoutTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const restTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const handleFinishThrottled = useThrottledCallback(handleFinishWorkout, 2000);
 
   // --- BUSCA COM TANSTACK QUERY ---
   const { data: workoutData, isLoading } = useQuery({
@@ -422,7 +425,7 @@ export default function ExecuteWorkoutScreen() {
         </Text>
 
         <TouchableOpacity
-          onPress={handleFinishWorkout}
+          onPress={handleFinishThrottled}
           disabled={finishWorkoutMutation.isPending}
           className="bg-[#59C83A] px-3.5 py-2 rounded-xl flex-row items-center shadow-sm"
         >

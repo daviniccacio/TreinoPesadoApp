@@ -35,6 +35,7 @@ import { Image } from 'expo-image';
 
 import { supabase } from '../../../lib/supabase';
 import { getExerciseGif } from '../../../lib/exerciseGifs';
+import { useThrottledCallback } from '../../../lib/useThrottle';
 
 // Habilita animações de layout suaves no Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -107,6 +108,8 @@ export default function CreateWorkoutPlanScreen() {
 
   // ESTADO QUE GUARDA APENAS O EXERCÍCIO COM O GIF EXPANDIDO NO MODAL (Apenas 1 por vez)
   const [expandedModalExerciseId, setExpandedModalExerciseId] = useState<string | null>(null);
+
+  const handleSavePlanThrottled = useThrottledCallback(handleSavePlan, 2000);
 
   const handleNavigateBack = useCallback(() => {
     if (router.canGoBack()) {
@@ -409,7 +412,7 @@ export default function CreateWorkoutPlanScreen() {
         </View>
 
         <TouchableOpacity
-          onPress={handleSavePlan}
+          onPress={handleSavePlanThrottled}
           disabled={saving}
           className="bg-[#59C83A] px-4 py-2.5 rounded-xl flex-row items-center"
         >
