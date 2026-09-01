@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -9,24 +9,33 @@ import {
   Alert,
   useColorScheme,
   Modal,
-} from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import {
-  ArrowLeft,
-  Plus,
-  Trash,
-  Check,
-  Barbell,
-  PencilSimple,
-} from 'phosphor-react-native';
-import { useQueryClient } from '@tanstack/react-query';
-import { supabase } from '../../../lib/supabase';
+  LayoutAnimation,
+  Platform,
+  UIManager,
+} from "react-native";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { ArrowLeft, Plus, Trash, Check, Barbell } from "phosphor-react-native";
+import { useQueryClient } from "@tanstack/react-query";
+import { Image } from "expo-image";
 
+import { supabase } from "../../../lib/supabase";
+import { getExerciseGif } from "../../../lib/exerciseGifs";
+
+// Habilita animações de layout no Android
+if (
+  Platform.OS === "android" &&
+  UIManager.setLayoutAnimationEnabledExperimental
+) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
+// --- TIPAGENS DE DADOS ---
 interface ExerciseOption {
   id: string;
   name: string;
   category_id: string;
+  gif_key?: string;
 }
 
 interface SelectedExercise {
@@ -36,13 +45,14 @@ interface SelectedExercise {
   sets: string;
   reps: string;
   weight: string;
+  gif_key?: string;
 }
 
 export default function CreateOrEditWorkoutScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const isDark = colorScheme === "dark";
   const queryClient = useQueryClient();
 
   // Captura o planId caso tenhamos vindo da opção "Editar"
@@ -50,15 +60,24 @@ export default function CreateOrEditWorkoutScreen() {
   const isEditing = !!planId;
 
   // ESTADOS DO FORMULÁRIO
-  const [workoutTitle, setWorkoutTitle] = useState('');
-  const [selectedExercises, setSelectedExercises] = useState<SelectedExercise[]>([]);
+  const [workoutTitle, setWorkoutTitle] = useState("");
+  const [selectedExercises, setSelectedExercises] = useState<
+    SelectedExercise[]
+  >([]);
   const [isLoadingWorkout, setIsLoadingWorkout] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   // ESTADOS DO MODAL DE SELEÇÃO DE EXERCÍCIOS
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [availableExercises, setAvailableExercises] = useState<ExerciseOption[]>([]);
+  const [availableExercises, setAvailableExercises] = useState<
+    ExerciseOption[]
+  >([]);
   const [isLoadingAvailable, setIsLoadingAvailable] = useState(false);
+
+  // ESTADO QUE GUARDA APENAS 1 GIF EXPANDIDO POR VEZ NO MODAL
+  const [expandedModalExerciseId, setExpandedModalExerciseId] = useState<
+    string | null
+  >(null);
 
   // 1. CARREGA OS DADOS DO TREINO SE ESTIVER NO MODO DE EDIÇÃO
   useEffect(() => {
@@ -69,8 +88,9 @@ export default function CreateOrEditWorkoutScreen() {
         setIsLoadingWorkout(true);
 
         const { data, error } = await supabase
-          .from('custom_workouts')
-          .select(`
+          .from("custom_workouts")
+          .select(
+            `
             id,
             title,
             custom_workout_exercises (
@@ -82,34 +102,36 @@ export default function CreateOrEditWorkoutScreen() {
               exercises (
                 id,
                 name,
-                category_id
+                category_id,
+                gif_key
               )
             )
-          `)
-          .eq('id', planId)
+          `,
+          )
+          .eq("id", planId)
           .single();
 
         if (error) throw new Error(error.message);
 
         if (data) {
-          setWorkoutTitle(data.title || '');
+          setWorkoutTitle(data.title || "");
 
-          // Mapeia os exercícios existentes para o formato do estado local
           const formattedExercises: SelectedExercise[] = (
             data.custom_workout_exercises || []
           ).map((item: any) => ({
             exercise_id: item.exercises?.id || item.exercise_id,
-            name: item.exercises?.name || 'Exercício',
-            category_id: item.exercises?.category_id || '',
-            sets: String(item.sets || '3'),
-            reps: String(item.reps || '10'),
-            weight: String(item.weight || '0kg'),
+            name: item.exercises?.name || "Exercício",
+            category_id: item.exercises?.category_id || "",
+            sets: String(item.sets || "3"),
+            reps: String(item.reps || "10"),
+            weight: String(item.weight || "0kg"),
+            gif_key: item.exercises?.gif_key || null,
           }));
 
           setSelectedExercises(formattedExercises);
         }
       } catch (err: any) {
-        Alert.alert('Erro ao carregar treino', err.message);
+        Alert.alert("Erro ao carregar treino", err.message);
       } finally {
         setIsLoadingWorkout(false);
       }
@@ -118,59 +140,68 @@ export default function CreateOrEditWorkoutScreen() {
     loadWorkoutForEditing();
   }, [planId]);
 
-  // 2. BUSCA A LISTA DE TODOS OS EXERCÍCIOS DISPONÍVEIS NO SUPABASE
+  // 2. BUSCA A LISTA DE TODOS OS EXERCÍCIOS DISPONÍVEIS COM GIF_KEY
   async function handleOpenAddExerciseModal() {
     setIsModalOpen(true);
+    setExpandedModalExerciseId(null);
     if (availableExercises.length > 0) return;
 
     try {
       setIsLoadingAvailable(true);
       const { data, error } = await supabase
-        .from('exercises')
-        .select('id, name, category_id')
-        .order('name', { ascending: true });
+        .from("exercises")
+        .select("id, name, category_id, gif_key")
+        .order("name", { ascending: true });
 
       if (error) throw new Error(error.message);
       setAvailableExercises(data || []);
     } catch (err: any) {
-      Alert.alert('Erro', 'Não foi possível carregar a lista de exercícios.');
+      Alert.alert("Erro", "Não foi possível carregar a lista de exercícios.");
     } finally {
       setIsLoadingAvailable(false);
     }
   }
 
-  // 3. ADICIONA UM EXERCÍCIO À LISTA LOCAL
+  // 3. SELEÇÃO COM ANIMAÇÃO ACCORDION NO MODAL
   function handleSelectExercise(exercise: ExerciseOption) {
-    // Verifica se já está adicionado
+    // Aplica transição fluida de layout
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+
     const alreadyExists = selectedExercises.some(
-      (e) => e.exercise_id === exercise.id
+      (e) => e.exercise_id === exercise.id,
     );
 
     if (alreadyExists) {
-      Alert.alert('Aviso', 'Este exercício já foi adicionado ao treino.');
-      return;
+      // Se já estava selecionado, remove da lista de selecionados
+      setSelectedExercises((prev) =>
+        prev.filter((e) => e.exercise_id !== exercise.id),
+      );
+      if (expandedModalExerciseId === exercise.id) {
+        setExpandedModalExerciseId(null);
+      }
+    } else {
+      // Adiciona aos selecionados e expande o GIF do exercício
+      setSelectedExercises((prev) => [
+        ...prev,
+        {
+          exercise_id: exercise.id,
+          name: exercise.name,
+          category_id: exercise.category_id,
+          sets: "3",
+          reps: "10",
+          weight: "0kg",
+          gif_key: exercise.gif_key,
+        },
+      ]);
+      setExpandedModalExerciseId(exercise.id);
     }
-
-    setSelectedExercises((prev) => [
-      ...prev,
-      {
-        exercise_id: exercise.id,
-        name: exercise.name,
-        category_id: exercise.category_id,
-        sets: '3',
-        reps: '10',
-        weight: '0kg',
-      },
-    ]);
-
-    setIsModalOpen(false);
   }
 
-  // 4. ATUALIZA SÉRIES, REPETIÇÕES OU CARGA DE UM EXERCÍCIO DA LISTA
+  // 4. ATUALIZA SÉRIES, REPETIÇÕES OU CARGA
   function handleUpdateExerciseField(
     index: number,
-    field: 'sets' | 'reps' | 'weight',
-    value: string
+    field: "sets" | "reps" | "weight",
+    value: string,
   ) {
     setSelectedExercises((prev) => {
       const updated = [...prev];
@@ -187,14 +218,14 @@ export default function CreateOrEditWorkoutScreen() {
   // 6. SALVA OU ATUALIZA O TREINO NO SUPABASE
   async function handleSaveWorkout() {
     if (!workoutTitle.trim()) {
-      Alert.alert('Campo Obrigatório', 'Por favor, informe o nome do treino.');
+      Alert.alert("Campo Obrigatório", "Por favor, informe o nome do treino.");
       return;
     }
 
     if (selectedExercises.length === 0) {
       Alert.alert(
-        'Nenhum Exercício',
-        'Adicione pelo menos um exercício ao seu treino.'
+        "Nenhum Exercício",
+        "Adicione pelo menos um exercício ao seu treino.",
       );
       return;
     }
@@ -205,79 +236,99 @@ export default function CreateOrEditWorkoutScreen() {
         data: { user },
       } = await supabase.auth.getUser();
 
-      if (!user) throw new Error('Sessão expirada. Faça login novamente.');
+      if (!user) throw new Error("Sessão expirada. Faça login novamente.");
 
       let currentWorkoutId = planId;
 
       if (isEditing && planId) {
-        // --- MODO EDIÇÃO: Atualiza o título do treino existente ---
         const { error: updateError } = await supabase
-          .from('custom_workouts')
+          .from("custom_workouts")
           .update({ title: workoutTitle.trim() })
-          .eq('id', planId);
+          .eq("id", planId);
 
         if (updateError) throw new Error(updateError.message);
 
-        // Remove os exercícios antigos vinculados a este treino
         const { error: deleteError } = await supabase
-          .from('custom_workout_exercises')
+          .from("custom_workout_exercises")
           .delete()
-          .eq('custom_workout_id', planId);
+          .eq("custom_workout_id", planId);
 
         if (deleteError) {
-          // Fallback caso o nome da coluna no banco seja 'workout_id'
           await supabase
-            .from('custom_workout_exercises')
+            .from("custom_workout_exercises")
             .delete()
-            .eq('workout_id', planId);
+            .eq("workout_id", planId);
         }
       } else {
-        // --- MODO CRIAÇÃO: Insere um novo treino ---
         const { data: newWorkout, error: insertError } = await supabase
-          .from('custom_workouts')
+          .from("custom_workouts")
           .insert({
             title: workoutTitle.trim(),
             user_id: user.id,
             student_id: user.id,
           })
-          .select('id')
+          .select("id")
           .single();
 
         if (insertError) throw new Error(insertError.message);
         currentWorkoutId = newWorkout.id;
       }
 
-      // Insere os exercícios atualizados na tabela de relacionamento
       if (currentWorkoutId) {
         const exercisesToInsert = selectedExercises.map((item) => ({
           custom_workout_id: currentWorkoutId,
-          workout_id: currentWorkoutId, // Preenche ambas para garantir compatibilidade
           exercise_id: item.exercise_id,
           sets: parseInt(item.sets, 10) || 3,
-          reps: item.reps || '10',
-          weight: item.weight || '0kg',
+          reps: item.reps || "10",
+          weight: item.weight || "0kg",
         }));
 
-        await supabase
-          .from('custom_workout_exercises')
+        const { error: exercisesError } = await supabase
+          .from("custom_workout_exercises")
           .insert(exercisesToInsert);
+
+        if (exercisesError) {
+          const fallbackToInsert = selectedExercises.map((item) => ({
+            workout_id: currentWorkoutId,
+            exercise_id: item.exercise_id,
+            sets: parseInt(item.sets, 10) || 3,
+            reps: item.reps || "10",
+            weight: item.weight || "0kg",
+          }));
+
+          const { error: fallbackError } = await supabase
+            .from("custom_workout_exercises")
+            .insert(fallbackToInsert);
+
+          if (fallbackError) {
+            throw new Error(
+              `Falha ao salvar exercícios: ${fallbackError.message}`,
+            );
+          }
+        }
       }
 
-      // Invalida o cache do TanStack Query para atualizar a lista
-      queryClient.invalidateQueries({ queryKey: ['student-workouts'] });
-      queryClient.invalidateQueries({ queryKey: ['student-home-data'] });
-      queryClient.invalidateQueries({ queryKey: ['custom-workout-detail', planId] });
+      queryClient.invalidateQueries({ queryKey: ["student-workouts"] });
+      queryClient.invalidateQueries({ queryKey: ["student-home-data"] });
+      if (planId) {
+        queryClient.invalidateQueries({
+          queryKey: ["custom-workout-detail", planId],
+        });
+      }
 
       Alert.alert(
-        'Sucesso! 🎉',
+        "Sucesso! 🎉",
         isEditing
-          ? 'Seu treino foi atualizado com sucesso!'
-          : 'Seu novo treino foi criado com sucesso!'
+          ? "Seu treino foi atualizado com sucesso!"
+          : "Seu novo treino foi criado com sucesso!",
       );
 
-      router.replace('/(aluno)/(tabs)/my-workouts');
+      router.replace("/(aluno)/(tabs)/my-workouts");
     } catch (err: any) {
-      Alert.alert('Erro ao Salvar', err.message || 'Ocorreu um erro inesperado.');
+      Alert.alert(
+        "Erro ao Salvar",
+        err.message || "Ocorreu um erro inesperado.",
+      );
     } finally {
       setIsSaving(false);
     }
@@ -295,11 +346,11 @@ export default function CreateOrEditWorkoutScreen() {
           onPress={() => router.back()}
           className="w-10 h-10 rounded-xl bg-[#f8f9fa] dark:bg-zinc-900 justify-center items-center border border-[#e2dfe1] dark:border-zinc-800"
         >
-          <ArrowLeft size={20} color={isDark ? '#ffffff' : '#1b1b1d'} />
+          <ArrowLeft size={20} color={isDark ? "#ffffff" : "#1b1b1d"} />
         </TouchableOpacity>
 
         <Text className="text-xl font-extrabold text-[#1b1b1d] dark:text-white">
-          {isEditing ? 'Editar Treino' : 'Montar Novo Treino'}
+          {isEditing ? "Editar Treino" : "Montar Novo Treino"}
         </Text>
 
         <View className="w-10" />
@@ -324,7 +375,7 @@ export default function CreateOrEditWorkoutScreen() {
           <TextInput
             className="bg-[#f8f9fa] dark:bg-zinc-900 border border-[#e2dfe1] dark:border-zinc-800 rounded-2xl px-4 py-3.5 text-base font-bold text-[#1b1b1d] dark:text-white mb-6"
             placeholder="Ex: Treino A - Peito e Tríceps"
-            placeholderTextColor={isDark ? '#71717a' : '#a1a1aa'}
+            placeholderTextColor={isDark ? "#71717a" : "#a1a1aa"}
             value={workoutTitle}
             onChangeText={setWorkoutTitle}
           />
@@ -352,7 +403,7 @@ export default function CreateOrEditWorkoutScreen() {
               onPress={handleOpenAddExerciseModal}
               className="bg-[#f8f9fa] dark:bg-zinc-900 p-8 rounded-2xl border border-dashed border-[#e2dfe1] dark:border-zinc-800 items-center mb-6"
             >
-              <Barbell size={36} color={isDark ? '#71717a' : '#a1a1aa'} />
+              <Barbell size={36} color={isDark ? "#71717a" : "#a1a1aa"} />
               <Text className="text-[#1b1b1d] dark:text-white font-bold mt-2 text-sm">
                 Nenhum exercício adicionado
               </Text>
@@ -395,7 +446,7 @@ export default function CreateOrEditWorkoutScreen() {
                       keyboardType="numeric"
                       value={exercise.sets}
                       onChangeText={(val) =>
-                        handleUpdateExerciseField(index, 'sets', val)
+                        handleUpdateExerciseField(index, "sets", val)
                       }
                     />
                   </View>
@@ -408,7 +459,7 @@ export default function CreateOrEditWorkoutScreen() {
                       className="bg-white dark:bg-zinc-950 border border-[#e2dfe1] dark:border-zinc-800 rounded-xl px-3 py-2 text-center text-sm font-bold text-[#1b1b1d] dark:text-white"
                       value={exercise.reps}
                       onChangeText={(val) =>
-                        handleUpdateExerciseField(index, 'reps', val)
+                        handleUpdateExerciseField(index, "reps", val)
                       }
                     />
                   </View>
@@ -421,7 +472,7 @@ export default function CreateOrEditWorkoutScreen() {
                       className="bg-white dark:bg-zinc-950 border border-[#e2dfe1] dark:border-zinc-800 rounded-xl px-3 py-2 text-center text-sm font-bold text-[#1b1b1d] dark:text-white"
                       value={exercise.weight}
                       onChangeText={(val) =>
-                        handleUpdateExerciseField(index, 'weight', val)
+                        handleUpdateExerciseField(index, "weight", val)
                       }
                     />
                   </View>
@@ -443,7 +494,7 @@ export default function CreateOrEditWorkoutScreen() {
               <>
                 <Check size={20} color="#FFFFFF" weight="bold" />
                 <Text className="text-white font-extrabold text-base ml-2">
-                  {isEditing ? 'Salvar Alterações' : 'Concluir e Criar Treino'}
+                  {isEditing ? "Salvar Alterações" : "Concluir e Criar Treino"}
                 </Text>
               </>
             )}
@@ -451,21 +502,25 @@ export default function CreateOrEditWorkoutScreen() {
         </ScrollView>
       )}
 
-      {/* MODAL PARA SELEÇÃO DE EXERCÍCIOS */}
+      {/* MODAL PARA SELEÇÃO DE EXERCÍCIOS (COM ACCORDION E GIF) */}
       <Modal visible={isModalOpen} animationType="slide" transparent>
         <View className="flex-1 bg-black/60 justify-end">
           <View className="bg-white dark:bg-zinc-900 rounded-t-3xl p-6 h-[80%] border-t border-[#e2dfe1] dark:border-zinc-800">
             <View className="flex-row items-center justify-between mb-4 pb-3 border-b border-[#e2dfe1] dark:border-zinc-800">
-              <Text className="text-lg font-extrabold text-[#1b1b1d] dark:text-white">
-                Selecione o Exercício
-              </Text>
+              <View>
+                <Text className="text-lg font-extrabold text-[#1b1b1d] dark:text-white">
+                  Selecione o Exercício
+                </Text>
+                <Text className="text-xs text-[#59C83A] font-bold">
+                  {selectedExercises.length} selecionado(s)
+                </Text>
+              </View>
+
               <TouchableOpacity
                 onPress={() => setIsModalOpen(false)}
-                className="bg-zinc-100 dark:bg-zinc-800 px-3 py-1.5 rounded-xl"
+                className="bg-[#59C83A] px-4 py-2 rounded-xl"
               >
-                <Text className="text-xs font-bold text-[#1b1b1d] dark:text-white">
-                  Fechar
-                </Text>
+                <Text className="text-white font-bold text-xs">Concluir</Text>
               </TouchableOpacity>
             </View>
 
@@ -475,23 +530,62 @@ export default function CreateOrEditWorkoutScreen() {
               </View>
             ) : (
               <ScrollView showsVerticalScrollIndicator={false}>
-                {availableExercises.map((item) => (
-                  <TouchableOpacity
-                    key={item.id}
-                    onPress={() => handleSelectExercise(item)}
-                    className="p-3.5 bg-[#f8f9fa] dark:bg-zinc-950 rounded-xl mb-2 border border-[#e2dfe1] dark:border-zinc-800 flex-row justify-between items-center"
-                  >
-                    <View>
-                      <Text className="text-xs font-bold text-[#59C83A] uppercase">
-                        {item.category_id}
-                      </Text>
-                      <Text className="text-sm font-bold text-[#1b1b1d] dark:text-white">
-                        {item.name}
-                      </Text>
+                {availableExercises.map((item) => {
+                  const isAdded = selectedExercises.some(
+                    (e) => e.exercise_id === item.id,
+                  );
+                  const isGifExpanded = expandedModalExerciseId === item.id;
+
+                  return (
+                    <View
+                      key={item.id}
+                      className={`p-3.5 rounded-2xl border mb-2.5 overflow-hidden ${
+                        isAdded
+                          ? "bg-[#59C83A]/10 border-[#59C83A]"
+                          : "bg-[#f8f9fa] dark:bg-zinc-950 border-[#e2dfe1] dark:border-zinc-800"
+                      }`}
+                    >
+                      {/* CARD DO EXERCÍCIO */}
+                      <TouchableOpacity
+                        onPress={() => handleSelectExercise(item)}
+                        activeOpacity={0.7}
+                        className="flex-row justify-between items-center"
+                      >
+                        <View className="flex-1 mr-2">
+                          <Text className="text-xs font-bold text-[#59C83A] uppercase">
+                            {item.category_id}
+                          </Text>
+                          <Text className="text-sm font-bold text-[#1b1b1d] dark:text-white">
+                            {item.name}
+                          </Text>
+                        </View>
+
+                        {/* ÍCONE DE CHECK / PLUS */}
+                        {isAdded ? (
+                          <View className="bg-[#59C83A] p-2 rounded-xl">
+                            <Check size={16} color="#ffffff" weight="bold" />
+                          </View>
+                        ) : (
+                          <View className="bg-[#59C83A]/10 p-2 rounded-xl border border-[#59C83A]/30">
+                            <Plus size={18} color="#59C83A" weight="bold" />
+                          </View>
+                        )}
+                      </TouchableOpacity>
+
+                      {/* CONTAINER EXPANSÍVEL COM O GIF ANIMADO */}
+                      {isGifExpanded && (
+                        <View className="w-full h-52 bg-white dark:bg-zinc-900 rounded-xl overflow-hidden mt-3 border border-[#e2dfe1] dark:border-zinc-800 items-center justify-center">
+                          <Image
+                            source={getExerciseGif(item.gif_key)}
+                            style={{ width: "100%", height: "100%" }}
+                            contentFit="contain"
+                            autoplay={true}
+                          />
+                        </View>
+                      )}
                     </View>
-                    <Plus size={18} color="#59C83A" weight="bold" />
-                  </TouchableOpacity>
-                ))}
+                  );
+                })}
               </ScrollView>
             )}
           </View>

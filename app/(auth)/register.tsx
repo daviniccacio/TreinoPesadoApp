@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -10,41 +10,54 @@ import {
   Platform,
   ScrollView,
   useColorScheme,
-} from 'react-native';
-import { useRouter } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { EnvelopeSimple, LockSimple, User, Eye, EyeSlash } from 'phosphor-react-native';
-import { z } from 'zod';
-import { supabase } from '../../lib/supabase';
+} from "react-native";
+import { useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  EnvelopeSimple,
+  LockSimple,
+  User,
+  Eye,
+  EyeSlash,
+} from "phosphor-react-native";
+import { z } from "zod";
+import { supabase } from "../../lib/supabase";
 
-// Schema de validação estrita com Zod
+// 1. Schema de validação dos dados de entrada utilizando Zod
 const registerSchema = z.object({
-  name: z.string().min(3, 'O nome deve ter pelo menos 3 caracteres.'),
-  email: z.string().email('Digite um e-mail válido.'),
+  name: z.string().min(3, "O nome deve ter pelo menos 3 caracteres."),
+  email: z.string().email("Digite um e-mail válido."),
   password: z
     .string()
-    .min(8, 'A senha deve ter pelo menos 8 caracteres.')
-    .regex(/[A-Z]/, 'A senha deve conter pelo menos uma letra maiúscula.')
-    .regex(/[0-9]/, 'A senha deve conter pelo menos um número.')
-    .regex(/[^a-zA-Z0-9]/, 'A senha deve conter pelo menos um caractere especial (!@#$%^&*).'),
-  role: z.enum(['aluno', 'personal']),
+    .min(8, "A senha deve ter pelo menos 8 caracteres.")
+    .regex(/[A-Z]/, "A senha deve conter pelo menos uma letra maiúscula.")
+    .regex(/[0-9]/, "A senha deve conter pelo menos um número.")
+    .regex(
+      /[^a-zA-Z0-9]/,
+      "A senha deve conter pelo menos um caractere especial (!@#$%^&*).",
+    ),
+  role: z.enum(["aluno", "personal"]),
 });
 
 export default function RegisterScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const isDark = colorScheme === "dark";
 
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [role, setRole] = useState<'aluno' | 'personal'>('aluno');
+  // Estados locais do formulário
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [role, setRole] = useState<"aluno" | "personal">("aluno");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
+  /**
+   * Função responsável por validar os campos e registrar o usuário no Supabase
+   */
   async function handleRegister() {
-    // 1. Validação client-side com Zod
+    // Validação client-side com Zod
     const validationResult = registerSchema.safeParse({
       name: name.trim(),
       email: email.trim(),
@@ -53,39 +66,46 @@ export default function RegisterScreen() {
     });
 
     if (!validationResult.success) {
-      // CORREÇÃO AQUI: alterado de .errors para .issues
       const firstError = validationResult.error.issues[0].message;
-      Alert.alert('Dados inválidos', firstError);
+      Alert.alert("Dados inválidos", firstError);
       return;
     }
 
     setLoading(true);
 
     try {
-      // 2. Criação do usuário no Supabase
+      // Criação do usuário no Supabase enviando full_name e name nos metadados
       const { error } = await supabase.auth.signUp({
         email: email.trim(),
         password: password,
         options: {
           data: {
-            name: name.trim(),
-            role: role,
+            full_name: name.trim(), // Chave padrão esperada pelas triggers do Supabase
+            name: name.trim(), // Mantido para compatibilidade de chaves alternativas
+            role: role, // Tipo de conta ('aluno' ou 'personal')
           },
         },
       });
 
       if (error) {
-        Alert.alert('Erro no cadastro', error.message || 'Não foi possível criar a conta.');
+        Alert.alert(
+          "Erro no cadastro",
+          error.message || "Não foi possível criar a conta.",
+        );
       } else {
-        Alert.alert('Conta criada! 🎉', 'Seu cadastro foi realizado com sucesso.', [
-          {
-            text: 'Ir para o Login',
-            onPress: () => router.replace('/(auth)/login'),
-          },
-        ]);
+        Alert.alert(
+          "Conta criada! 🎉",
+          "Seu cadastro foi realizado com sucesso.",
+          [
+            {
+              text: "Ir para o Login",
+              onPress: () => router.replace("/(auth)/login"),
+            },
+          ],
+        );
       }
     } catch (err) {
-      Alert.alert('Erro', 'Ocorreu um erro inesperado ao realizar o cadastro.');
+      Alert.alert("Erro", "Ocorreu um erro inesperado ao realizar o cadastro.");
     } finally {
       setLoading(false);
     }
@@ -94,10 +114,10 @@ export default function RegisterScreen() {
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
       <ScrollView
-        contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}
+        contentContainerStyle={{ flexGrow: 1, justifyContent: "center" }}
         className="bg-white dark:bg-zinc-950 px-6 py-8"
         style={{ paddingTop: insets.top, paddingBottom: insets.bottom }}
         showsVerticalScrollIndicator={false}
@@ -114,16 +134,18 @@ export default function RegisterScreen() {
         {/* Seleção de Tipo de Conta */}
         <View className="flex-row gap-3 mb-5">
           <TouchableOpacity
-            onPress={() => setRole('aluno')}
+            onPress={() => setRole("aluno")}
             className={`flex-1 py-3 rounded-2xl items-center border ${
-              role === 'aluno'
-                ? 'bg-[#59C83A]/10 border-[#59C83A]'
-                : 'bg-[#f8f9fa] dark:bg-zinc-900 border-[#e2dfe1] dark:border-zinc-800'
+              role === "aluno"
+                ? "bg-[#59C83A]/10 border-[#59C83A]"
+                : "bg-[#f8f9fa] dark:bg-zinc-900 border-[#e2dfe1] dark:border-zinc-800"
             }`}
           >
             <Text
               className={`text-xs font-bold ${
-                role === 'aluno' ? 'text-[#59C83A]' : 'text-[#71717a] dark:text-zinc-400'
+                role === "aluno"
+                  ? "text-[#59C83A]"
+                  : "text-[#71717a] dark:text-zinc-400"
               }`}
             >
               Sou Aluno
@@ -131,16 +153,18 @@ export default function RegisterScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            onPress={() => setRole('personal')}
+            onPress={() => setRole("personal")}
             className={`flex-1 py-3 rounded-2xl items-center border ${
-              role === 'personal'
-                ? 'bg-[#59C83A]/10 border-[#59C83A]'
-                : 'bg-[#f8f9fa] dark:bg-zinc-900 border-[#e2dfe1] dark:border-zinc-800'
+              role === "personal"
+                ? "bg-[#59C83A]/10 border-[#59C83A]"
+                : "bg-[#f8f9fa] dark:bg-zinc-900 border-[#e2dfe1] dark:border-zinc-800"
             }`}
           >
             <Text
               className={`text-xs font-bold ${
-                role === 'personal' ? 'text-[#59C83A]' : 'text-[#71717a] dark:text-zinc-400'
+                role === "personal"
+                  ? "text-[#59C83A]"
+                  : "text-[#71717a] dark:text-zinc-400"
               }`}
             >
               Sou Personal
@@ -154,11 +178,11 @@ export default function RegisterScreen() {
             Nome Completo
           </Text>
           <View className="flex-row items-center bg-[#f8f9fa] dark:bg-zinc-900 rounded-2xl px-4 py-3.5 border border-[#e2dfe1] dark:border-zinc-800">
-            <User size={20} color={isDark ? '#59C83A' : '#414755'} />
+            <User size={20} color={isDark ? "#59C83A" : "#414755"} />
             <TextInput
               className="flex-1 ml-3 text-[#1b1b1d] dark:text-white text-base font-medium"
               placeholder="Seu nome"
-              placeholderTextColor={isDark ? '#71717a' : '#a09da1'}
+              placeholderTextColor={isDark ? "#71717a" : "#a09da1"}
               value={name}
               onChangeText={setName}
             />
@@ -171,11 +195,11 @@ export default function RegisterScreen() {
             E-mail
           </Text>
           <View className="flex-row items-center bg-[#f8f9fa] dark:bg-zinc-900 rounded-2xl px-4 py-3.5 border border-[#e2dfe1] dark:border-zinc-800">
-            <EnvelopeSimple size={20} color={isDark ? '#59C83A' : '#414755'} />
+            <EnvelopeSimple size={20} color={isDark ? "#59C83A" : "#414755"} />
             <TextInput
               className="flex-1 ml-3 text-[#1b1b1d] dark:text-white text-base font-medium"
               placeholder="seu.email@exemplo.com"
-              placeholderTextColor={isDark ? '#71717a' : '#a09da1'}
+              placeholderTextColor={isDark ? "#71717a" : "#a09da1"}
               value={email}
               onChangeText={setEmail}
               keyboardType="email-address"
@@ -190,20 +214,20 @@ export default function RegisterScreen() {
             Senha
           </Text>
           <View className="flex-row items-center bg-[#f8f9fa] dark:bg-zinc-900 rounded-2xl px-4 py-3.5 border border-[#e2dfe1] dark:border-zinc-800">
-            <LockSimple size={20} color={isDark ? '#59C83A' : '#414755'} />
+            <LockSimple size={20} color={isDark ? "#59C83A" : "#414755"} />
             <TextInput
               className="flex-1 ml-3 text-[#1b1b1d] dark:text-white text-base font-medium"
               placeholder="Mín. 8 caracteres, 1 maiúscula, 1 num e 1 especial"
-              placeholderTextColor={isDark ? '#71717a' : '#a09da1'}
+              placeholderTextColor={isDark ? "#71717a" : "#a09da1"}
               value={password}
               onChangeText={setPassword}
               secureTextEntry={!showPassword}
             />
             <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
               {showPassword ? (
-                <EyeSlash size={20} color={isDark ? '#59C83A' : '#414755'} />
+                <EyeSlash size={20} color={isDark ? "#59C83A" : "#414755"} />
               ) : (
-                <Eye size={20} color={isDark ? '#59C83A' : '#414755'} />
+                <Eye size={20} color={isDark ? "#59C83A" : "#414755"} />
               )}
             </TouchableOpacity>
           </View>
@@ -213,7 +237,7 @@ export default function RegisterScreen() {
         <TouchableOpacity
           onPress={handleRegister}
           disabled={loading}
-          style={{ backgroundColor: '#59C83A' }}
+          style={{ backgroundColor: "#59C83A" }}
           className="py-4 rounded-2xl items-center shadow-md active:opacity-90"
         >
           {loading ? (
@@ -227,12 +251,12 @@ export default function RegisterScreen() {
 
         {/* Retorno para Login */}
         <TouchableOpacity
-          onPress={() => router.replace('/(auth)/login')}
+          onPress={() => router.replace("/(auth)/login")}
           className="items-center py-4 mt-3"
         >
           <Text className="text-sm text-[#71717a] dark:text-zinc-400">
-            Já possui uma conta?{' '}
-            <Text style={{ color: '#59C83A' }} className="font-bold">
+            Já possui uma conta?{" "}
+            <Text style={{ color: "#59C83A" }} className="font-bold">
               Faça Login
             </Text>
           </Text>
