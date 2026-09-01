@@ -10,18 +10,13 @@ import {
   Platform,
   ScrollView,
   useColorScheme,
-} from "react-native";
-import { useRouter } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import {
-  EnvelopeSimple,
-  LockSimple,
-  User,
-  Eye,
-  EyeSlash,
-} from "phosphor-react-native";
-import { z } from "zod";
-import { supabase } from "../../lib/supabase";
+} from 'react-native';
+import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { EnvelopeSimple, LockSimple, User, Eye, EyeSlash } from 'phosphor-react-native';
+import { z } from 'zod';
+import { supabase } from '../../lib/supabase';
+import { useThrottledCallback } from '../../lib/useThrottle';
 
 // 1. Schema de validação dos dados de entrada utilizando Zod
 const registerSchema = z.object({
@@ -53,9 +48,8 @@ export default function RegisterScreen() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  /**
-   * Função responsável por validar os campos e registrar o usuário no Supabase
-   */
+  const handleRegisterThrottled = useThrottledCallback(handleRegister, 2000);
+  
   async function handleRegister() {
     // Validação client-side com Zod
     const validationResult = registerSchema.safeParse({
@@ -235,7 +229,7 @@ export default function RegisterScreen() {
 
         {/* Botão de Cadastro */}
         <TouchableOpacity
-          onPress={handleRegister}
+          onPress={handleRegisterThrottled}
           disabled={loading}
           style={{ backgroundColor: "#59C83A" }}
           className="py-4 rounded-2xl items-center shadow-md active:opacity-90"

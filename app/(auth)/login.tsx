@@ -17,6 +17,7 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EnvelopeSimple, LockSimple, Eye, EyeSlash, X } from 'phosphor-react-native';
 import { supabase } from '../../lib/supabase';
+import { useThrottledCallback } from '../../lib/useThrottle';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -54,6 +55,15 @@ export default function LoginScreen() {
       });
 
       if (error) {
+        // Captura o bloqueio de Rate Limit retornado pelo Supabase (HTTP 429)
+        if (error.status === 429 || error.message.toLowerCase().includes('rate limit')) {
+          Alert.alert(
+            'Muitas Tentativas! 🛡️',
+            'Você realizou várias tentativas de login em pouco tempo. Por motivos de segurança, aguarde alguns minutos antes de tentar novamente.'
+          );
+          return;
+        }
+
         Alert.alert(
           'Erro ao entrar',
           'E-mail ou senha incorretos. Deseja redefinir sua senha?',
@@ -76,9 +86,9 @@ export default function LoginScreen() {
     }
   }
 
-  /**
-   * Envia o e-mail de redefinição de senha via Supabase
-   */
+  // ============================================================================
+  // 2. FUNÇÃO DE REDEFINIÇÃO DE SENHA COM TRATAMENTO DE RATE LIMIT
+  // ============================================================================
   async function handleResetPassword() {
     if (!resetEmail.trim()) {
       Alert.alert('Atenção', 'Informe o seu e-mail para receber o link de redefinição.');
@@ -93,6 +103,15 @@ export default function LoginScreen() {
       });
 
       if (error) {
+        // Captura o bloqueio de Rate Limit (HTTP 429) no envio de e-mails
+        if (error.status === 429 || error.message.toLowerCase().includes('rate limit')) {
+          Alert.alert(
+            'Limite de Envios Excedido! ⏳',
+            'Você solicitou a redefinição de senha muitas vezes. Por favor, aguarde alguns minutos antes de tentar novamente.'
+          );
+          return;
+        }
+
         Alert.alert('Erro', error.message || 'Não foi possível enviar o e-mail.');
       } else {
         Alert.alert(
@@ -107,6 +126,12 @@ export default function LoginScreen() {
       setResetLoading(false);
     }
   }
+
+  // ============================================================================
+  // 3. CRIAÇÃO DOS CALLBACKS PROTEGIDOS CONTRA CLIQUE DUPLO (THROTTLE)
+  // ============================================================================
+  const handleLoginThrottled = useThrottledCallback(handleLogin, 2000);
+  const handleResetPasswordThrottled = useThrottledCallback(handleResetPassword, 2000)
 
   return (
     <KeyboardAvoidingView
@@ -198,7 +223,7 @@ export default function LoginScreen() {
 
           {/* Botão Entrar */}
           <TouchableOpacity
-            onPress={handleLogin}
+            onPress={handleLoginThrottled}
             disabled={loading}
             style={{ backgroundColor: '#59C83A' }}
             className="py-4 rounded-2xl items-center mt-2 shadow-md active:opacity-90"
@@ -261,7 +286,7 @@ export default function LoginScreen() {
               </View>
 
               <TouchableOpacity
-                onPress={handleResetPassword}
+                onPress={handleResetPasswordThrottled}
                 disabled={resetLoading}
                 style={{ backgroundColor: '#59C83A' }}
                 className="py-3.5 rounded-2xl items-center shadow-md mb-2"
