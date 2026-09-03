@@ -80,7 +80,7 @@ async function fetchStudentProfileData(): Promise<StudentProfileData> {
 
   // 3. Consulta a tabela 'workout_logs'
   let totalWorkoutsCompleted = 0;
-  let totalWorkoutMinutes = 0;
+  let totalWorkoutSeconds = 0; // Alterado de totalWorkoutMinutes para totalWorkoutSeconds
 
   try {
     const { data: logsData, error: logsError } = await supabase
@@ -95,16 +95,15 @@ async function fetchStudentProfileData(): Promise<StudentProfileData> {
     if (logsData && logsData.length > 0) {
       totalWorkoutsCompleted = logsData.length;
 
-      totalWorkoutMinutes = logsData.reduce((acc, item) => {
-        const seconds = item.duration_seconds || 0;
-        const minutes = Math.round(seconds / 60);
-        return acc + minutes;
+      // Soma os segundos exatos sem arredondar prematuramente
+      totalWorkoutSeconds = logsData.reduce((acc, item) => {
+        return acc + (item.duration_seconds || 0);
       }, 0);
     }
   } catch (err) {
     console.log('Erro ao calcular resumo dos treinos:', err);
     totalWorkoutsCompleted = 0;
-    totalWorkoutMinutes = 0;
+    totalWorkoutSeconds = 0;
   }
 
   return {
@@ -112,7 +111,7 @@ async function fetchStudentProfileData(): Promise<StudentProfileData> {
     email: user.email || '',
     personalName,
     totalWorkoutsCompleted,
-    totalWorkoutMinutes,
+    totalWorkoutMinutes: totalWorkoutSeconds, // Passa o total acumulado em segundos
   };
 }
 
@@ -214,11 +213,17 @@ export default function StudentProfileScreen() {
     ]);
   }
 
-  function formatWorkoutTime(totalMinutes: number) {
-    const hours = Math.floor(totalMinutes / 60);
-    const minutes = totalMinutes % 60;
+  /**
+  * Formata os segundos totais de treino padronizado com a tela de histórico
+  */
+  function formatWorkoutTime(totalSeconds: number) {
+    if (!totalSeconds || totalSeconds <= 0) return '0 min';
+
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+
     if (hours === 0) return `${minutes} min`;
-    return `${hours}h ${minutes}m`;
+    return `${hours}h ${String(minutes).padStart(2, '0')}m`;
   }
 
   return (
@@ -328,18 +333,16 @@ export default function StudentProfileScreen() {
         <View className="bg-[#f8f9fa] dark:bg-zinc-900 rounded-2xl p-2 mb-6 border border-[#e2dfe1] dark:border-zinc-800 flex-row">
           <TouchableOpacity
             onPress={() => handleThemeChange('light')}
-            className={`flex-1 py-3 rounded-xl flex-row items-center justify-center gap-1.5 ${
-              themeMode === 'light'
-                ? 'bg-white dark:bg-zinc-800 border border-[#e2dfe1] dark:border-zinc-700'
-                : 'bg-transparent'
-            }`}
+            className={`flex-1 py-3 rounded-xl flex-row items-center justify-center gap-1.5 ${themeMode === 'light'
+              ? 'bg-white dark:bg-zinc-800 border border-[#e2dfe1] dark:border-zinc-700'
+              : 'bg-transparent'
+              }`}
           >
             <Sun size={16} color={themeMode === 'light' ? '#59C83A' : '#9ca3af'} />
             <Text
               style={themeMode === 'light' ? { color: '#59C83A' } : undefined}
-              className={`font-bold text-xs ${
-                themeMode !== 'light' ? 'text-[#414755] dark:text-zinc-300' : ''
-              }`}
+              className={`font-bold text-xs ${themeMode !== 'light' ? 'text-[#414755] dark:text-zinc-300' : ''
+                }`}
             >
               Claro
             </Text>
@@ -347,18 +350,16 @@ export default function StudentProfileScreen() {
 
           <TouchableOpacity
             onPress={() => handleThemeChange('dark')}
-            className={`flex-1 py-3 rounded-xl flex-row items-center justify-center gap-1.5 ${
-              themeMode === 'dark'
-                ? 'bg-white dark:bg-zinc-800 border border-[#e2dfe1] dark:border-zinc-700'
-                : 'bg-transparent'
-            }`}
+            className={`flex-1 py-3 rounded-xl flex-row items-center justify-center gap-1.5 ${themeMode === 'dark'
+              ? 'bg-white dark:bg-zinc-800 border border-[#e2dfe1] dark:border-zinc-700'
+              : 'bg-transparent'
+              }`}
           >
             <Moon size={16} color={themeMode === 'dark' ? '#59C83A' : '#9ca3af'} />
             <Text
               style={themeMode === 'dark' ? { color: '#59C83A' } : undefined}
-              className={`font-bold text-xs ${
-                themeMode !== 'dark' ? 'text-[#414755] dark:text-zinc-300' : ''
-              }`}
+              className={`font-bold text-xs ${themeMode !== 'dark' ? 'text-[#414755] dark:text-zinc-300' : ''
+                }`}
             >
               Escuro
             </Text>
@@ -366,18 +367,16 @@ export default function StudentProfileScreen() {
 
           <TouchableOpacity
             onPress={() => handleThemeChange('system')}
-            className={`flex-1 py-3 rounded-xl flex-row items-center justify-center gap-1.5 ${
-              themeMode === 'system'
-                ? 'bg-white dark:bg-zinc-800 border border-[#e2dfe1] dark:border-zinc-700'
-                : 'bg-transparent'
-            }`}
+            className={`flex-1 py-3 rounded-xl flex-row items-center justify-center gap-1.5 ${themeMode === 'system'
+              ? 'bg-white dark:bg-zinc-800 border border-[#e2dfe1] dark:border-zinc-700'
+              : 'bg-transparent'
+              }`}
           >
             <Desktop size={16} color={themeMode === 'system' ? '#59C83A' : '#9ca3af'} />
             <Text
               style={themeMode === 'system' ? { color: '#59C83A' } : undefined}
-              className={`font-bold text-xs ${
-                themeMode !== 'system' ? 'text-[#414755] dark:text-zinc-300' : ''
-              }`}
+              className={`font-bold text-xs ${themeMode !== 'system' ? 'text-[#414755] dark:text-zinc-300' : ''
+                }`}
             >
               Sistema
             </Text>
