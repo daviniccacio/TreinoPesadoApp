@@ -75,13 +75,15 @@ interface ShowAlertModalOptions {
 const DAYS_OF_WEEK = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta'];
 const OBJECTIVE_OPTIONS = ['Hipertrofia', 'Emagrecimento', 'Resistência', 'Força', 'Adaptação'];
 
+// LISTA FIXA DE CATEGORIAS VÁLIDAS DO SUPABASE (Sem "Braços")
 const CATEGORY_FILTERS = [
   { id: 'todos', label: 'Todos' },
   { id: 'peito', label: 'Peito' },
   { id: 'costas', label: 'Costas' },
-  { id: 'bracos', label: 'Braços' },
   { id: 'ombros', label: 'Ombros' },
   { id: 'pernas', label: 'Pernas' },
+  { id: 'gluteo', label: 'Glúteo' },
+  { id: 'abdomen', label: 'Abdômen' },
 ];
 
 export default function CreateWorkoutPlanScreen() {
@@ -114,10 +116,10 @@ export default function CreateWorkoutPlanScreen() {
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('todos');
   const [loadingModalExercises, setLoadingModalExercises] = useState(false);
 
-  // ESTADO QUE GUARDA APENAS O EXERCÍCIO COM O GIF EXPANDIDO NO MODAL (Apenas 1 por vez)
+  // ESTADO DO GIF EXPANDIDO NO MODAL
   const [expandedModalExerciseId, setExpandedModalExerciseId] = useState<string | null>(null);
 
-  // --- ESTADO DO CUSTOM MODAL REUTILIZÁVEL ---
+  // --- ESTADO DO CUSTOM MODAL ---
   const [modalConfig, setModalConfig] = useState<{
     visible: boolean;
     title: string;
@@ -162,15 +164,19 @@ export default function CreateWorkoutPlanScreen() {
     });
   }
 
-  const handleSavePlanThrottled = useThrottledCallback(handleSavePlan, 2000);
-
+  // NAVEGAÇÃO DE RETORNO EXPLÍCITA
   const handleNavigateBack = useCallback(() => {
-    if (router.canGoBack()) {
-      router.back();
+    if (studentId) {
+      router.replace({
+        pathname: '/(personal)/student-detail',
+        params: { id: studentId, name: studentName },
+      });
     } else {
-      router.replace('/(app)/(personal)');
+      router.replace('/(personal)/routines');
     }
-  }, [router]);
+  }, [router, studentId, studentName]);
+
+  const handleSavePlanThrottled = useThrottledCallback(handleSavePlan, 2000);
 
   useFocusEffect(
     useCallback(() => {
@@ -327,7 +333,6 @@ export default function CreateWorkoutPlanScreen() {
   }
 
   async function handleSavePlan() {
-    // 1. Monta o objeto para validação
     const payload = {
       name: planName.trim(),
       description: description.trim() || null,
@@ -341,7 +346,6 @@ export default function CreateWorkoutPlanScreen() {
       })),
     };
 
-    // 2. Executa a validação do Zod
     const validation = createWorkoutPlanSchema.safeParse(payload);
 
     if (!validation.success) {
@@ -354,7 +358,6 @@ export default function CreateWorkoutPlanScreen() {
       return;
     }
 
-    // 3. Se passou na validação, prossegue com o envio ao Supabase
     try {
       setSaving(true);
       const {
@@ -463,7 +466,7 @@ export default function CreateWorkoutPlanScreen() {
     const matchesSearch = ex.name.toLowerCase().includes(searchQuery.toLowerCase().trim());
     const matchesCategory =
       selectedCategoryFilter === 'todos' ||
-      (ex.category_id && ex.category_id.toLowerCase().includes(selectedCategoryFilter));
+      (ex.category_id && ex.category_id.toLowerCase().includes(selectedCategoryFilter.toLowerCase()));
     return matchesSearch && matchesCategory;
   });
 
@@ -719,26 +722,36 @@ export default function CreateWorkoutPlanScreen() {
             </View>
 
             {/* FILTROS DE CATEGORIA */}
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row mb-4 max-h-10">
-              {CATEGORY_FILTERS.map((cat) => {
-                const active = selectedCategoryFilter === cat.id;
-                return (
-                  <TouchableOpacity
-                    key={cat.id}
-                    onPress={() => setSelectedCategoryFilter(cat.id)}
-                    className={`px-3 py-1.5 rounded-lg mr-2 border ${
-                      active
-                        ? 'bg-[#59C83A] border-[#59C83A]'
-                        : 'bg-[#f8f9fa] dark:bg-zinc-950 border-[#e2dfe1] dark:border-zinc-800'
-                    }`}
-                  >
-                    <Text className={`text-xs font-bold ${active ? 'text-white' : 'text-[#71717a]'}`}>
-                      {cat.label}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
+            <View className="mb-4">
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ paddingVertical: 4, alignItems: 'center' }}
+              >
+                {CATEGORY_FILTERS.map((cat) => {
+                  const active = selectedCategoryFilter === cat.id;
+                  return (
+                    <TouchableOpacity
+                      key={cat.id}
+                      onPress={() => setSelectedCategoryFilter(cat.id)}
+                      className={`px-4 py-2 rounded-xl mr-2 border ${
+                        active
+                          ? 'bg-[#59C83A] border-[#59C83A]'
+                          : 'bg-[#f8f9fa] dark:bg-zinc-800 border-[#e2dfe1] dark:border-zinc-700'
+                      }`}
+                    >
+                      <Text
+                        className={`text-xs font-extrabold ${
+                          active ? 'text-white' : 'text-[#414755] dark:text-zinc-200'
+                        }`}
+                      >
+                        {cat.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </View>
 
             {/* LISTA DE EXERCÍCIOS NO MODAL */}
             {loadingModalExercises ? (
@@ -806,7 +819,7 @@ export default function CreateWorkoutPlanScreen() {
         </View>
       </Modal>
 
-      {/* COMPONENTE DO MODAL PERSONALIZADO REUTILIZÁVEL */}
+      {/* MODAL PERSONALIZADO */}
       <CustomModal
         visible={modalConfig.visible}
         title={modalConfig.title}
