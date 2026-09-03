@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   View,
   Text,
@@ -15,14 +15,21 @@ import {
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ArrowLeft, Plus, Trash, Check, Barbell } from "phosphor-react-native";
+import {
+  ArrowLeft,
+  Plus,
+  Trash,
+  Check,
+  Barbell,
+  MagnifyingGlass,
+  X,
+} from "phosphor-react-native";
 import { useQueryClient } from "@tanstack/react-query";
 import { Image } from "expo-image";
 
 import { supabase } from "../../../lib/supabase";
 import { getExerciseGif } from "../../../lib/exerciseGifs";
 
-// Habilita animações de layout no Android
 if (
   Platform.OS === "android" &&
   UIManager.setLayoutAnimationEnabledExperimental
@@ -30,7 +37,6 @@ if (
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-// --- TIPAGENS DE DADOS ---
 interface ExerciseOption {
   id: string;
   name: string;
@@ -55,29 +61,26 @@ export default function CreateOrEditWorkoutScreen() {
   const isDark = colorScheme === "dark";
   const queryClient = useQueryClient();
 
-  // Captura o planId caso tenhamos vindo da opção "Editar"
   const { planId } = useLocalSearchParams<{ planId?: string }>();
   const isEditing = !!planId;
 
   // ESTADOS DO FORMULÁRIO
   const [workoutTitle, setWorkoutTitle] = useState("");
-  const [selectedExercises, setSelectedExercises] = useState<
-    SelectedExercise[]
-  >([]);
+  const [selectedExercises, setSelectedExercises] = useState<SelectedExercise[]>([]);
   const [isLoadingWorkout, setIsLoadingWorkout] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   // ESTADOS DO MODAL DE SELEÇÃO DE EXERCÍCIOS
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [availableExercises, setAvailableExercises] = useState<
-    ExerciseOption[]
-  >([]);
+  const [availableExercises, setAvailableExercises] = useState<ExerciseOption[]>([]);
   const [isLoadingAvailable, setIsLoadingAvailable] = useState(false);
 
+  // ESTADOS DE FILTRO E BUSCA DO MODAL
+  const [selectedCategory, setSelectedCategory] = useState<string>("TODOS");
+  const [searchQuery, setSearchQuery] = useState<string>("");
+
   // ESTADO QUE GUARDA APENAS 1 GIF EXPANDIDO POR VEZ NO MODAL
-  const [expandedModalExerciseId, setExpandedModalExerciseId] = useState<
-    string | null
-  >(null);
+  const [expandedModalExerciseId, setExpandedModalExerciseId] = useState<string | null>(null);
 
   // 1. CARREGA OS DADOS DO TREINO SE ESTIVER NO MODO DE EDIÇÃO
   useEffect(() => {
@@ -89,8 +92,7 @@ export default function CreateOrEditWorkoutScreen() {
 
         const { data, error } = await supabase
           .from("custom_workouts")
-          .select(
-            `
+          .select(`
             id,
             title,
             custom_workout_exercises (
@@ -106,8 +108,7 @@ export default function CreateOrEditWorkoutScreen() {
                 gif_key
               )
             )
-          `,
-          )
+          `)
           .eq("id", planId)
           .single();
 
@@ -121,7 +122,7 @@ export default function CreateOrEditWorkoutScreen() {
           ).map((item: any) => ({
             exercise_id: item.exercises?.id || item.exercise_id,
             name: item.exercises?.name || "Exercício",
-            category_id: item.exercises?.category_id || "",
+            category_id: item.exercises?.category_id || "GERAL",
             sets: String(item.sets || "3"),
             reps: String(item.reps || "10"),
             weight: String(item.weight || "0kg"),
@@ -144,6 +145,9 @@ export default function CreateOrEditWorkoutScreen() {
   async function handleOpenAddExerciseModal() {
     setIsModalOpen(true);
     setExpandedModalExerciseId(null);
+    setSelectedCategory("TODOS");
+    setSearchQuery("");
+
     if (availableExercises.length > 0) return;
 
     try {
@@ -162,25 +166,44 @@ export default function CreateOrEditWorkoutScreen() {
     }
   }
 
-  // 3. SELEÇÃO COM ANIMAÇÃO ACCORDION NO MODAL
+  // 3. EXTRAÇÃO DINÂMICA DE CATEGORIAS DISPONÍVEIS
+  const categoriesList = useMemo(() => {
+    const rawCategories = availableExercises.map((item) => item.category_id).filter(Boolean);
+    const uniqueCategories = Array.from(new Set(rawCategories)).sort();
+    return ["TODOS", ...uniqueCategories];
+  }, [availableExercises]);
+
+  // 4. FILTRAGEM DE EXERCÍCIOS POR CATEGORIA E BUSCA
+  const filteredExercises = useMemo(() => {
+    return availableExercises.filter((item) => {
+      const matchesCategory =
+        selectedCategory === "TODOS" ||
+        item.category_id?.toUpperCase() === selectedCategory.toUpperCase();
+
+      const matchesSearch = item.name
+        .toLowerCase()
+        .includes(searchQuery.toLowerCase().trim());
+
+      return matchesCategory && matchesSearch;
+    });
+  }, [availableExercises, selectedCategory, searchQuery]);
+
+  // 5. SELEÇÃO COM ANIMAÇÃO ACCORDION NO MODAL
   function handleSelectExercise(exercise: ExerciseOption) {
-    // Aplica transição fluida de layout
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
 
     const alreadyExists = selectedExercises.some(
-      (e) => e.exercise_id === exercise.id,
+      (e) => e.exercise_id === exercise.id
     );
 
     if (alreadyExists) {
-      // Se já estava selecionado, remove da lista de selecionados
       setSelectedExercises((prev) =>
-        prev.filter((e) => e.exercise_id !== exercise.id),
+        prev.filter((e) => e.exercise_id !== exercise.id)
       );
       if (expandedModalExerciseId === exercise.id) {
         setExpandedModalExerciseId(null);
       }
     } else {
-      // Adiciona aos selecionados e expande o GIF do exercício
       setSelectedExercises((prev) => [
         ...prev,
         {
@@ -197,11 +220,11 @@ export default function CreateOrEditWorkoutScreen() {
     }
   }
 
-  // 4. ATUALIZA SÉRIES, REPETIÇÕES OU CARGA
+  // 6. ATUALIZA SÉRIES, REPETIÇÕES OU CARGA
   function handleUpdateExerciseField(
     index: number,
     field: "sets" | "reps" | "weight",
-    value: string,
+    value: string
   ) {
     setSelectedExercises((prev) => {
       const updated = [...prev];
@@ -210,12 +233,12 @@ export default function CreateOrEditWorkoutScreen() {
     });
   }
 
-  // 5. REMOVE UM EXERCÍCIO DA LISTA LOCAL
+  // 7. REMOVE UM EXERCÍCIO DA LISTA LOCAL
   function handleRemoveExercise(index: number) {
     setSelectedExercises((prev) => prev.filter((_, i) => i !== index));
   }
 
-  // 6. SALVA OU ATUALIZA O TREINO NO SUPABASE
+  // 8. SALVA OU ATUALIZA O TREINO NO SUPABASE
   async function handleSaveWorkout() {
     if (!workoutTitle.trim()) {
       Alert.alert("Campo Obrigatório", "Por favor, informe o nome do treino.");
@@ -225,7 +248,7 @@ export default function CreateOrEditWorkoutScreen() {
     if (selectedExercises.length === 0) {
       Alert.alert(
         "Nenhum Exercício",
-        "Adicione pelo menos um exercício ao seu treino.",
+        "Adicione pelo menos um exercício ao seu treino."
       );
       return;
     }
@@ -302,7 +325,7 @@ export default function CreateOrEditWorkoutScreen() {
 
           if (fallbackError) {
             throw new Error(
-              `Falha ao salvar exercícios: ${fallbackError.message}`,
+              `Falha ao salvar exercícios: ${fallbackError.message}`
             );
           }
         }
@@ -320,14 +343,14 @@ export default function CreateOrEditWorkoutScreen() {
         "Sucesso! 🎉",
         isEditing
           ? "Seu treino foi atualizado com sucesso!"
-          : "Seu novo treino foi criado com sucesso!",
+          : "Seu novo treino foi criado com sucesso!"
       );
 
       router.replace("/(aluno)/(tabs)/my-workouts");
     } catch (err: any) {
       Alert.alert(
         "Erro ao Salvar",
-        err.message || "Ocorreu um erro inesperado.",
+        err.message || "Ocorreu um erro inesperado."
       );
     } finally {
       setIsSaving(false);
@@ -502,10 +525,12 @@ export default function CreateOrEditWorkoutScreen() {
         </ScrollView>
       )}
 
-      {/* MODAL PARA SELEÇÃO DE EXERCÍCIOS (COM ACCORDION E GIF) */}
+      {/* MODAL PARA SELEÇÃO DE EXERCÍCIOS (COM ACCORDION, FILTRO E GIF) */}
       <Modal visible={isModalOpen} animationType="slide" transparent>
         <View className="flex-1 bg-black/60 justify-end">
-          <View className="bg-white dark:bg-zinc-900 rounded-t-3xl p-6 h-[80%] border-t border-[#e2dfe1] dark:border-zinc-800">
+          <View className="bg-white dark:bg-zinc-900 rounded-t-3xl p-6 h-[85%] border-t border-[#e2dfe1] dark:border-zinc-800">
+            
+            {/* CABEÇALHO DO MODAL */}
             <View className="flex-row items-center justify-between mb-4 pb-3 border-b border-[#e2dfe1] dark:border-zinc-800">
               <View>
                 <Text className="text-lg font-extrabold text-[#1b1b1d] dark:text-white">
@@ -524,15 +549,77 @@ export default function CreateOrEditWorkoutScreen() {
               </TouchableOpacity>
             </View>
 
+            {/* CAMPO DE BUSCA */}
+            <View className="flex-row items-center bg-[#f8f9fa] dark:bg-zinc-950 border border-[#e2dfe1] dark:border-zinc-800 rounded-xl px-3 py-2.5 mb-3">
+              <MagnifyingGlass size={18} color={isDark ? "#71717a" : "#a1a1aa"} />
+              <TextInput
+                className="flex-1 ml-2 text-sm font-semibold text-[#1b1b1d] dark:text-white"
+                placeholder="Buscar exercício pelo nome..."
+                placeholderTextColor={isDark ? "#71717a" : "#a1a1aa"}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+              />
+              {searchQuery.length > 0 && (
+                <TouchableOpacity onPress={() => setSearchQuery("")}>
+                  <X size={16} color={isDark ? "#71717a" : "#a1a1aa"} />
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {/* FILTRO DE CATEGORIAS HORIZONTAL */}
+            <View className="mb-4">
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ gap: 8 }}
+              >
+                {categoriesList.map((cat) => {
+                  const isActive = selectedCategory === cat;
+                  return (
+                    <TouchableOpacity
+                      key={cat}
+                      onPress={() => {
+                        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                        setSelectedCategory(cat);
+                      }}
+                      className={`px-3.5 py-1.5 rounded-xl border ${
+                        isActive
+                          ? "bg-[#59C83A] border-[#59C83A]"
+                          : "bg-[#f8f9fa] dark:bg-zinc-950 border-[#e2dfe1] dark:border-zinc-800"
+                      }`}
+                    >
+                      <Text
+                        className={`text-xs font-bold uppercase ${
+                          isActive
+                            ? "text-white"
+                            : "text-[#71717a] dark:text-zinc-400"
+                        }`}
+                      >
+                        {cat}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </View>
+
+            {/* LISTA DE EXERCÍCIOS DISPONÍVEIS */}
             {isLoadingAvailable ? (
               <View className="flex-1 justify-center items-center">
                 <ActivityIndicator size="large" color="#59C83A" />
               </View>
+            ) : filteredExercises.length === 0 ? (
+              <View className="flex-1 justify-center items-center py-10">
+                <Barbell size={32} color={isDark ? "#71717a" : "#a1a1aa"} />
+                <Text className="text-[#71717a] dark:text-zinc-400 font-bold text-sm mt-2">
+                  Nenhum exercício encontrado.
+                </Text>
+              </View>
             ) : (
               <ScrollView showsVerticalScrollIndicator={false}>
-                {availableExercises.map((item) => {
+                {filteredExercises.map((item) => {
                   const isAdded = selectedExercises.some(
-                    (e) => e.exercise_id === item.id,
+                    (e) => e.exercise_id === item.id
                   );
                   const isGifExpanded = expandedModalExerciseId === item.id;
 
@@ -553,7 +640,7 @@ export default function CreateOrEditWorkoutScreen() {
                       >
                         <View className="flex-1 mr-2">
                           <Text className="text-xs font-bold text-[#59C83A] uppercase">
-                            {item.category_id}
+                            {item.category_id || "GERAL"}
                           </Text>
                           <Text className="text-sm font-bold text-[#1b1b1d] dark:text-white">
                             {item.name}
