@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
-  Alert,
   useColorScheme,
   Modal,
   LayoutAnimation,
@@ -31,6 +30,7 @@ import { Image } from "expo-image";
 
 import { supabase } from "../../../lib/supabase";
 import { getExerciseGif } from "../../../lib/exerciseGifs";
+import { CustomModal } from "../../../components/CustomModal";
 
 if (
   Platform.OS === "android" &&
@@ -65,6 +65,16 @@ interface SelectedExercise {
   gif_key?: string;
 }
 
+interface ShowAlertModalOptions {
+  title: string;
+  message: string;
+  type?: "success" | "danger" | "info";
+  confirmText?: string;
+  cancelText?: string;
+  showCancelButton?: boolean;
+  onConfirm?: () => void;
+}
+
 export default function CreateOrEditWorkoutScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -75,7 +85,7 @@ export default function CreateOrEditWorkoutScreen() {
   const { planId } = useLocalSearchParams<{ planId?: string }>();
   const isEditing = !!planId;
 
-  // ESTADOS DO FORMULÁRIO (INCLUINDO PROPÓSITO E DIA DA SEMANA)
+  // ESTADOS DO FORMULÁRIO
   const [workoutTitle, setWorkoutTitle] = useState("");
   const [workoutDescription, setWorkoutDescription] = useState("");
   const [selectedDay, setSelectedDay] = useState("Livre");
@@ -92,8 +102,53 @@ export default function CreateOrEditWorkoutScreen() {
   const [selectedCategory, setSelectedCategory] = useState<string>("TODOS");
   const [searchQuery, setSearchQuery] = useState<string>("");
 
-  // ESTADO QUE GUARDA APENAS 1 GIF EXPANDIDO POR VEZ NO MODAL
+  // ESTADO QUE GUARDA APENAS 1 GIF EXPANDIDO POR VEZ
   const [expandedModalExerciseId, setExpandedModalExerciseId] = useState<string | null>(null);
+
+  // ESTADO DO MODAL PERSONALIZADO DE ALERTA
+  const [modalConfig, setModalConfig] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    type: "success" | "danger" | "info";
+    confirmText: string;
+    cancelText: string;
+    showCancelButton: boolean;
+    onConfirm: () => void;
+  }>({
+    visible: false,
+    title: "",
+    message: "",
+    type: "info",
+    confirmText: "Entendi",
+    cancelText: "Cancelar",
+    showCancelButton: false,
+    onConfirm: () => {},
+  });
+
+  function showAlertModal({
+    title,
+    message,
+    type = "info",
+    confirmText = "Entendi",
+    cancelText = "Cancelar",
+    showCancelButton = false,
+    onConfirm,
+  }: ShowAlertModalOptions) {
+    setModalConfig({
+      visible: true,
+      title,
+      message,
+      type,
+      confirmText,
+      cancelText,
+      showCancelButton,
+      onConfirm: () => {
+        setModalConfig((prev) => ({ ...prev, visible: false }));
+        if (onConfirm) onConfirm();
+      },
+    });
+  }
 
   // 1. CARREGA OS DADOS DO TREINO SE ESTIVER NO MODO DE EDIÇÃO
   useEffect(() => {
@@ -149,7 +204,11 @@ export default function CreateOrEditWorkoutScreen() {
           setSelectedExercises(formattedExercises);
         }
       } catch (err: any) {
-        Alert.alert("Erro ao carregar treino", err.message);
+        showAlertModal({
+          title: "Erro ao carregar treino",
+          message: err.message || "Não foi possível carregar os dados.",
+          type: "danger",
+        });
       } finally {
         setIsLoadingWorkout(false);
       }
@@ -177,7 +236,11 @@ export default function CreateOrEditWorkoutScreen() {
       if (error) throw new Error(error.message);
       setAvailableExercises(data || []);
     } catch (err: any) {
-      Alert.alert("Erro", "Não foi possível carregar a lista de exercícios.");
+      showAlertModal({
+        title: "Erro",
+        message: "Não foi possível carregar a lista de exercícios.",
+        type: "danger",
+      });
     } finally {
       setIsLoadingAvailable(false);
     }
@@ -255,18 +318,23 @@ export default function CreateOrEditWorkoutScreen() {
     setSelectedExercises((prev) => prev.filter((_, i) => i !== index));
   }
 
-  // 8. SALVA OU ATUALIZA O TREINO NO SUPABASE (COM CAMPOS ADICIONAIS)
+  // 8. SALVA OU ATUALIZA O TREINO NO SUPABASE
   async function handleSaveWorkout() {
     if (!workoutTitle.trim()) {
-      Alert.alert("Campo Obrigatório", "Por favor, informe o nome do treino.");
+      showAlertModal({
+        title: "Campo Obrigatório",
+        message: "Por favor, informe o nome do treino.",
+        type: "info",
+      });
       return;
     }
 
     if (selectedExercises.length === 0) {
-      Alert.alert(
-        "Nenhum Exercício",
-        "Adicione pelo menos um exercício ao seu treino."
-      );
+      showAlertModal({
+        title: "Nenhum Exercício",
+        message: "Adicione pelo menos um exercício ao seu treino.",
+        type: "info",
+      });
       return;
     }
 
@@ -292,7 +360,6 @@ export default function CreateOrEditWorkoutScreen() {
           .update(payload)
           .eq("id", planId);
 
-        // Fallback caso a tabela ainda não tenha colunas description/day_of_week no BD
         if (updateError) {
           const { error: fallbackUpdateError } = await supabase
             .from("custom_workouts")
@@ -315,7 +382,6 @@ export default function CreateOrEditWorkoutScreen() {
         }
       } else {
         let newWorkoutData = null;
-        let insertError = null;
 
         const fullInsert = await supabase
           .from("custom_workouts")
@@ -328,7 +394,6 @@ export default function CreateOrEditWorkoutScreen() {
           .single();
 
         if (fullInsert.error) {
-          // Fallback se colunas extras não existirem no schema
           const fallbackInsert = await supabase
             .from("custom_workouts")
             .insert({
@@ -390,19 +455,23 @@ export default function CreateOrEditWorkoutScreen() {
         });
       }
 
-      Alert.alert(
-        "Sucesso! 🎉",
-        isEditing
+      showAlertModal({
+        title: "Sucesso! 🎉",
+        message: isEditing
           ? "Seu treino foi atualizado com sucesso!"
-          : "Seu novo treino foi criado com sucesso!"
-      );
-
-      router.replace("/(aluno)/(tabs)/my-workouts");
+          : "Seu novo treino foi criado com sucesso!",
+        type: "success",
+        showCancelButton: false,
+        onConfirm: () => {
+          router.replace("/(aluno)/(tabs)/my-workouts");
+        },
+      });
     } catch (err: any) {
-      Alert.alert(
-        "Erro ao Salvar",
-        err.message || "Ocorreu um erro inesperado."
-      );
+      showAlertModal({
+        title: "Erro ao Salvar",
+        message: err.message || "Ocorreu um erro inesperado.",
+        type: "danger",
+      });
     } finally {
       setIsSaving(false);
     }
@@ -633,7 +702,7 @@ export default function CreateOrEditWorkoutScreen() {
         <View className="flex-1 bg-black/60 justify-end">
           <View className="bg-white dark:bg-zinc-900 rounded-t-3xl p-6 h-[85%] border-t border-[#e2dfe1] dark:border-zinc-800">
             
-            {/* CABEÇALHO DO MODAL */}
+            {/* CABEÇALHO DO MODAL DE SELEÇÃO */}
             <View className="flex-row items-center justify-between mb-4 pb-3 border-b border-[#e2dfe1] dark:border-zinc-800">
               <View>
                 <Text className="text-lg font-extrabold text-[#1b1b1d] dark:text-white">
@@ -735,7 +804,6 @@ export default function CreateOrEditWorkoutScreen() {
                           : "bg-[#f8f9fa] dark:bg-zinc-950 border-[#e2dfe1] dark:border-zinc-800"
                       }`}
                     >
-                      {/* CARD DO EXERCÍCIO */}
                       <TouchableOpacity
                         onPress={() => handleSelectExercise(item)}
                         activeOpacity={0.7}
@@ -750,7 +818,6 @@ export default function CreateOrEditWorkoutScreen() {
                           </Text>
                         </View>
 
-                        {/* ÍCONE DE CHECK / PLUS */}
                         {isAdded ? (
                           <View className="bg-[#59C83A] p-2 rounded-xl">
                             <Check size={16} color="#ffffff" weight="bold" />
@@ -762,7 +829,6 @@ export default function CreateOrEditWorkoutScreen() {
                         )}
                       </TouchableOpacity>
 
-                      {/* CONTAINER EXPANSÍVEL COM O GIF ANIMADO */}
                       {isGifExpanded && (
                         <View className="w-full h-52 bg-white dark:bg-zinc-900 rounded-xl overflow-hidden mt-3 border border-[#e2dfe1] dark:border-zinc-800 items-center justify-center">
                           <Image
@@ -781,6 +847,19 @@ export default function CreateOrEditWorkoutScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* COMPONENTE DO MODAL PERSONALIZADO REUTILIZÁVEL */}
+      <CustomModal
+        visible={modalConfig.visible}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        type={modalConfig.type}
+        confirmText={modalConfig.confirmText}
+        cancelText={modalConfig.cancelText}
+        showCancelButton={modalConfig.showCancelButton}
+        onConfirm={modalConfig.onConfirm}
+        onClose={() => setModalConfig((prev) => ({ ...prev, visible: false }))}
+      />
     </View>
   );
 }
