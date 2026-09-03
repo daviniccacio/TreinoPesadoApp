@@ -15,23 +15,19 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "../../../../lib/supabase";
 
 // --- TIPAGENS DE DADOS ---
+// Mantemos apenas a tipagem de Categoria, pois ainda a usamos.
 interface Category {
   id: string;
   title: string;
   image_url: string;
 }
 
-interface CustomWorkout {
-  id: string;
-  title: string;
-  created_at: string;
-  custom_workout_exercises: { id: string }[];
-}
+// A interface CustomWorkout foi removida daqui, pois não é mais usada nesta tela.
 
 interface StudentHomeData {
   userName: string;
   categories: Category[];
-  customWorkouts: CustomWorkout[];
+  // Removido: customWorkouts: CustomWorkout[];
 }
 
 /**
@@ -64,29 +60,14 @@ async function fetchStudentHomeData(): Promise<StudentHomeData> {
     }
   }
 
-  // 4. Executa as consultas de Categorias e Treinos em paralelo
-  const [categoriesRes, workoutsRes] = await Promise.all([
-    supabase.from("categories").select("*"),
-    user
-      ? supabase
-          .from("custom_workouts")
-          .select(
-            `
-            id,
-            title,
-            created_at,
-            custom_workout_exercises (id)
-          `
-          )
-          .eq("user_id", user.id)
-          .order("created_at", { ascending: false })
-      : Promise.resolve({ data: [], error: null }),
-  ]);
+  // 4. Executa APENAS a consulta de Categorias.
+  // Removemos o Promise.all e a consulta à tabela 'custom_workouts' para otimizar o carregamento.
+  const { data: categoriesData } = await supabase.from("categories").select("*");
 
   return {
     userName,
-    categories: (categoriesRes.data || []) as Category[],
-    customWorkouts: (workoutsRes.data || []) as unknown as CustomWorkout[],
+    categories: (categoriesData || []) as Category[],
+    // Removido: customWorkouts: ...
   };
 }
 
@@ -107,7 +88,7 @@ export default function HomeScreen() {
 
   const userName = data?.userName || "Atleta";
   const categories = data?.categories || [];
-  const customWorkouts = data?.customWorkouts || [];
+  // Removido: const customWorkouts = data?.customWorkouts || [];
 
   return (
     <View
@@ -169,43 +150,7 @@ export default function HomeScreen() {
             <CaretRight size={20} color="#ffffff" weight="bold" />
           </TouchableOpacity>
 
-          {/* Treinos Personalizados do Usuário */}
-          {customWorkouts.length > 0 && (
-            <View className="mb-6">
-              <Text className="text-xl font-bold text-[#1b1b1d] dark:text-white mb-3">
-                Meus Treinos Personalizados
-              </Text>
-              {customWorkouts.map((workout) => (
-                <TouchableOpacity
-                  key={workout.id}
-                  onPress={() =>
-                    router.push({
-                      pathname: "/(aluno)/execute-workout",
-                      params: { id: workout.id, type: "custom" },
-                    })
-                  }
-                  className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl mb-3 flex-row items-center justify-between border border-[#e2dfe1] dark:border-zinc-800"
-                  activeOpacity={0.8}
-                >
-                  <View className="flex-1 mr-3">
-                    <Text className="text-base font-bold text-[#1b1b1d] dark:text-white mb-1">
-                      {workout.title}
-                    </Text>
-                    <Text
-                      style={{ color: "#59C83A" }}
-                      className="text-xs font-extrabold"
-                    >
-                      {workout.custom_workout_exercises?.length || 0} exercícios
-                      cadastrados
-                    </Text>
-                  </View>
-                  <View className="w-9 h-9 rounded-full bg-white dark:bg-zinc-800 items-center justify-center border border-[#e0dddf] dark:border-zinc-700">
-                    <CaretRight size={18} color="#59C83A" />
-                  </View>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
+          {/* --- A SECÇÃO "Treinos Personalizados" FOI REMOVIDA DAQUI --- */}
 
           {/* Lista de Grupos Musculares */}
           <Text className="text-xl font-bold text-[#1b1b1d] dark:text-white mb-4">
