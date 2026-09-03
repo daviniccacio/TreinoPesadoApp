@@ -33,6 +33,7 @@ import { supabase } from '../../../lib/supabase';
 import { getExerciseGif } from '../../../lib/exerciseGifs';
 import { useThrottledCallback } from '../../../lib/useThrottle';
 import { CustomModal } from '../../../components/CustomModal';
+import { createWorkoutPlanSchema } from '../../../lib/validations/workout';
 
 // Habilita animações de layout suaves no Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -71,7 +72,7 @@ interface ShowAlertModalOptions {
   onConfirm?: () => void;
 }
 
-const DAYS_OF_WEEK = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
+const DAYS_OF_WEEK = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta'];
 const OBJECTIVE_OPTIONS = ['Hipertrofia', 'Emagrecimento', 'Resistência', 'Força', 'Adaptação'];
 
 const CATEGORY_FILTERS = [
@@ -326,24 +327,34 @@ export default function CreateWorkoutPlanScreen() {
   }
 
   async function handleSavePlan() {
-    if (!planName.trim()) {
+    // 1. Monta o objeto para validação
+    const payload = {
+      name: planName.trim(),
+      description: description.trim() || null,
+      objective,
+      days_of_week: selectedDays,
+      exercises: selectedExercises.map((ex) => ({
+        exercise_id: ex.exercise_id,
+        sets: ex.sets.trim(),
+        reps: ex.reps.trim(),
+        notes: ex.notes.trim() || null,
+      })),
+    };
+
+    // 2. Executa a validação do Zod
+    const validation = createWorkoutPlanSchema.safeParse(payload);
+
+    if (!validation.success) {
+      const firstError = validation.error.issues[0].message;
       showAlertModal({
-        title: 'Campo Obrigatório',
-        message: 'Por favor, informe o nome do plano de treino.',
+        title: 'Dados Inválidos',
+        message: firstError,
         type: 'info',
       });
       return;
     }
 
-    if (selectedExercises.length === 0) {
-      showAlertModal({
-        title: 'Atenção',
-        message: 'Adicione pelo menos um exercício ao plano.',
-        type: 'info',
-      });
-      return;
-    }
-
+    // 3. Se passou na validação, prossegue com o envio ao Supabase
     try {
       setSaving(true);
       const {
@@ -448,7 +459,7 @@ export default function CreateWorkoutPlanScreen() {
     }
   }
 
-  const filteredRegisteredExercises = registeredExercises.filter((ex) => {
+  const filteredRegisteredExercises = registeredExercises.filter((ex: RegisteredExercise) => {
     const matchesSearch = ex.name.toLowerCase().includes(searchQuery.toLowerCase().trim());
     const matchesCategory =
       selectedCategoryFilter === 'todos' ||
