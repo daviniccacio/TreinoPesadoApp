@@ -5,7 +5,6 @@ import {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
-  Alert,
   Modal,
   TextInput,
   useColorScheme,
@@ -31,6 +30,7 @@ import {
 } from 'phosphor-react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../../../lib/supabase';
+import { CustomModal } from '../../../../components/CustomModal';
 
 // --- TIPAGENS DE DADOS ---
 interface StudentProfileData {
@@ -39,6 +39,16 @@ interface StudentProfileData {
   personalName: string | null;
   totalWorkoutsCompleted: number;
   totalWorkoutMinutes: number;
+}
+
+interface ShowAlertModalOptions {
+  title: string;
+  message: string;
+  type?: 'success' | 'danger' | 'info';
+  confirmText?: string;
+  cancelText?: string;
+  showCancelButton?: boolean;
+  onConfirm?: () => void;
 }
 
 /**
@@ -51,7 +61,6 @@ async function fetchStudentProfileData(): Promise<StudentProfileData> {
 
   if (!user) throw new Error('Usuário não autenticado');
 
-  // 1. Busca o nome do aluno na coluna 'full_name' da tabela 'profiles'
   const { data: profile } = await supabase
     .from('profiles')
     .select('full_name, personal_id')
@@ -65,7 +74,6 @@ async function fetchStudentProfileData(): Promise<StudentProfileData> {
 
   let personalName: string | null = null;
 
-  // 2. Busca o nome do Personal Trainer caso esteja vinculado
   if (profile?.personal_id) {
     const { data: personalProfile } = await supabase
       .from('profiles')
@@ -78,9 +86,8 @@ async function fetchStudentProfileData(): Promise<StudentProfileData> {
     }
   }
 
-  // 3. Consulta a tabela 'workout_logs'
   let totalWorkoutsCompleted = 0;
-  let totalWorkoutSeconds = 0; // Alterado de totalWorkoutMinutes para totalWorkoutSeconds
+  let totalWorkoutSeconds = 0;
 
   try {
     const { data: logsData, error: logsError } = await supabase
@@ -95,7 +102,6 @@ async function fetchStudentProfileData(): Promise<StudentProfileData> {
     if (logsData && logsData.length > 0) {
       totalWorkoutsCompleted = logsData.length;
 
-      // Soma os segundos exatos sem arredondar prematuramente
       totalWorkoutSeconds = logsData.reduce((acc, item) => {
         return acc + (item.duration_seconds || 0);
       }, 0);
@@ -111,7 +117,7 @@ async function fetchStudentProfileData(): Promise<StudentProfileData> {
     email: user.email || '',
     personalName,
     totalWorkoutsCompleted,
-    totalWorkoutMinutes: totalWorkoutSeconds, // Passa o total acumulado em segundos
+    totalWorkoutMinutes: totalWorkoutSeconds,
   };
 }
 
@@ -141,7 +147,9 @@ async function linkStudentToPersonalByCode(inviteCode: string) {
     throw new Error('Código inválido. Nenhum Personal Trainer foi encontrado.');
   }
 
-  const foundPersonalName = personalProfile.full_name ? personalProfile.full_name.trim() : 'Personal Trainer';
+  const foundPersonalName = personalProfile.full_name
+    ? personalProfile.full_name.trim()
+    : 'Personal Trainer';
 
   const { error: updateError } = await supabase
     .from('profiles')
@@ -164,6 +172,54 @@ export default function StudentProfileScreen() {
   const [isLinkModalOpen, setIsLinkModalOpen] = useState<boolean>(false);
   const [inviteCodeInput, setInviteCodeInput] = useState<string>('');
 
+  // ESTADO DO MODAL PERSONALIZADO
+  const [modalConfig, setModalConfig] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    type: 'success' | 'danger' | 'info';
+    confirmText: string;
+    cancelText: string;
+    showCancelButton: boolean;
+    onConfirm: () => void;
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+    type: 'info',
+    confirmText: 'Entendi',
+    cancelText: 'Cancelar',
+    showCancelButton: true,
+    onConfirm: () => {},
+  });
+
+  /**
+   * Função auxiliar para exibir o modal customizado usando opções parametrizadas
+   */
+  function showAlertModal({
+    title,
+    message,
+    type = 'info',
+    confirmText = 'Entendi',
+    cancelText = 'Cancelar',
+    showCancelButton = true,
+    onConfirm,
+  }: ShowAlertModalOptions) {
+    setModalConfig({
+      visible: true,
+      title,
+      message,
+      type,
+      confirmText,
+      cancelText,
+      showCancelButton,
+      onConfirm: () => {
+        setModalConfig((prev) => ({ ...prev, visible: false }));
+        if (onConfirm) onConfirm();
+      },
+    });
+  }
+
   // --- CONSULTA COM RECARREGAMENTO AUTOMÁTICO ---
   const { data: profile, isLoading } = useQuery({
     queryKey: ['student-profile-data'],
@@ -180,13 +236,20 @@ export default function StudentProfileScreen() {
       queryClient.invalidateQueries({ queryKey: ['student-profile-data'] });
       queryClient.invalidateQueries({ queryKey: ['student-home-data'] });
 
-      Alert.alert(
-        'Sucesso! 🎉',
-        `Você foi vinculado com sucesso ao Personal Trainer ${personalName}!`
-      );
+      showAlertModal({
+        title: 'Sucesso! 🎉',
+        message: `Você foi vinculado com sucesso ao Personal Trainer ${personalName}!`,
+        type: 'success',
+        showCancelButton: false,
+      });
     },
     onError: (err: any) => {
-      Alert.alert('Erro ao Vincular', err.message || 'Não foi possível realizar o vínculo.');
+      showAlertModal({
+        title: 'Erro ao Vincular',
+        message: err.message || 'Não foi possível realizar o vínculo.',
+        type: 'danger',
+        showCancelButton: false,
+      });
     },
   });
 
@@ -199,23 +262,21 @@ export default function StudentProfileScreen() {
     }
   }
 
-  async function handleSignOut() {
-    Alert.alert('Sair da Conta', 'Deseja realmente encerrar sua sessão?', [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Sair',
-        style: 'destructive',
-        onPress: async () => {
-          await supabase.auth.signOut();
-          router.replace('/');
-        },
+  function handleSignOut() {
+    showAlertModal({
+      title: 'Sair da Conta',
+      message: 'Deseja realmente encerrar sua sessão no aplicativo?',
+      type: 'danger',
+      confirmText: 'Sair',
+      cancelText: 'Cancelar',
+      showCancelButton: true,
+      onConfirm: async () => {
+        await supabase.auth.signOut();
+        router.replace('/');
       },
-    ]);
+    });
   }
 
-  /**
-  * Formata os segundos totais de treino padronizado com a tela de histórico
-  */
   function formatWorkoutTime(totalSeconds: number) {
     if (!totalSeconds || totalSeconds <= 0) return '0 min';
 
@@ -256,7 +317,6 @@ export default function StudentProfileScreen() {
                 {profile?.email}
               </Text>
 
-              {/* Status do Vínculo com Personal */}
               <View className="mt-2 bg-[#59C83A]/10 border border-[#59C83A]/30 px-3 py-1 rounded-full flex-row items-center">
                 <Text className="text-xs font-bold text-[#59C83A]">
                   {profile?.personalName
@@ -333,16 +393,18 @@ export default function StudentProfileScreen() {
         <View className="bg-[#f8f9fa] dark:bg-zinc-900 rounded-2xl p-2 mb-6 border border-[#e2dfe1] dark:border-zinc-800 flex-row">
           <TouchableOpacity
             onPress={() => handleThemeChange('light')}
-            className={`flex-1 py-3 rounded-xl flex-row items-center justify-center gap-1.5 ${themeMode === 'light'
-              ? 'bg-white dark:bg-zinc-800 border border-[#e2dfe1] dark:border-zinc-700'
-              : 'bg-transparent'
-              }`}
+            className={`flex-1 py-3 rounded-xl flex-row items-center justify-center gap-1.5 ${
+              themeMode === 'light'
+                ? 'bg-white dark:bg-zinc-800 border border-[#e2dfe1] dark:border-zinc-700'
+                : 'bg-transparent'
+            }`}
           >
             <Sun size={16} color={themeMode === 'light' ? '#59C83A' : '#9ca3af'} />
             <Text
               style={themeMode === 'light' ? { color: '#59C83A' } : undefined}
-              className={`font-bold text-xs ${themeMode !== 'light' ? 'text-[#414755] dark:text-zinc-300' : ''
-                }`}
+              className={`font-bold text-xs ${
+                themeMode !== 'light' ? 'text-[#414755] dark:text-zinc-300' : ''
+              }`}
             >
               Claro
             </Text>
@@ -350,16 +412,18 @@ export default function StudentProfileScreen() {
 
           <TouchableOpacity
             onPress={() => handleThemeChange('dark')}
-            className={`flex-1 py-3 rounded-xl flex-row items-center justify-center gap-1.5 ${themeMode === 'dark'
-              ? 'bg-white dark:bg-zinc-800 border border-[#e2dfe1] dark:border-zinc-700'
-              : 'bg-transparent'
-              }`}
+            className={`flex-1 py-3 rounded-xl flex-row items-center justify-center gap-1.5 ${
+              themeMode === 'dark'
+                ? 'bg-white dark:bg-zinc-800 border border-[#e2dfe1] dark:border-zinc-700'
+                : 'bg-transparent'
+            }`}
           >
             <Moon size={16} color={themeMode === 'dark' ? '#59C83A' : '#9ca3af'} />
             <Text
               style={themeMode === 'dark' ? { color: '#59C83A' } : undefined}
-              className={`font-bold text-xs ${themeMode !== 'dark' ? 'text-[#414755] dark:text-zinc-300' : ''
-                }`}
+              className={`font-bold text-xs ${
+                themeMode !== 'dark' ? 'text-[#414755] dark:text-zinc-300' : ''
+              }`}
             >
               Escuro
             </Text>
@@ -367,30 +431,39 @@ export default function StudentProfileScreen() {
 
           <TouchableOpacity
             onPress={() => handleThemeChange('system')}
-            className={`flex-1 py-3 rounded-xl flex-row items-center justify-center gap-1.5 ${themeMode === 'system'
-              ? 'bg-white dark:bg-zinc-800 border border-[#e2dfe1] dark:border-zinc-700'
-              : 'bg-transparent'
-              }`}
+            className={`flex-1 py-3 rounded-xl flex-row items-center justify-center gap-1.5 ${
+              themeMode === 'system'
+                ? 'bg-white dark:bg-zinc-800 border border-[#e2dfe1] dark:border-zinc-700'
+                : 'bg-transparent'
+            }`}
           >
             <Desktop size={16} color={themeMode === 'system' ? '#59C83A' : '#9ca3af'} />
             <Text
               style={themeMode === 'system' ? { color: '#59C83A' } : undefined}
-              className={`font-bold text-xs ${themeMode !== 'system' ? 'text-[#414755] dark:text-zinc-300' : ''
-                }`}
+              className={`font-bold text-xs ${
+                themeMode !== 'system' ? 'text-[#414755] dark:text-zinc-300' : ''
+              }`}
             >
               Sistema
             </Text>
           </TouchableOpacity>
         </View>
 
-        {/* CONFIGURAÇÕES */}
+        {/* CONFIGURAÇÕES: NOTIFICAÇÕES E PRIVACIDADE */}
         <Text className="text-lg font-bold text-[#1b1b1d] dark:text-white mb-3">
           Configurações
         </Text>
 
         <View className="bg-[#f8f9fa] dark:bg-zinc-900 rounded-2xl overflow-hidden mb-6 border border-[#e2dfe1] dark:border-zinc-800">
           <TouchableOpacity
-            onPress={() => Alert.alert('Notificações', 'Recurso em desenvolvimento.')}
+            onPress={() =>
+              showAlertModal({
+                title: 'Notificações',
+                message: 'Recurso em desenvolvimento.',
+                type: 'info',
+                showCancelButton: false,
+              })
+            }
             className="flex-row items-center justify-between p-4 border-b border-[#e2dfe1] dark:border-zinc-800"
             activeOpacity={0.7}
           >
@@ -404,7 +477,14 @@ export default function StudentProfileScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            onPress={() => Alert.alert('Privacidade', 'Seus dados estão protegidos.')}
+            onPress={() =>
+              showAlertModal({
+                title: 'Privacidade',
+                message: 'Seus dados estão protegidos com criptografia.',
+                type: 'info',
+                showCancelButton: false,
+              })
+            }
             className="flex-row items-center justify-between p-4"
             activeOpacity={0.7}
           >
@@ -418,7 +498,7 @@ export default function StudentProfileScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* BOTÃO DE SAIR */}
+        {/* BOTÃO DE SAIR DA CONTA */}
         <TouchableOpacity
           onPress={handleSignOut}
           className="bg-[#ffebe8] dark:bg-red-950/40 p-4 rounded-2xl items-center flex-row justify-center mb-10 border border-transparent dark:border-red-900/30"
@@ -485,6 +565,19 @@ export default function StudentProfileScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* COMPONENTE DO MODAL PERSONALIZADO */}
+      <CustomModal
+        visible={modalConfig.visible}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        type={modalConfig.type}
+        confirmText={modalConfig.confirmText}
+        cancelText={modalConfig.cancelText}
+        showCancelButton={modalConfig.showCancelButton}
+        onConfirm={modalConfig.onConfirm}
+        onClose={() => setModalConfig((prev) => ({ ...prev, visible: false }))}
+      />
     </View>
   );
 }
