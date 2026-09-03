@@ -5,7 +5,6 @@ import {
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
   Modal,
   useColorScheme,
   RefreshControl,
@@ -25,6 +24,7 @@ import {
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../../lib/supabase';
+import { CustomModal } from '../../../components/CustomModal';
 
 // --- TIPAGENS DE DADOS ---
 interface RoutineItem {
@@ -39,6 +39,16 @@ interface RoutineItem {
 interface StudentItem {
   id: string;
   full_name: string;
+}
+
+interface ShowAlertModalOptions {
+  title: string;
+  message: string;
+  type?: 'success' | 'danger' | 'info';
+  confirmText?: string;
+  cancelText?: string;
+  showCancelButton?: boolean;
+  onConfirm?: () => void;
 }
 
 /**
@@ -114,6 +124,55 @@ export default function PersonalRoutinesScreen() {
   const initialStudentId = params.assignToStudentId;
   const initialStudentName = params.assignToStudentName || 'este aluno';
 
+  // --- ESTADOS LOCAIS ---
+  const [studentsModalVisible, setStudentsModalVisible] = useState<boolean>(false);
+  const [selectedRoutine, setSelectedRoutine] = useState<RoutineItem | null>(null);
+
+  // ESTADO DO MODAL PERSONALIZADO REUTILIZÁVEL
+  const [modalConfig, setModalConfig] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    type: 'success' | 'danger' | 'info';
+    confirmText: string;
+    cancelText: string;
+    showCancelButton: boolean;
+    onConfirm: () => void;
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+    type: 'info',
+    confirmText: 'Entendi',
+    cancelText: 'Cancelar',
+    showCancelButton: false,
+    onConfirm: () => {},
+  });
+
+  function showAlertModal({
+    title,
+    message,
+    type = 'info',
+    confirmText = 'Entendi',
+    cancelText = 'Cancelar',
+    showCancelButton = false,
+    onConfirm,
+  }: ShowAlertModalOptions) {
+    setModalConfig({
+      visible: true,
+      title,
+      message,
+      type,
+      confirmText,
+      cancelText,
+      showCancelButton,
+      onConfirm: () => {
+        setModalConfig((prev) => ({ ...prev, visible: false }));
+        if (onConfirm) onConfirm();
+      },
+    });
+  }
+
   function handleOpenAssignFlow(routine: RoutineItem) {
     setSelectedRoutine(routine);
 
@@ -123,10 +182,6 @@ export default function PersonalRoutinesScreen() {
       setStudentsModalVisible(true);
     }
   }
-
-  // --- ESTADOS LOCAIS ---
-  const [studentsModalVisible, setStudentsModalVisible] = useState<boolean>(false);
-  const [selectedRoutine, setSelectedRoutine] = useState<RoutineItem | null>(null);
 
   // --- BUSCA DAS ROTINAS ---
   const {
@@ -169,10 +224,19 @@ export default function PersonalRoutinesScreen() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['personal-library-routines'] });
       queryClient.invalidateQueries({ queryKey: ['personal-profile-data'] });
-      Alert.alert('Sucesso', 'Modelo removido da biblioteca!');
+
+      showAlertModal({
+        title: 'Modelo Removido',
+        message: 'O modelo de treino foi removido da sua biblioteca com sucesso.',
+        type: 'success',
+      });
     },
     onError: (err: any) => {
-      Alert.alert('Erro', err.message || 'Não foi possível excluir o modelo.');
+      showAlertModal({
+        title: 'Erro ao Excluir',
+        message: err.message || 'Não foi possível excluir o modelo de treino.',
+        type: 'danger',
+      });
     },
   });
 
@@ -240,33 +304,35 @@ export default function PersonalRoutinesScreen() {
       queryClient.invalidateQueries({ queryKey: ['student-workouts'] });
       queryClient.invalidateQueries({ queryKey: ['personal-profile-data'] });
 
-      Alert.alert('Sucesso! 🎉', 'Treino atribuído com sucesso!', [
-        {
-          text: 'OK',
-          onPress: () => {
-            if (initialStudentId) router.back();
-          },
+      showAlertModal({
+        title: 'Treino Atribuído! 🎉',
+        message: 'A ficha de treino foi vinculada ao aluno com sucesso.',
+        type: 'success',
+        confirmText: 'OK',
+        onConfirm: () => {
+          if (initialStudentId) router.back();
         },
-      ]);
+      });
     },
     onError: (err: any) => {
-      Alert.alert('Erro ao Atribuir', err.message || 'Ocorreu uma falha ao vincular o treino.');
+      showAlertModal({
+        title: 'Erro ao Atribuir',
+        message: err.message || 'Ocorreu uma falha ao vincular o treino ao aluno.',
+        type: 'danger',
+      });
     },
   });
 
   function handleDeleteRoutine(routineId: string, routineName: string) {
-    Alert.alert(
-      'Excluir Modelo',
-      `Tem certeza que deseja apagar o modelo "${routineName}" da biblioteca?`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Excluir',
-          style: 'destructive',
-          onPress: () => deleteRoutineMutation.mutate(routineId),
-        },
-      ]
-    );
+    showAlertModal({
+      title: 'Excluir Modelo',
+      message: `Tem certeza que deseja apagar o modelo "${routineName}" da biblioteca?`,
+      type: 'danger',
+      confirmText: 'Excluir',
+      cancelText: 'Cancelar',
+      showCancelButton: true,
+      onConfirm: () => deleteRoutineMutation.mutate(routineId),
+    });
   }
 
   function confirmAndAssignToStudent(
@@ -274,17 +340,15 @@ export default function PersonalRoutinesScreen() {
     studentId: string,
     studentName: string
   ) {
-    Alert.alert(
-      'Confirmar Atribuição',
-      `Deseja atribuir uma cópia de "${routine.name}" para ${studentName}?`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Atribuir',
-          onPress: () => assignRoutineMutation.mutate({ routine, studentId }),
-        },
-      ]
-    );
+    showAlertModal({
+      title: 'Confirmar Atribuição',
+      message: `Deseja atribuir uma cópia de "${routine.name}" para ${studentName}?`,
+      type: 'info',
+      confirmText: 'Atribuir',
+      cancelText: 'Cancelar',
+      showCancelButton: true,
+      onConfirm: () => assignRoutineMutation.mutate({ routine, studentId }),
+    });
   }
 
   return (
@@ -468,6 +532,19 @@ export default function PersonalRoutinesScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* COMPONENTE DO MODAL PERSONALIZADO REUTILIZÁVEL */}
+      <CustomModal
+        visible={modalConfig.visible}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        type={modalConfig.type}
+        confirmText={modalConfig.confirmText}
+        cancelText={modalConfig.cancelText}
+        showCancelButton={modalConfig.showCancelButton}
+        onConfirm={modalConfig.onConfirm}
+        onClose={() => setModalConfig((prev) => ({ ...prev, visible: false }))}
+      />
     </View>
   );
 }

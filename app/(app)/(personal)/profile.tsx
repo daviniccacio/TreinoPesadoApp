@@ -5,7 +5,6 @@ import {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
-  Alert,
   useColorScheme,
   Appearance,
 } from 'react-native';
@@ -26,6 +25,7 @@ import {
 } from 'phosphor-react-native';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../../lib/supabase';
+import { CustomModal } from '../../../components/CustomModal';
 
 // --- TIPAGENS DE DADOS ---
 interface PersonalProfileData {
@@ -34,7 +34,17 @@ interface PersonalProfileData {
   inviteCode: string;
   birthDate: string;
   libraryTemplatesCount: number;
-  linkedStudentsCount: number; // <-- Atualizado para guardar o total de alunos
+  linkedStudentsCount: number;
+}
+
+interface ShowAlertModalOptions {
+  title: string;
+  message: string;
+  type?: 'success' | 'danger' | 'info';
+  confirmText?: string;
+  cancelText?: string;
+  showCancelButton?: boolean;
+  onConfirm?: () => void;
 }
 
 /**
@@ -90,6 +100,51 @@ export default function PersonalProfileScreen() {
 
   const [themeMode, setThemeMode] = useState<'light' | 'dark' | 'system'>('system');
 
+  // --- ESTADO DO MODAL PERSONALIZADO REUTILIZÁVEL ---
+  const [modalConfig, setModalConfig] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    type: 'success' | 'danger' | 'info';
+    confirmText: string;
+    cancelText: string;
+    showCancelButton: boolean;
+    onConfirm: () => void;
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+    type: 'info',
+    confirmText: 'Entendi',
+    cancelText: 'Cancelar',
+    showCancelButton: false,
+    onConfirm: () => {},
+  });
+
+  function showAlertModal({
+    title,
+    message,
+    type = 'info',
+    confirmText = 'Entendi',
+    cancelText = 'Cancelar',
+    showCancelButton = false,
+    onConfirm,
+  }: ShowAlertModalOptions) {
+    setModalConfig({
+      visible: true,
+      title,
+      message,
+      type,
+      confirmText,
+      cancelText,
+      showCancelButton,
+      onConfirm: () => {
+        setModalConfig((prev) => ({ ...prev, visible: false }));
+        if (onConfirm) onConfirm();
+      },
+    });
+  }
+
   // --- CONSULTA COM TANSTACK QUERY ---
   const { data: profile, isLoading } = useQuery({
     queryKey: ['personal-profile-data'],
@@ -105,27 +160,36 @@ export default function PersonalProfileScreen() {
     }
   }
 
-  async function handleSignOut() {
-    Alert.alert('Sair da Conta', 'Deseja realmente encerrar a sua sessão?', [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Sair',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            const { error } = await supabase.auth.signOut();
-            if (error) {
-              Alert.alert('Erro ao sair', error.message);
-              return;
-            }
-            router.replace('/');
-          } catch (err) {
-            console.error('Erro ao processar logout:', err);
-            Alert.alert('Erro', 'Não foi possível encerrar a sessão.');
+  function handleSignOut() {
+    showAlertModal({
+      title: 'Sair da Conta',
+      message: 'Deseja realmente encerrar a sua sessão?',
+      type: 'danger',
+      confirmText: 'Sair',
+      cancelText: 'Cancelar',
+      showCancelButton: true,
+      onConfirm: async () => {
+        try {
+          const { error } = await supabase.auth.signOut();
+          if (error) {
+            showAlertModal({
+              title: 'Erro ao sair',
+              message: error.message,
+              type: 'danger',
+            });
+            return;
           }
-        },
+          router.replace('/');
+        } catch (err) {
+          console.error('Erro ao processar logout:', err);
+          showAlertModal({
+            title: 'Erro',
+            message: 'Não foi possível encerrar a sessão.',
+            type: 'danger',
+          });
+        }
       },
-    ]);
+    });
   }
 
   const fullName = profile?.fullName || 'Personal Trainer';
@@ -183,10 +247,11 @@ export default function PersonalProfileScreen() {
 
           <TouchableOpacity
             onPress={() => {
-              Alert.alert(
-                'Código de Acesso',
-                `Compartilhe este código com seus alunos:\n\n${inviteCode}`
-              );
+              showAlertModal({
+                title: 'Código de Acesso',
+                message: `Compartilhe este código com seus alunos:\n\n${inviteCode}`,
+                type: 'info',
+              });
             }}
             className="bg-[#59C83A] px-3.5 py-2 rounded-xl"
             activeOpacity={0.8}
@@ -309,7 +374,13 @@ export default function PersonalProfileScreen() {
 
         <View className="bg-[#f8f9fa] dark:bg-zinc-900 rounded-2xl overflow-hidden mb-6 border border-[#e2dfe1] dark:border-zinc-800">
           <TouchableOpacity
-            onPress={() => Alert.alert('Notificações', 'Lembretes em desenvolvimento.')}
+            onPress={() =>
+              showAlertModal({
+                title: 'Notificações',
+                message: 'Lembretes em desenvolvimento.',
+                type: 'info',
+              })
+            }
             className="flex-row items-center justify-between p-4 border-b border-[#e2dfe1] dark:border-zinc-800"
             activeOpacity={0.7}
           >
@@ -324,7 +395,11 @@ export default function PersonalProfileScreen() {
 
           <TouchableOpacity
             onPress={() =>
-              Alert.alert('Privacidade', 'Seus dados estão protegidos via Supabase.')
+              showAlertModal({
+                title: 'Privacidade',
+                message: 'Seus dados estão protegidos via Supabase.',
+                type: 'info',
+              })
             }
             className="flex-row items-center justify-between p-4"
             activeOpacity={0.7}
@@ -349,6 +424,19 @@ export default function PersonalProfileScreen() {
           <Text className="text-[#e11d48] font-bold text-base ml-2">Sair da Conta</Text>
         </TouchableOpacity>
       </ScrollView>
+
+      {/* COMPONENTE DO MODAL PERSONALIZADO REUTILIZÁVEL */}
+      <CustomModal
+        visible={modalConfig.visible}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        type={modalConfig.type}
+        confirmText={modalConfig.confirmText}
+        cancelText={modalConfig.cancelText}
+        showCancelButton={modalConfig.showCancelButton}
+        onConfirm={modalConfig.onConfirm}
+        onClose={() => setModalConfig((prev) => ({ ...prev, visible: false }))}
+      />
     </View>
   );
 }

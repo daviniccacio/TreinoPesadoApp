@@ -8,7 +8,6 @@ import {
   FlatList,
   Modal,
   ActivityIndicator,
-  Alert,
   useColorScheme,
   LayoutAnimation,
   Platform,
@@ -25,9 +24,6 @@ import {
   X,
   Barbell,
   Check,
-  Eye,
-  CaretDown,
-  CaretUp,
 } from 'phosphor-react-native';
 
 import { useQueryClient } from '@tanstack/react-query';
@@ -36,6 +32,7 @@ import { Image } from 'expo-image';
 import { supabase } from '../../../lib/supabase';
 import { getExerciseGif } from '../../../lib/exerciseGifs';
 import { useThrottledCallback } from '../../../lib/useThrottle';
+import { CustomModal } from '../../../components/CustomModal';
 
 // Habilita animações de layout suaves no Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -62,6 +59,16 @@ interface SelectedExerciseItem {
   reps: string;
   notes: string;
   gif_key?: string;
+}
+
+interface ShowAlertModalOptions {
+  title: string;
+  message: string;
+  type?: 'success' | 'danger' | 'info';
+  confirmText?: string;
+  cancelText?: string;
+  showCancelButton?: boolean;
+  onConfirm?: () => void;
 }
 
 const DAYS_OF_WEEK = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
@@ -109,6 +116,51 @@ export default function CreateWorkoutPlanScreen() {
   // ESTADO QUE GUARDA APENAS O EXERCÍCIO COM O GIF EXPANDIDO NO MODAL (Apenas 1 por vez)
   const [expandedModalExerciseId, setExpandedModalExerciseId] = useState<string | null>(null);
 
+  // --- ESTADO DO CUSTOM MODAL REUTILIZÁVEL ---
+  const [modalConfig, setModalConfig] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    type: 'success' | 'danger' | 'info';
+    confirmText: string;
+    cancelText: string;
+    showCancelButton: boolean;
+    onConfirm: () => void;
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+    type: 'info',
+    confirmText: 'Entendi',
+    cancelText: 'Cancelar',
+    showCancelButton: false,
+    onConfirm: () => {},
+  });
+
+  function showAlertModal({
+    title,
+    message,
+    type = 'info',
+    confirmText = 'Entendi',
+    cancelText = 'Cancelar',
+    showCancelButton = false,
+    onConfirm,
+  }: ShowAlertModalOptions) {
+    setModalConfig({
+      visible: true,
+      title,
+      message,
+      type,
+      confirmText,
+      cancelText,
+      showCancelButton,
+      onConfirm: () => {
+        setModalConfig((prev) => ({ ...prev, visible: false }));
+        if (onConfirm) onConfirm();
+      },
+    });
+  }
+
   const handleSavePlanThrottled = useThrottledCallback(handleSavePlan, 2000);
 
   const handleNavigateBack = useCallback(() => {
@@ -122,7 +174,7 @@ export default function CreateWorkoutPlanScreen() {
   useFocusEffect(
     useCallback(() => {
       if (planId) {
- loadExistingPlanData(planId);
+        loadExistingPlanData(planId);
       } else {
         resetForm();
       }
@@ -183,7 +235,11 @@ export default function CreateWorkoutPlanScreen() {
         setSelectedExercises(mappedExercises);
       }
     } catch (err: any) {
-      Alert.alert('Erro', 'Não foi possível carregar os dados do treino para edição.');
+      showAlertModal({
+        title: 'Erro',
+        message: 'Não foi possível carregar os dados do treino para edição.',
+        type: 'danger',
+      });
     } finally {
       setLoadingPlanData(false);
     }
@@ -192,7 +248,11 @@ export default function CreateWorkoutPlanScreen() {
   function toggleDay(day: string) {
     if (selectedDays.includes(day)) {
       if (selectedDays.length === 1) {
-        Alert.alert('Atenção', 'Selecione pelo menos um dia da semana para o plano.');
+        showAlertModal({
+          title: 'Atenção',
+          message: 'Selecione pelo menos um dia da semana para o plano.',
+          type: 'info',
+        });
         return;
       }
       setSelectedDays(selectedDays.filter((d) => d !== day));
@@ -212,7 +272,11 @@ export default function CreateWorkoutPlanScreen() {
       if (error) throw error;
       if (data) setRegisteredExercises(data);
     } catch (err: any) {
-      Alert.alert('Erro', 'Não foi possível carregar a lista de exercícios.');
+      showAlertModal({
+        title: 'Erro',
+        message: 'Não foi possível carregar a lista de exercícios.',
+        type: 'danger',
+      });
     } finally {
       setLoadingModalExercises(false);
     }
@@ -224,23 +288,17 @@ export default function CreateWorkoutPlanScreen() {
     fetchRegisteredExercises();
   }
 
-  /**
-   * SELECIONA O EXERCÍCIO NO MODAL E EXPANDE O SEU GIF COM ANIMAÇÃO
-   */
   function handleToggleExerciseFromLibrary(item: RegisteredExercise) {
-    // Configura a animação suave de transição de layout
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
 
     const existingIndex = selectedExercises.findIndex((ex) => ex.exercise_id === item.id);
 
     if (existingIndex >= 0) {
-      // Se já estava selecionado e clicou novamente, desmarca o exercício
       setSelectedExercises((prev) => prev.filter((ex) => ex.exercise_id !== item.id));
       if (expandedModalExerciseId === item.id) {
         setExpandedModalExerciseId(null);
       }
     } else {
-      // Adiciona o exercício aos selecionados
       const newExerciseItem: SelectedExerciseItem = {
         tempId: Date.now().toString() + Math.random().toString(),
         exercise_id: item.id,
@@ -253,7 +311,6 @@ export default function CreateWorkoutPlanScreen() {
       };
 
       setSelectedExercises((prev) => [...prev, newExerciseItem]);
-      // Torna este o único exercício com o GIF expandido no Modal
       setExpandedModalExerciseId(item.id);
     }
   }
@@ -270,18 +327,28 @@ export default function CreateWorkoutPlanScreen() {
 
   async function handleSavePlan() {
     if (!planName.trim()) {
-      Alert.alert('Campo Obrigatório', 'Por favor, informe o nome do plano de treino.');
+      showAlertModal({
+        title: 'Campo Obrigatório',
+        message: 'Por favor, informe o nome do plano de treino.',
+        type: 'info',
+      });
       return;
     }
 
     if (selectedExercises.length === 0) {
-      Alert.alert('Atenção', 'Adicione pelo menos um exercício ao plano.');
+      showAlertModal({
+        title: 'Atenção',
+        message: 'Adicione pelo menos um exercício ao plano.',
+        type: 'info',
+      });
       return;
     }
 
     try {
       setSaving(true);
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
       if (planId) {
         const { error: planError } = await supabase
@@ -319,9 +386,13 @@ export default function CreateWorkoutPlanScreen() {
         queryClient.invalidateQueries({ queryKey: ['personal-profile-data'] });
         queryClient.invalidateQueries({ queryKey: ['personal-library-routines'] });
 
-        Alert.alert('Sucesso!', 'Plano de treino atualizado com sucesso!', [
-          { text: 'OK', onPress: () => handleNavigateBack() },
-        ]);
+        showAlertModal({
+          title: 'Sucesso! 🎉',
+          message: 'Plano de treino atualizado com sucesso!',
+          type: 'success',
+          confirmText: 'OK',
+          onConfirm: () => handleNavigateBack(),
+        });
       } else {
         const { data: planData, error: planError } = await supabase
           .from('workout_plans')
@@ -358,12 +429,20 @@ export default function CreateWorkoutPlanScreen() {
         queryClient.invalidateQueries({ queryKey: ['student-workouts'] });
         queryClient.invalidateQueries({ queryKey: ['personal-profile-data'] });
 
-        Alert.alert('Sucesso!', 'Plano de treino criado com sucesso!', [
-          { text: 'OK', onPress: () => handleNavigateBack() },
-        ]);
+        showAlertModal({
+          title: 'Sucesso! 🎉',
+          message: 'Plano de treino criado com sucesso!',
+          type: 'success',
+          confirmText: 'OK',
+          onConfirm: () => handleNavigateBack(),
+        });
       }
     } catch (error: any) {
-      Alert.alert('Erro ao Salvar', error.message || 'Ocorreu um erro ao guardar o plano.');
+      showAlertModal({
+        title: 'Erro ao Salvar',
+        message: error.message || 'Ocorreu um erro ao guardar o plano.',
+        type: 'danger',
+      });
     } finally {
       setSaving(false);
     }
@@ -464,10 +543,11 @@ export default function CreateWorkoutPlanScreen() {
                 <TouchableOpacity
                   key={item}
                   onPress={() => setObjective(item)}
-                  className={`px-3.5 py-2 rounded-xl mr-2 border ${active
+                  className={`px-3.5 py-2 rounded-xl mr-2 border ${
+                    active
                       ? 'bg-[#59C83A] border-[#59C83A]'
                       : 'bg-white dark:bg-zinc-950 border-[#e2dfe1] dark:border-zinc-800'
-                    }`}
+                  }`}
                 >
                   <Text className={`text-xs font-bold ${active ? 'text-white' : 'text-[#414755] dark:text-zinc-400'}`}>
                     {item}
@@ -487,10 +567,11 @@ export default function CreateWorkoutPlanScreen() {
                 <TouchableOpacity
                   key={day}
                   onPress={() => toggleDay(day)}
-                  className={`px-3 py-1.5 rounded-lg border ${isSelected
+                  className={`px-3 py-1.5 rounded-lg border ${
+                    isSelected
                       ? 'bg-[#59C83A]/20 border-[#59C83A]'
                       : 'bg-white dark:bg-zinc-950 border-[#e2dfe1] dark:border-zinc-800'
-                    }`}
+                  }`}
                 >
                   <Text className={`text-xs font-bold ${isSelected ? 'text-[#59C83A]' : 'text-[#71717a]'}`}>
                     {day}
@@ -587,7 +668,7 @@ export default function CreateWorkoutPlanScreen() {
         )}
       </ScrollView>
 
-      {/* MODAL DA BIBLIOTECA DE EXERCÍCIOS (COM EXPANSÃO AUTOMÁTICA DE GIF) */}
+      {/* MODAL DA BIBLIOTECA DE EXERCÍCIOS */}
       <Modal visible={isModalVisible} animationType="slide" transparent>
         <View className="flex-1 bg-black/60 justify-end">
           <View className="bg-white dark:bg-zinc-900 rounded-t-3xl p-5 h-[85%] border-t border-[#e2dfe1] dark:border-zinc-800">
@@ -634,10 +715,11 @@ export default function CreateWorkoutPlanScreen() {
                   <TouchableOpacity
                     key={cat.id}
                     onPress={() => setSelectedCategoryFilter(cat.id)}
-                    className={`px-3 py-1.5 rounded-lg mr-2 border ${active
+                    className={`px-3 py-1.5 rounded-lg mr-2 border ${
+                      active
                         ? 'bg-[#59C83A] border-[#59C83A]'
                         : 'bg-[#f8f9fa] dark:bg-zinc-950 border-[#e2dfe1] dark:border-zinc-800'
-                      }`}
+                    }`}
                   >
                     <Text className={`text-xs font-bold ${active ? 'text-white' : 'text-[#71717a]'}`}>
                       {cat.label}
@@ -647,7 +729,7 @@ export default function CreateWorkoutPlanScreen() {
               })}
             </ScrollView>
 
-            {/* LISTA DE EXERCÍCIOS NO MODAL COM ACCORDION INLINE */}
+            {/* LISTA DE EXERCÍCIOS NO MODAL */}
             {loadingModalExercises ? (
               <View className="flex-1 items-center justify-center">
                 <ActivityIndicator size="large" color="#59C83A" />
@@ -663,12 +745,12 @@ export default function CreateWorkoutPlanScreen() {
 
                   return (
                     <View
-                      className={`p-3.5 rounded-2xl border mb-2.5 overflow-hidden ${isAdded
+                      className={`p-3.5 rounded-2xl border mb-2.5 overflow-hidden ${
+                        isAdded
                           ? 'bg-[#59C83A]/10 border-[#59C83A]'
                           : 'bg-[#f8f9fa] dark:bg-zinc-950 border-[#e2dfe1] dark:border-zinc-800'
-                        }`}
+                      }`}
                     >
-                      {/* ÁREA CLICÁVEL DO CARD */}
                       <TouchableOpacity
                         onPress={() => handleToggleExerciseFromLibrary(item)}
                         activeOpacity={0.7}
@@ -683,7 +765,6 @@ export default function CreateWorkoutPlanScreen() {
                           </Text>
                         </View>
 
-                        {/* ÍCONE SELEÇÃO (CHECK VERDE QUANDO MARCADO) */}
                         {isAdded ? (
                           <View className="bg-[#59C83A] p-2 rounded-xl">
                             <Check size={16} color="#ffffff" weight="bold" />
@@ -695,7 +776,6 @@ export default function CreateWorkoutPlanScreen() {
                         )}
                       </TouchableOpacity>
 
-                      {/* CONTAINER EXPANSÍVEL COM O GIF ANIMADO NO PRÓPRIO CARD */}
                       {isGifExpanded && (
                         <View className="w-full h-52 bg-white dark:bg-zinc-900 rounded-xl overflow-hidden mt-3 border border-[#e2dfe1] dark:border-zinc-800 items-center justify-center">
                           <Image
@@ -714,6 +794,19 @@ export default function CreateWorkoutPlanScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* COMPONENTE DO MODAL PERSONALIZADO REUTILIZÁVEL */}
+      <CustomModal
+        visible={modalConfig.visible}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        type={modalConfig.type}
+        confirmText={modalConfig.confirmText}
+        cancelText={modalConfig.cancelText}
+        showCancelButton={modalConfig.showCancelButton}
+        onConfirm={modalConfig.onConfirm}
+        onClose={() => setModalConfig((prev) => ({ ...prev, visible: false }))}
+      />
     </View>
   );
 }
