@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -88,6 +88,11 @@ export default function PersonalRoutineDetailScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
+  // NAVEGAÇÃO SEGURA PARA A TELA ANTERIOR
+  const handleBack = useCallback(() => {
+    router.navigate('/(personal)/routines');
+  }, [router]);
+
   // Estado para controlar o exercício selecionado no Modal
   const [selectedExerciseForGif, setSelectedExerciseForGif] = useState<{
     name: string;
@@ -107,7 +112,7 @@ export default function PersonalRoutineDetailScreen() {
       {/* Cabeçalho */}
       <View className="flex-row items-center justify-between px-5 py-3 border-b border-[#f0edef] dark:border-zinc-800">
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={handleBack}
           className="w-10 h-10 rounded-full bg-[#f8f9fa] dark:bg-zinc-900 items-center justify-center border border-[#e2dfe1] dark:border-zinc-800"
           activeOpacity={0.7}
         >
