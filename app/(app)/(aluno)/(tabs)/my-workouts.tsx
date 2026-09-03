@@ -7,7 +7,6 @@ import {
   ActivityIndicator,
   RefreshControl,
   useColorScheme,
-  Alert,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -24,6 +23,7 @@ import {
 } from "phosphor-react-native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../../../../lib/supabase";
+import { CustomModal } from "../../../../components/CustomModal";
 
 interface WorkoutCardItem {
   id: string;
@@ -31,6 +31,16 @@ interface WorkoutCardItem {
   type: "personal" | "custom";
   subtitle: string;
   day_of_week?: string;
+}
+
+interface ShowAlertModalOptions {
+  title: string;
+  message: string;
+  type?: "success" | "danger" | "info";
+  confirmText?: string;
+  cancelText?: string;
+  showCancelButton?: boolean;
+  onConfirm?: () => void;
 }
 
 const CATEGORY_FILTERS = [
@@ -112,6 +122,54 @@ export default function MyWorkoutsScreen() {
 
   const [selectedFilter, setSelectedFilter] = useState<FilterType>("all");
 
+  // ESTADO DO MODAL PERSONALIZADO REUTILIZÁVEL
+  const [modalConfig, setModalConfig] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    type: "success" | "danger" | "info";
+    confirmText: string;
+    cancelText: string;
+    showCancelButton: boolean;
+    onConfirm: () => void;
+  }>({
+    visible: false,
+    title: "",
+    message: "",
+    type: "info",
+    confirmText: "Entendi",
+    cancelText: "Cancelar",
+    showCancelButton: false,
+    onConfirm: () => {},
+  });
+
+  /**
+   * Função auxiliar para abrir o modal customizado
+   */
+  function showAlertModal({
+    title,
+    message,
+    type = "info",
+    confirmText = "Entendi",
+    cancelText = "Cancelar",
+    showCancelButton = false,
+    onConfirm,
+  }: ShowAlertModalOptions) {
+    setModalConfig({
+      visible: true,
+      title,
+      message,
+      type,
+      confirmText,
+      cancelText,
+      showCancelButton,
+      onConfirm: () => {
+        setModalConfig((prev) => ({ ...prev, visible: false }));
+        if (onConfirm) onConfirm();
+      },
+    });
+  }
+
   const {
     data: workouts = [],
     isLoading,
@@ -135,10 +193,20 @@ export default function MyWorkoutsScreen() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["student-workouts"] });
       queryClient.invalidateQueries({ queryKey: ["student-home-data"] });
-      Alert.alert("Sucesso", "Treino excluído com sucesso!");
+      showAlertModal({
+        title: "Sucesso! 🎉",
+        message: "O treino foi excluído com sucesso!",
+        type: "success",
+        showCancelButton: false,
+      });
     },
     onError: (err: any) => {
-      Alert.alert("Erro", err.message || "Não foi possível excluir o treino.");
+      showAlertModal({
+        title: "Erro ao Excluir",
+        message: err.message || "Não foi possível excluir o treino.",
+        type: "danger",
+        showCancelButton: false,
+      });
     },
   });
 
@@ -153,18 +221,15 @@ export default function MyWorkoutsScreen() {
   }
 
   function handleDeleteCustomWorkout(workoutId: string, title: string) {
-    Alert.alert(
-      "Excluir Treino",
-      `Tem certeza de que deseja apagar o treino "${title}"?`,
-      [
-        { text: "Cancelar", style: "cancel" },
-        {
-          text: "Excluir",
-          style: "destructive",
-          onPress: () => deleteWorkoutMutation.mutate(workoutId),
-        },
-      ]
-    );
+    showAlertModal({
+      title: "Excluir Treino",
+      message: `Tem certeza de que deseja apagar o treino "${title}"? Esta ação não poderá ser desfeita.`,
+      type: "danger",
+      confirmText: "Excluir",
+      cancelText: "Cancelar",
+      showCancelButton: true,
+      onConfirm: () => deleteWorkoutMutation.mutate(workoutId),
+    });
   }
 
   const filteredWorkouts = workouts.filter((item) => {
@@ -192,8 +257,8 @@ export default function MyWorkoutsScreen() {
         <TouchableOpacity
           activeOpacity={0.8}
           onPress={() => router.push("/(aluno)/create-workout")}
-          className="bg-[#59C83A] p-3 rounded-2xl shadow-sm">
-
+          className="bg-[#59C83A] p-3 rounded-2xl shadow-sm"
+        >
           <Plus size={20} color="#FFFFFF" weight="bold" />
         </TouchableOpacity>
       </View>
@@ -262,8 +327,8 @@ export default function MyWorkoutsScreen() {
               {selectedFilter === "personal"
                 ? "Seu personal trainer ainda não prescreveu fichas nesta categoria."
                 : selectedFilter === "custom"
-                  ? "Você ainda não criou nenhum treino personalizado."
-                  : "Nenhuma ficha de treino cadastrada até o momento."}
+                ? "Você ainda não criou nenhum treino personalizado."
+                : "Nenhuma ficha de treino cadastrada até o momento."}
             </Text>
           </View>
         ) : (
@@ -374,6 +439,19 @@ export default function MyWorkoutsScreen() {
           })
         )}
       </ScrollView>
+
+      {/* COMPONENTE DO MODAL PERSONALIZADO REUTILIZÁVEL */}
+      <CustomModal
+        visible={modalConfig.visible}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        type={modalConfig.type}
+        confirmText={modalConfig.confirmText}
+        cancelText={modalConfig.cancelText}
+        showCancelButton={modalConfig.showCancelButton}
+        onConfirm={modalConfig.onConfirm}
+        onClose={() => setModalConfig((prev) => ({ ...prev, visible: false }))}
+      />
     </View>
   );
 }

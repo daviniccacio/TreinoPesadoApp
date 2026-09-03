@@ -5,7 +5,6 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
   Modal,
   useColorScheme,
 } from "react-native";
@@ -26,7 +25,8 @@ import {
 } from "phosphor-react-native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../../../lib/supabase";
-import { useThrottledCallback } from '../../../lib/useThrottle';
+import { useThrottledCallback } from "../../../lib/useThrottle";
+import { CustomModal } from "../../../components/CustomModal";
 
 // --- TIPAGENS DE DADOS ---
 interface ExerciseItem {
@@ -47,6 +47,16 @@ interface DemoExerciseData {
   name: string;
   gif_url?: string | null;
   description?: string | null;
+}
+
+interface ShowAlertModalOptions {
+  title: string;
+  message: string;
+  type?: "success" | "danger" | "info";
+  confirmText?: string;
+  cancelText?: string;
+  showCancelButton?: boolean;
+  onConfirm?: () => void;
 }
 
 /**
@@ -153,9 +163,54 @@ export default function ExecuteWorkoutScreen() {
   const [loadingDemo, setLoadingDemo] = useState<boolean>(false);
   const [demoExercise, setDemoExercise] = useState<DemoExerciseData | null>(null);
 
+  // --- ESTADO DO MODAL PERSONALIZADO DE ALERTA ---
+  const [modalConfig, setModalConfig] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    type: "success" | "danger" | "info";
+    confirmText: string;
+    cancelText: string;
+    showCancelButton: boolean;
+    onConfirm: () => void;
+  }>({
+    visible: false,
+    title: "",
+    message: "",
+    type: "info",
+    confirmText: "Entendi",
+    cancelText: "Cancelar",
+    showCancelButton: false,
+    onConfirm: () => {},
+  });
+
   // Referências dos intervalos
   const workoutTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const restTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  function showAlertModal({
+    title,
+    message,
+    type = "info",
+    confirmText = "Entendi",
+    cancelText = "Cancelar",
+    showCancelButton = false,
+    onConfirm,
+  }: ShowAlertModalOptions) {
+    setModalConfig({
+      visible: true,
+      title,
+      message,
+      type,
+      confirmText,
+      cancelText,
+      showCancelButton,
+      onConfirm: () => {
+        setModalConfig((prev) => ({ ...prev, visible: false }));
+        if (onConfirm) onConfirm();
+      },
+    });
+  }
 
   const handleFinishThrottled = useThrottledCallback(handleFinishWorkout, 2000);
 
@@ -188,26 +243,28 @@ export default function ExecuteWorkoutScreen() {
       return duration;
     },
     onSuccess: (finalTime) => {
-      // Invalida os caches globais para que as outras telas reflitam o novo treino concluído
       queryClient.invalidateQueries({ queryKey: ["workout-history"] });
       queryClient.invalidateQueries({ queryKey: ["student-profile-stats"] });
       queryClient.invalidateQueries({ queryKey: ["student-home-data"] });
 
       resetWorkoutState();
 
-      Alert.alert(
-        "Treino Concluído! 🎉",
-        `Parabéns! Você completou o "${workoutName}" em ${formatTime(finalTime)}.`,
-        [
-          {
-            text: "Voltar",
-            onPress: () => handleNavigateBack(),
-          },
-        ]
-      );
+      showAlertModal({
+        title: "Treino Concluído! 🎉",
+        message: `Parabéns! Você completou o "${workoutName}" em ${formatTime(finalTime)}.`,
+        type: "success",
+        confirmText: "Voltar",
+        showCancelButton: false,
+        onConfirm: () => handleNavigateBack(),
+      });
     },
     onError: (error: any) => {
-      Alert.alert("Erro ao Salvar", error.message || "Não foi possível registrar o treino.");
+      showAlertModal({
+        title: "Erro ao Salvar",
+        message: error.message || "Não foi possível registrar o treino.",
+        type: "danger",
+        showCancelButton: false,
+      });
     },
   });
 
@@ -300,21 +357,18 @@ export default function ExecuteWorkoutScreen() {
   }
 
   function handleExitWorkout() {
-    Alert.alert(
-      "Sair do Treino",
-      "Deseja cancelar o treino em andamento? O tempo e progresso atual não serão salvos.",
-      [
-        { text: "Continuar Treinando", style: "cancel" },
-        {
-          text: "Sair sem Salvar",
-          style: "destructive",
-          onPress: () => {
-            resetWorkoutState();
-            handleNavigateBack();
-          },
-        },
-      ]
-    );
+    showAlertModal({
+      title: "Sair do Treino",
+      message: "Deseja cancelar o treino em andamento? O tempo e progresso atual não serão salvos.",
+      type: "danger",
+      confirmText: "Sair sem Salvar",
+      cancelText: "Continuar Treinando",
+      showCancelButton: true,
+      onConfirm: () => {
+        resetWorkoutState();
+        handleNavigateBack();
+      },
+    });
   }
 
   async function handleOpenExerciseDemo(exerciseId: string, fallbackName: string) {
@@ -714,6 +768,19 @@ export default function ExecuteWorkoutScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* COMPONENTE DO MODAL PERSONALIZADO REUTILIZÁVEL */}
+      <CustomModal
+        visible={modalConfig.visible}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        type={modalConfig.type}
+        confirmText={modalConfig.confirmText}
+        cancelText={modalConfig.cancelText}
+        showCancelButton={modalConfig.showCancelButton}
+        onConfirm={modalConfig.onConfirm}
+        onClose={() => setModalConfig((prev) => ({ ...prev, visible: false }))}
+      />
     </View>
   );
 }
