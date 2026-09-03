@@ -192,9 +192,8 @@ export default function MyWorkoutsScreen() {
         <TouchableOpacity
           activeOpacity={0.8}
           onPress={() => router.push("/(aluno)/create-workout")}
-          className="flex flex-row gap-1 bg-[#59C83A] p-3 rounded-2xl shadow-sm"
-        >
-          <Text className="font-bold text-white text-sm">Criar treino</Text>
+          className="bg-[#59C83A] p-3 rounded-2xl shadow-sm">
+
           <Plus size={20} color="#FFFFFF" weight="bold" />
         </TouchableOpacity>
       </View>
