@@ -31,8 +31,7 @@ interface WorkoutLog {
 }
 
 /**
- * Função responsável por buscar os logs de treino do aluno no Supabase.
- * Executada pelo TanStack Query e mantida em cache global.
+ * Busca os logs de treino do aluno no Supabase.
  */
 async function fetchWorkoutHistory(): Promise<WorkoutLog[]> {
   const {
@@ -55,22 +54,32 @@ async function fetchWorkoutHistory(): Promise<WorkoutLog[]> {
 }
 
 /**
- * Converte segundos para um formato legível em Português
+ * Converte segundos para um formato legível (Ex: "0 min", "2s", "5 min", "1h 02m")
  */
 function formatDuration(totalSeconds: number): string {
+  // Se for 0 ou negativo, retorna 0 min
   if (!totalSeconds || totalSeconds <= 0) return '0 min';
 
   const hours = Math.floor(totalSeconds / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
 
+  // 1. Se durou mais de 1 hora (ex: 1h 05m)
   if (hours > 0) {
     return `${hours}h ${String(minutes).padStart(2, '0')}m`;
   }
-  return `${minutes > 0 ? minutes : 1} min`;
+
+  // 2. Se durou pelo menos 1 minuto (ex: 5 min)
+  if (minutes > 0) {
+    return `${minutes} min`;
+  }
+
+  // 3. Se durou menos de 1 minuto (ex: 2s, 45s)
+  return `${seconds}s`;
 }
 
 /**
- * Formata a data ISO para o padrão brasileiro
+ * Formata a data ISO para o padrão brasileiro (DD/MM/AAAA às HH:MM)
  */
 function formatDate(isoString: string): string {
   if (!isoString) return '';
@@ -92,7 +101,7 @@ export default function StudentWorkoutHistoryScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
-  // --- REQUISITION COM TANSTACK QUERY ---
+  // --- REQUISIÇÃO COM TANSTACK QUERY ---
   const {
     data: logs = [],
     isLoading,
