@@ -23,6 +23,8 @@ import {
   Barbell,
   MagnifyingGlass,
   X,
+  Calendar,
+  Target,
 } from "phosphor-react-native";
 import { useQueryClient } from "@tanstack/react-query";
 import { Image } from "expo-image";
@@ -36,6 +38,15 @@ if (
 ) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
+
+const DAYS_OF_WEEK = [
+  "Livre",
+  "Segunda",
+  "Terça",
+  "Quarta",
+  "Quinta",
+  "Sexta",
+];
 
 interface ExerciseOption {
   id: string;
@@ -64,8 +75,10 @@ export default function CreateOrEditWorkoutScreen() {
   const { planId } = useLocalSearchParams<{ planId?: string }>();
   const isEditing = !!planId;
 
-  // ESTADOS DO FORMULÁRIO
+  // ESTADOS DO FORMULÁRIO (INCLUINDO PROPÓSITO E DIA DA SEMANA)
   const [workoutTitle, setWorkoutTitle] = useState("");
+  const [workoutDescription, setWorkoutDescription] = useState("");
+  const [selectedDay, setSelectedDay] = useState("Livre");
   const [selectedExercises, setSelectedExercises] = useState<SelectedExercise[]>([]);
   const [isLoadingWorkout, setIsLoadingWorkout] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -95,6 +108,8 @@ export default function CreateOrEditWorkoutScreen() {
           .select(`
             id,
             title,
+            description,
+            day_of_week,
             custom_workout_exercises (
               id,
               sets,
@@ -116,6 +131,8 @@ export default function CreateOrEditWorkoutScreen() {
 
         if (data) {
           setWorkoutTitle(data.title || "");
+          setWorkoutDescription(data.description || "");
+          setSelectedDay(data.day_of_week || "Livre");
 
           const formattedExercises: SelectedExercise[] = (
             data.custom_workout_exercises || []
@@ -141,7 +158,7 @@ export default function CreateOrEditWorkoutScreen() {
     loadWorkoutForEditing();
   }, [planId]);
 
-  // 2. BUSCA A LISTA DE TODOS OS EXERCÍCIOS DISPONÍVEIS COM GIF_KEY
+  // 2. BUSCA A LISTA DE TODOS OS EXERCÍCIOS DISPONÍVEIS
   async function handleOpenAddExerciseModal() {
     setIsModalOpen(true);
     setExpandedModalExerciseId(null);
@@ -188,7 +205,7 @@ export default function CreateOrEditWorkoutScreen() {
     });
   }, [availableExercises, selectedCategory, searchQuery]);
 
-  // 5. SELEÇÃO COM ANIMAÇÃO ACCORDION NO MODAL
+  // 5. SELEÇÃO DE EXERCÍCIO
   function handleSelectExercise(exercise: ExerciseOption) {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
 
@@ -238,7 +255,7 @@ export default function CreateOrEditWorkoutScreen() {
     setSelectedExercises((prev) => prev.filter((_, i) => i !== index));
   }
 
-  // 8. SALVA OU ATUALIZA O TREINO NO SUPABASE
+  // 8. SALVA OU ATUALIZA O TREINO NO SUPABASE (COM CAMPOS ADICIONAIS)
   async function handleSaveWorkout() {
     if (!workoutTitle.trim()) {
       Alert.alert("Campo Obrigatório", "Por favor, informe o nome do treino.");
@@ -263,13 +280,27 @@ export default function CreateOrEditWorkoutScreen() {
 
       let currentWorkoutId = planId;
 
+      const payload = {
+        title: workoutTitle.trim(),
+        description: workoutDescription.trim(),
+        day_of_week: selectedDay,
+      };
+
       if (isEditing && planId) {
-        const { error: updateError } = await supabase
+        let { error: updateError } = await supabase
           .from("custom_workouts")
-          .update({ title: workoutTitle.trim() })
+          .update(payload)
           .eq("id", planId);
 
-        if (updateError) throw new Error(updateError.message);
+        // Fallback caso a tabela ainda não tenha colunas description/day_of_week no BD
+        if (updateError) {
+          const { error: fallbackUpdateError } = await supabase
+            .from("custom_workouts")
+            .update({ title: workoutTitle.trim() })
+            .eq("id", planId);
+
+          if (fallbackUpdateError) throw new Error(fallbackUpdateError.message);
+        }
 
         const { error: deleteError } = await supabase
           .from("custom_workout_exercises")
@@ -283,18 +314,38 @@ export default function CreateOrEditWorkoutScreen() {
             .eq("workout_id", planId);
         }
       } else {
-        const { data: newWorkout, error: insertError } = await supabase
+        let newWorkoutData = null;
+        let insertError = null;
+
+        const fullInsert = await supabase
           .from("custom_workouts")
           .insert({
-            title: workoutTitle.trim(),
+            ...payload,
             user_id: user.id,
             student_id: user.id,
           })
           .select("id")
           .single();
 
-        if (insertError) throw new Error(insertError.message);
-        currentWorkoutId = newWorkout.id;
+        if (fullInsert.error) {
+          // Fallback se colunas extras não existirem no schema
+          const fallbackInsert = await supabase
+            .from("custom_workouts")
+            .insert({
+              title: workoutTitle.trim(),
+              user_id: user.id,
+              student_id: user.id,
+            })
+            .select("id")
+            .single();
+
+          if (fallbackInsert.error) throw new Error(fallbackInsert.error.message);
+          newWorkoutData = fallbackInsert.data;
+        } else {
+          newWorkoutData = fullInsert.data;
+        }
+
+        currentWorkoutId = newWorkoutData.id;
       }
 
       if (currentWorkoutId) {
@@ -396,12 +447,64 @@ export default function CreateOrEditWorkoutScreen() {
             Nome do Treino
           </Text>
           <TextInput
-            className="bg-[#f8f9fa] dark:bg-zinc-900 border border-[#e2dfe1] dark:border-zinc-800 rounded-2xl px-4 py-3.5 text-base font-bold text-[#1b1b1d] dark:text-white mb-6"
+            className="bg-[#f8f9fa] dark:bg-zinc-900 border border-[#e2dfe1] dark:border-zinc-800 rounded-2xl px-4 py-3.5 text-base font-medium text-[#1b1b1d] dark:text-white mb-4"
             placeholder="Ex: Treino A - Peito e Tríceps"
             placeholderTextColor={isDark ? "#71717a" : "#a1a1aa"}
             value={workoutTitle}
             onChangeText={setWorkoutTitle}
           />
+
+          {/* CAMPO PROPÓSITO / PARA QUE SERVE */}
+          <View className="flex-row items-center mb-1.5">
+            <Target size={14} color="#59C83A" weight="bold" />
+            <Text className="text-xs font-bold text-[#71717a] dark:text-zinc-400 uppercase ml-1">
+              Propósito / Para que serve
+            </Text>
+          </View>
+          <TextInput
+            className="bg-[#f8f9fa] dark:bg-zinc-900 border border-[#e2dfe1] dark:border-zinc-800 rounded-2xl px-4 py-3 text-sm font-semibold text-[#1b1b1d] dark:text-white mb-4"
+            placeholder="Ex: Hipertrofia de peitorais e ganho de força no tríceps"
+            placeholderTextColor={isDark ? "#71717a" : "#a1a1aa"}
+            value={workoutDescription}
+            onChangeText={setWorkoutDescription}
+          />
+
+          {/* SELEÇÃO DIA DA SEMANA */}
+          <View className="flex-row items-center mb-2">
+            <Calendar size={14} color="#59C83A" weight="bold" />
+            <Text className="text-xs font-bold text-[#71717a] dark:text-zinc-400 uppercase ml-1">
+              Dia Sugerido / Frequência
+            </Text>
+          </View>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ gap: 8 }}
+            className="mb-6"
+          >
+            {DAYS_OF_WEEK.map((day) => {
+              const isActive = selectedDay === day;
+              return (
+                <TouchableOpacity
+                  key={day}
+                  onPress={() => setSelectedDay(day)}
+                  className={`px-4 py-2 rounded-xl border ${
+                    isActive
+                      ? "bg-[#59C83A] border-[#59C83A]"
+                      : "bg-[#f8f9fa] dark:bg-zinc-900 border-[#e2dfe1] dark:border-zinc-800"
+                  }`}
+                >
+                  <Text
+                    className={`text-xs font-bold ${
+                      isActive ? "text-white" : "text-[#71717a] dark:text-zinc-400"
+                    }`}
+                  >
+                    {day}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
 
           {/* CABEÇALHO DA SEÇÃO DE EXERCÍCIOS */}
           <View className="flex-row items-center justify-between mb-3">
@@ -525,7 +628,7 @@ export default function CreateOrEditWorkoutScreen() {
         </ScrollView>
       )}
 
-      {/* MODAL PARA SELEÇÃO DE EXERCÍCIOS (COM ACCORDION, FILTRO E GIF) */}
+      {/* MODAL PARA SELEÇÃO DE EXERCÍCIOS */}
       <Modal visible={isModalOpen} animationType="slide" transparent>
         <View className="flex-1 bg-black/60 justify-end">
           <View className="bg-white dark:bg-zinc-900 rounded-t-3xl p-6 h-[85%] border-t border-[#e2dfe1] dark:border-zinc-800">
