@@ -1,4 +1,8 @@
-/* global.css */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Força todos os elementos de texto a usarem a DM Sans como padrão */
+text {
+  font-family: 'DMSans_400Regular';
+}

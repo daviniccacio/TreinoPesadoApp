@@ -9,7 +9,7 @@ if (SafeAreaProvider) {
 // 3. CSS Global
 import '../global.css';
 
-// 4. Importações do React, React Native, Expo Router, Supabase e TanStack Query
+// 4. Importações do React, React Native, Expo Router, Supabase, TanStack Query e SplashScreen
 import React, { useEffect, useState } from 'react';
 import { View, ActivityIndicator, useColorScheme } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
@@ -19,9 +19,24 @@ import {
   DefaultTheme,
   ThemeProvider,
 } from '@react-navigation/native';
+
+// 5. Importação das fontes Outfit e DM Sans
+import {
+  useFonts,
+  Outfit_700Bold,
+  Outfit_800ExtraBold,
+} from '@expo-google-fonts/outfit';
+import {
+  DMSans_400Regular,
+  DMSans_500Medium,
+  DMSans_700Bold,
+} from '@expo-google-fonts/dm-sans';
+
 import { supabase } from '../lib/supabase';
 
-// 5. Tema escuro customizado para coincidir com a cor dark:bg-zinc-950 (#09090b)
+// Impede que a tela de splash oculte antes da autenticação e das fontes carregarem
+
+// 6. Tema escuro customizado para coincidir com a cor dark:bg-zinc-950 (#09090b)
 const CustomDarkTheme = {
   ...DarkTheme,
   colors: {
@@ -40,7 +55,7 @@ const CustomLightTheme = {
   },
 };
 
-// 6. Configuração da instância do TanStack Query
+// 7. Configuração da instância do TanStack Query
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -53,11 +68,20 @@ const queryClient = new QueryClient({
 
 /**
  * Layout Raiz do Aplicativo
- * Valida a existência do usuário no servidor e gerencia a proteção global de rotas.
+ * Carrega as fontes de sistema, valida a autenticação no servidor e protege as rotas globais.
  */
 export default function RootLayout() {
   const [session, setSession] = useState<any>(null);
   const [isReady, setIsReady] = useState<boolean>(false);
+
+  // Carregamento das fontes do Google Fonts
+  const [fontsLoaded, fontError] = useFonts({
+    Outfit_700Bold,
+    Outfit_800ExtraBold,
+    DMSans_400Regular,
+    DMSans_500Medium,
+    DMSans_700Bold,
+  });
 
   const segments = useSegments();
   const router = useRouter();
@@ -108,7 +132,7 @@ export default function RootLayout() {
 
   // Controle e Proteção Global de Rotas
   useEffect(() => {
-    if (!isReady) return;
+    if (!isReady || (!fontsLoaded && !fontError)) return;
 
     const inAppGroup = segments[0] === '(app)';
     const inAuthGroup = segments[0] === '(auth)';
@@ -122,10 +146,10 @@ export default function RootLayout() {
         router.replace('/(auth)/login');
       }
     }
-  }, [session, isReady, segments]);
+  }, [session, isReady, fontsLoaded, fontError, segments]);
 
-  // Tela de carregamento exibida enquanto consulta a autenticação no banco
-  if (!isReady) {
+  // Tela de carregamento exibida enquanto consulta a autenticação e carrega as fontes
+  if (!isReady || (!fontsLoaded && !fontError)) {
     return (
       <View className="flex-1 justify-center items-center bg-white dark:bg-zinc-950">
         <ActivityIndicator size="large" color="#59C83A" />
@@ -140,7 +164,7 @@ export default function RootLayout() {
           <Stack
             screenOptions={{
               headerShown: false,
-              // Fixa a cor do container nativo da Stack para evitar a piscada branca durante o fade
+              // Fixa a cor do container nativo da Stack para evitar a piscada branca durante a transição
               contentStyle: {
                 backgroundColor: isDark ? '#09090b' : '#ffffff',
               },

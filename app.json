@@ -44,7 +44,8 @@
       "url": "https://u.expo.dev/94a45cee-7aa6-42d1-9c27-7faeade308ca"
     },
     "plugins": [
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-font"
     ]
   }
 }
