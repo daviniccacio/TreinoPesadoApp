@@ -19,6 +19,7 @@ import {
   WarningCircle,
 } from 'phosphor-react-native';
 import { useQuery } from '@tanstack/react-query';
+import { MotiView } from 'moti';
 import { supabase } from '../../../../lib/supabase';
 
 interface Exercise {
@@ -55,10 +56,8 @@ export default function CategoryScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
-  // Estado local apenas para o campo de busca por nome
   const [searchQuery, setSearchQuery] = useState<string>('');
 
-  // --- REQUISITION COM TANSTACK QUERY ---
   const {
     data: exercises = [],
     isLoading,
@@ -68,64 +67,85 @@ export default function CategoryScreen() {
   } = useQuery({
     queryKey: ['category-exercises', id],
     queryFn: () => fetchExercisesByCategory(id || ''),
-    enabled: !!id, // Só executa a query se o ID da categoria existir
+    enabled: !!id,
   });
 
   const categoryTitle = id ? id.charAt(0).toUpperCase() + id.slice(1) : 'Categoria';
 
-  // Filtra os exercícios em memória conforme a busca do usuário
   const filteredExercises = exercises.filter((item) =>
     item.name.toLowerCase().includes(searchQuery.toLowerCase().trim())
   );
 
-  function renderExerciseItem({ item }: { item: Exercise }) {
-    return (
-      <TouchableOpacity
-        onPress={() =>
-          router.push({
-            pathname: '/(aluno)/exercise/[id]',
-            params: { id: item.id, from: 'category', categoryId: id },
-          })
-        }
-        className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl mb-3 flex-row items-center justify-between border border-[#e2dfe1] dark:border-zinc-800"
-        activeOpacity={0.8}
-      >
-        <View className="flex-1 mr-3">
-          <Text className="text-base font-bold text-[#1b1b1d] dark:text-white mb-1">
-            {item.name}
-          </Text>
-          <View className="flex-row items-center gap-3">
-            <Text className="text-xs text-[#414755] dark:text-zinc-400">
-              <Text style={{ color: '#59C83A' }} className="font-bold">
-                {item.sets}
-              </Text>{' '}
-              séries
-            </Text>
-            <Text className="text-xs text-[#414755] dark:text-zinc-400">
-              <Text style={{ color: '#59C83A' }} className="font-bold">
-                {item.reps}
-              </Text>{' '}
-              reps
-            </Text>
-            <Text className="text-xs text-[#414755] dark:text-zinc-400">
-              <Text style={{ color: '#59C83A' }} className="font-bold">
-                {item.weight}
-              </Text>
-            </Text>
-          </View>
-        </View>
+  const safeTopPadding = Math.max(insets?.top || 0, 16);
 
-        <View className="w-9 h-9 rounded-full bg-white dark:bg-zinc-800 items-center justify-center border border-[#e0dddf] dark:border-zinc-700">
-          <CaretRight size={16} color="#59C83A" />
-        </View>
-      </TouchableOpacity>
+  function renderExerciseItem({ item, index }: { item: Exercise; index: number }) {
+    return (
+      <MotiView
+        from={{ opacity: 0, translateY: 14, scale: 0.97 }}
+        animate={{ opacity: 1, translateY: 0, scale: 1 }}
+        transition={{
+          type: 'spring',
+          damping: 22,
+          stiffness: 150,
+          delay: index * 40, // Cascata ritmada por card
+        }}
+      >
+        <TouchableOpacity
+          onPress={() =>
+            router.push({
+              pathname: '/(aluno)/exercise/[id]',
+              params: { id: item.id, from: 'category', categoryId: id },
+            })
+          }
+          className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl mb-3 flex-row items-center justify-between border border-[#e2dfe1] dark:border-zinc-800"
+          activeOpacity={0.8}
+        >
+          <View className="flex-1 mr-3">
+            <Text className="text-base font-bold text-[#1b1b1d] dark:text-white mb-1">
+              {item.name}
+            </Text>
+            <View className="flex-row items-center gap-3">
+              <Text className="text-xs text-[#414755] dark:text-zinc-400">
+                <Text style={{ color: '#59C83A' }} className="font-bold">
+                  {item.sets}
+                </Text>{' '}
+                séries
+              </Text>
+              <Text className="text-xs text-[#414755] dark:text-zinc-400">
+                <Text style={{ color: '#59C83A' }} className="font-bold">
+                  {item.reps}
+                </Text>{' '}
+                reps
+              </Text>
+              <Text className="text-xs text-[#414755] dark:text-zinc-400">
+                <Text style={{ color: '#59C83A' }} className="font-bold">
+                  {item.weight}
+                </Text>
+              </Text>
+            </View>
+          </View>
+
+          <View className="w-9 h-9 rounded-full bg-white dark:bg-zinc-800 items-center justify-center border border-[#e0dddf] dark:border-zinc-700">
+            <CaretRight size={16} color="#59C83A" />
+          </View>
+        </TouchableOpacity>
+      </MotiView>
     );
   }
 
   return (
-    <View className="flex-1 bg-white dark:bg-zinc-950" style={{ paddingTop: insets.top }}>
-      {/* 1. Cabeçalho */}
-      <View className="flex-row items-center justify-between px-5 py-3 border-b border-[#f0edef] dark:border-zinc-800">
+    <View className="flex-1 bg-white dark:bg-zinc-950" style={{ paddingTop: safeTopPadding }}>
+      {/* 1. CABEÇALHO ANIMADO */}
+      <MotiView
+        from={{ opacity: 0, translateY: -8 }}
+        animate={{ opacity: 1, translateY: 0 }}
+        transition={{
+          type: 'spring',
+          damping: 24,
+          stiffness: 160,
+        }}
+        className="flex-row items-center justify-between px-5 py-3 border-b border-[#f0edef] dark:border-zinc-800"
+      >
         <TouchableOpacity
           onPress={() => router.back()}
           className="w-10 h-10 rounded-full bg-[#f8f9fa] dark:bg-zinc-900 items-center justify-center border border-[#e2dfe1] dark:border-zinc-800"
@@ -139,9 +159,9 @@ export default function CategoryScreen() {
         </Text>
 
         <View className="w-10" />
-      </View>
+      </MotiView>
 
-      {/* 2. Conteúdo Principal */}
+      {/* 2. CONTEÚDO PRINCIPAL */}
       {isLoading ? (
         <View className="flex-1 justify-center items-center">
           <ActivityIndicator size="large" color="#59C83A" />
@@ -150,7 +170,12 @@ export default function CategoryScreen() {
           </Text>
         </View>
       ) : isError ? (
-        <View className="flex-1 justify-center items-center px-5">
+        <MotiView
+          from={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ type: 'timing', duration: 250 }}
+          className="flex-1 justify-center items-center px-5"
+        >
           <WarningCircle size={48} color="#e11d48" />
           <Text className="text-base font-bold text-[#1b1b1d] dark:text-white mt-2 text-center">
             Não foi possível carregar os exercícios
@@ -162,23 +187,34 @@ export default function CategoryScreen() {
           >
             <Text className="text-white font-bold text-xs">Tentar Novamente</Text>
           </TouchableOpacity>
-        </View>
+        </MotiView>
       ) : (
         <FlatList
           data={filteredExercises}
           keyExtractor={(item) => item.id}
-          renderItem={renderExerciseItem}
-          contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 40 }}
+          renderItem={({ item, index }) => renderExerciseItem({ item, index })}
+          contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 80 }}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
               refreshing={isRefetching}
               onRefresh={refetch}
               tintColor="#59C83A"
+              colors={['#59C83A']}
             />
           }
           ListHeaderComponent={
-            <View className="mb-4">
+            <MotiView
+              from={{ opacity: 0, translateY: 10 }}
+              animate={{ opacity: 1, translateY: 0 }}
+              transition={{
+                type: 'spring',
+                damping: 22,
+                stiffness: 150,
+                delay: 30,
+              }}
+              className="mb-4"
+            >
               <Text className="text-xl font-bold text-[#1b1b1d] dark:text-white mb-3">
                 Exercícios Disponíveis
               </Text>
@@ -201,16 +237,21 @@ export default function CategoryScreen() {
                   </TouchableOpacity>
                 )}
               </View>
-            </View>
+            </MotiView>
           }
           ListEmptyComponent={
-            <View className="py-10 items-center">
+            <MotiView
+              from={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ type: 'timing', duration: 200 }}
+              className="py-10 items-center"
+            >
               <Text className="text-[#414755] dark:text-zinc-400 font-medium text-center text-xs">
                 {searchQuery.trim().length > 0
                   ? `Nenhum exercício encontrado com "${searchQuery}" em ${categoryTitle}.`
                   : 'Nenhum exercício cadastrado para esta categoria.'}
               </Text>
-            </View>
+            </MotiView>
           }
         />
       )}

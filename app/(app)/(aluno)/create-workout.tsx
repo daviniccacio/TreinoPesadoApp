@@ -24,6 +24,7 @@ import {
 } from "phosphor-react-native";
 import { useQueryClient } from "@tanstack/react-query";
 import { Image } from "expo-image";
+import { MotiView } from "moti";
 
 import { supabase } from "../../../lib/supabase";
 import { getExerciseGif } from "../../../lib/exerciseGifs";
@@ -260,7 +261,6 @@ export default function CreateOrEditWorkoutScreen() {
 
   // 5. SELEÇÃO DE EXERCÍCIO
   function handleSelectExercise(exercise: ExerciseOption) {
-
     const alreadyExists = selectedExercises.some(
       (e) => e.exercise_id === exercise.id
     );
@@ -466,13 +466,24 @@ export default function CreateOrEditWorkoutScreen() {
     }
   }
 
+  const safeTopPadding = Math.max(insets?.top || 0, 16);
+
   return (
     <View
       className="flex-1 bg-white dark:bg-zinc-950 px-5"
-      style={{ paddingTop: insets.top + 10 }}
+      style={{ paddingTop: safeTopPadding + 10 }}
     >
-      {/* CABEÇALHO */}
-      <View className="flex-row items-center justify-between mb-5">
+      {/* 1. CABEÇALHO ANIMADO */}
+      <MotiView
+        from={{ opacity: 0, translateY: -8 }}
+        animate={{ opacity: 1, translateY: 0 }}
+        transition={{
+          type: "spring",
+          damping: 24,
+          stiffness: 160,
+        }}
+        className="flex-row items-center justify-between mb-5"
+      >
         <TouchableOpacity
           activeOpacity={0.7}
           onPress={() => router.back()}
@@ -486,7 +497,7 @@ export default function CreateOrEditWorkoutScreen() {
         </Text>
 
         <View className="w-10" />
-      </View>
+      </MotiView>
 
       {isLoadingWorkout ? (
         <View className="flex-1 justify-center items-center">
@@ -500,72 +511,94 @@ export default function CreateOrEditWorkoutScreen() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: 40 }}
         >
-          {/* CAMPO NOME DO TREINO */}
-          <Text className="text-xs font-bold text-[#71717a] dark:text-zinc-400 uppercase mb-1.5">
-            Nome do Treino
-          </Text>
-          <TextInput
-            className="bg-[#f8f9fa] dark:bg-zinc-900 border border-[#e2dfe1] dark:border-zinc-800 rounded-2xl px-4 py-3.5 text-base font-medium text-[#1b1b1d] dark:text-white mb-4"
-            placeholder="Ex: Treino A - Peito e Tríceps"
-            placeholderTextColor={isDark ? "#71717a" : "#a1a1aa"}
-            value={workoutTitle}
-            onChangeText={setWorkoutTitle}
-          />
-
-          {/* CAMPO PROPÓSITO / PARA QUE SERVE */}
-          <View className="flex-row items-center mb-1.5">
-            <Target size={14} color="#59C83A" weight="bold" />
-            <Text className="text-xs font-bold text-[#71717a] dark:text-zinc-400 uppercase ml-1">
-              Propósito / Para que serve
-            </Text>
-          </View>
-          <TextInput
-            className="bg-[#f8f9fa] dark:bg-zinc-900 border border-[#e2dfe1] dark:border-zinc-800 rounded-2xl px-4 py-3 text-sm font-semibold text-[#1b1b1d] dark:text-white mb-4"
-            placeholder="Ex: Hipertrofia de peitorais e ganho de força no tríceps"
-            placeholderTextColor={isDark ? "#71717a" : "#a1a1aa"}
-            value={workoutDescription}
-            onChangeText={setWorkoutDescription}
-          />
-
-          {/* SELEÇÃO DIA DA SEMANA */}
-          <View className="flex-row items-center mb-2">
-            <Calendar size={14} color="#59C83A" weight="bold" />
-            <Text className="text-xs font-bold text-[#71717a] dark:text-zinc-400 uppercase ml-1">
-              Dia Sugerido / Frequência
-            </Text>
-          </View>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ gap: 8 }}
-            className="mb-6"
+          {/* 2. CAMPOS DO FORMULÁRIO ANIMADOS */}
+          <MotiView
+            from={{ opacity: 0, translateY: 10 }}
+            animate={{ opacity: 1, translateY: 0 }}
+            transition={{
+              type: "spring",
+              damping: 22,
+              stiffness: 150,
+              delay: 30,
+            }}
           >
-            {DAYS_OF_WEEK.map((day) => {
-              const isActive = selectedDay === day;
-              return (
-                <TouchableOpacity
-                  key={day}
-                  onPress={() => setSelectedDay(day)}
-                  className={`px-4 py-2 rounded-xl border ${
-                    isActive
-                      ? "bg-[#59C83A] border-[#59C83A]"
-                      : "bg-[#f8f9fa] dark:bg-zinc-900 border-[#e2dfe1] dark:border-zinc-800"
-                  }`}
-                >
-                  <Text
-                    className={`text-xs font-bold ${
-                      isActive ? "text-white" : "text-[#71717a] dark:text-zinc-400"
+            {/* CAMPO NOME DO TREINO */}
+            <Text className="text-xs font-bold text-[#71717a] dark:text-zinc-400 uppercase mb-1.5">
+              Nome do Treino
+            </Text>
+            <TextInput
+              className="bg-[#f8f9fa] dark:bg-zinc-900 border border-[#e2dfe1] dark:border-zinc-800 rounded-2xl px-4 py-3.5 text-base font-medium text-[#1b1b1d] dark:text-white mb-4"
+              placeholder="Ex: Treino A - Peito e Tríceps"
+              placeholderTextColor={isDark ? "#71717a" : "#a1a1aa"}
+              value={workoutTitle}
+              onChangeText={setWorkoutTitle}
+            />
+
+            {/* CAMPO PROPÓSITO / PARA QUE SERVE */}
+            <View className="flex-row items-center mb-1.5">
+              <Target size={14} color="#59C83A" weight="bold" />
+              <Text className="text-xs font-bold text-[#71717a] dark:text-zinc-400 uppercase ml-1">
+                Propósito / Para que serve
+              </Text>
+            </View>
+            <TextInput
+              className="bg-[#f8f9fa] dark:bg-zinc-900 border border-[#e2dfe1] dark:border-zinc-800 rounded-2xl px-4 py-3 text-sm font-semibold text-[#1b1b1d] dark:text-white mb-4"
+              placeholder="Ex: Hipertrofia de peitorais e ganho de força no tríceps"
+              placeholderTextColor={isDark ? "#71717a" : "#a1a1aa"}
+              value={workoutDescription}
+              onChangeText={setWorkoutDescription}
+            />
+
+            {/* SELEÇÃO DIA DA SEMANA */}
+            <View className="flex-row items-center mb-2">
+              <Calendar size={14} color="#59C83A" weight="bold" />
+              <Text className="text-xs font-bold text-[#71717a] dark:text-zinc-400 uppercase ml-1">
+                Dia Sugerido / Frequência
+              </Text>
+            </View>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ gap: 8 }}
+              className="mb-6"
+            >
+              {DAYS_OF_WEEK.map((day) => {
+                const isActive = selectedDay === day;
+                return (
+                  <TouchableOpacity
+                    key={day}
+                    onPress={() => setSelectedDay(day)}
+                    className={`px-4 py-2 rounded-xl border ${
+                      isActive
+                        ? "bg-[#59C83A] border-[#59C83A]"
+                        : "bg-[#f8f9fa] dark:bg-zinc-900 border-[#e2dfe1] dark:border-zinc-800"
                     }`}
                   >
-                    {day}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
+                    <Text
+                      className={`text-xs font-bold ${
+                        isActive ? "text-white" : "text-[#71717a] dark:text-zinc-400"
+                      }`}
+                    >
+                      {day}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </MotiView>
 
-          {/* CABEÇALHO DA SEÇÃO DE EXERCÍCIOS */}
-          <View className="flex-row items-center justify-between mb-3">
+          {/* 3. CABEÇALHO DA SEÇÃO DE EXERCÍCIOS ANIMADO */}
+          <MotiView
+            from={{ opacity: 0, translateY: 10 }}
+            animate={{ opacity: 1, translateY: 0 }}
+            transition={{
+              type: "spring",
+              damping: 22,
+              stiffness: 150,
+              delay: 60,
+            }}
+            className="flex-row items-center justify-between mb-3"
+          >
             <Text className="text-base font-extrabold text-[#1b1b1d] dark:text-white">
               Exercícios ({selectedExercises.length})
             </Text>
@@ -579,26 +612,40 @@ export default function CreateOrEditWorkoutScreen() {
                 Adicionar
               </Text>
             </TouchableOpacity>
-          </View>
+          </MotiView>
 
-          {/* LISTA DE EXERCÍCIOS SELECIONADOS */}
+          {/* 4. LISTA DE EXERCÍCIOS SELECIONADOS */}
           {selectedExercises.length === 0 ? (
-            <TouchableOpacity
-              onPress={handleOpenAddExerciseModal}
-              className="bg-[#f8f9fa] dark:bg-zinc-900 p-8 rounded-2xl border border-dashed border-[#e2dfe1] dark:border-zinc-800 items-center mb-6"
+            <MotiView
+              from={{ opacity: 0, scale: 0.96 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ type: "timing", duration: 250 }}
             >
-              <Barbell size={36} color={isDark ? "#71717a" : "#a1a1aa"} />
-              <Text className="text-[#1b1b1d] dark:text-white font-bold mt-2 text-sm">
-                Nenhum exercício adicionado
-              </Text>
-              <Text className="text-[#71717a] dark:text-zinc-400 text-xs text-center mt-1">
-                Toque para escolher exercícios para o seu treino.
-              </Text>
-            </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleOpenAddExerciseModal}
+                className="bg-[#f8f9fa] dark:bg-zinc-900 p-8 rounded-2xl border border-dashed border-[#e2dfe1] dark:border-zinc-800 items-center mb-6"
+              >
+                <Barbell size={36} color={isDark ? "#71717a" : "#a1a1aa"} />
+                <Text className="text-[#1b1b1d] dark:text-white font-bold mt-2 text-sm">
+                  Nenhum exercício adicionado
+                </Text>
+                <Text className="text-[#71717a] dark:text-zinc-400 text-xs text-center mt-1">
+                  Toque para escolher exercícios para o seu treino.
+                </Text>
+              </TouchableOpacity>
+            </MotiView>
           ) : (
             selectedExercises.map((exercise, index) => (
-              <View
+              <MotiView
                 key={`selected-${exercise.exercise_id}-${index}`}
+                from={{ opacity: 0, translateY: 14, scale: 0.97 }}
+                animate={{ opacity: 1, translateY: 0, scale: 1 }}
+                transition={{
+                  type: "spring",
+                  damping: 22,
+                  stiffness: 150,
+                  delay: index * 40,
+                }}
                 className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl mb-3 border border-[#e2dfe1] dark:border-zinc-800"
               >
                 <View className="flex-row items-center justify-between mb-3">
@@ -661,28 +708,39 @@ export default function CreateOrEditWorkoutScreen() {
                     />
                   </View>
                 </View>
-              </View>
+              </MotiView>
             ))
           )}
 
-          {/* BOTÃO SALVAR / ATUALIZAR */}
-          <TouchableOpacity
-            onPress={handleSaveWorkout}
-            disabled={isSaving}
-            className="bg-[#59C83A] p-4 rounded-2xl flex-row items-center justify-center mt-4 shadow-sm"
-            activeOpacity={0.8}
+          {/* 5. BOTÃO SALVAR / ATUALIZAR ANIMADO */}
+          <MotiView
+            from={{ opacity: 0, translateY: 12 }}
+            animate={{ opacity: 1, translateY: 0 }}
+            transition={{
+              type: "spring",
+              damping: 22,
+              stiffness: 150,
+              delay: 90,
+            }}
           >
-            {isSaving ? (
-              <ActivityIndicator color="#FFFFFF" size="small" />
-            ) : (
-              <>
-                <Check size={20} color="#FFFFFF" weight="bold" />
-                <Text className="text-white font-extrabold text-base ml-2">
-                  {isEditing ? "Salvar Alterações" : "Concluir e Criar Treino"}
-                </Text>
-              </>
-            )}
-          </TouchableOpacity>
+            <TouchableOpacity
+              onPress={handleSaveWorkout}
+              disabled={isSaving}
+              className="bg-[#59C83A] p-4 rounded-2xl flex-row items-center justify-center mt-4 shadow-sm"
+              activeOpacity={0.8}
+            >
+              {isSaving ? (
+                <ActivityIndicator color="#FFFFFF" size="small" />
+              ) : (
+                <>
+                  <Check size={20} color="#FFFFFF" weight="bold" />
+                  <Text className="text-white font-extrabold text-base ml-2">
+                    {isEditing ? "Salvar Alterações" : "Concluir e Criar Treino"}
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </MotiView>
         </ScrollView>
       )}
 
@@ -690,7 +748,6 @@ export default function CreateOrEditWorkoutScreen() {
       <Modal visible={isModalOpen} animationType="slide" transparent>
         <View className="flex-1 bg-black/60 justify-end">
           <View className="bg-white dark:bg-zinc-900 rounded-t-3xl p-6 h-[85%] border-t border-[#e2dfe1] dark:border-zinc-800">
-            
             {/* CABEÇALHO DO MODAL DE SELEÇÃO */}
             <View className="flex-row items-center justify-between mb-4 pb-3 border-b border-[#e2dfe1] dark:border-zinc-800">
               <View>
@@ -818,14 +875,19 @@ export default function CreateOrEditWorkoutScreen() {
                       </TouchableOpacity>
 
                       {isGifExpanded && (
-                        <View className="w-full h-52 bg-white dark:bg-zinc-900 rounded-xl overflow-hidden mt-3 border border-[#e2dfe1] dark:border-zinc-800 items-center justify-center">
+                        <MotiView
+                          from={{ opacity: 0, scale: 0.96 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          transition={{ type: "timing", duration: 200 }}
+                          className="w-full h-52 bg-white dark:bg-zinc-900 rounded-xl overflow-hidden mt-3 border border-[#e2dfe1] dark:border-zinc-800 items-center justify-center"
+                        >
                           <Image
                             source={getExerciseGif(item.gif_key)}
                             style={{ width: "100%", height: "100%" }}
                             contentFit="contain"
                             autoplay={true}
                           />
-                        </View>
+                        </MotiView>
                       )}
                     </View>
                   );

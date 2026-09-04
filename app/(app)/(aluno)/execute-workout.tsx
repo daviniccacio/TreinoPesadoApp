@@ -24,6 +24,7 @@ import {
   ArrowCounterClockwise,
 } from "phosphor-react-native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { MotiView } from "moti";
 import { supabase } from "../../../lib/supabase";
 import { useThrottledCallback } from "../../../lib/useThrottle";
 import { CustomModal } from "../../../components/CustomModal";
@@ -446,6 +447,8 @@ export default function ExecuteWorkoutScreen() {
     finishWorkoutMutation.mutate(elapsedSeconds);
   }
 
+  const safeTopPadding = Math.max(insets?.top || 0, 16);
+
   if (isLoading) {
     return (
       <View className="flex-1 bg-white dark:bg-zinc-950 justify-center items-center">
@@ -460,10 +463,19 @@ export default function ExecuteWorkoutScreen() {
   return (
     <View
       className="flex-1 bg-white dark:bg-zinc-950 px-5"
-      style={{ paddingTop: insets.top + 10 }}
+      style={{ paddingTop: safeTopPadding + 10 }}
     >
-      {/* CABEÇALHO */}
-      <View className="flex-row items-center justify-between mb-4 border-b border-[#e2dfe1] dark:border-zinc-800 pb-3">
+      {/* 1. CABEÇALHO ANIMADO */}
+      <MotiView
+        from={{ opacity: 0, translateY: -8 }}
+        animate={{ opacity: 1, translateY: 0 }}
+        transition={{
+          type: "spring",
+          damping: 24,
+          stiffness: 160,
+        }}
+        className="flex-row items-center justify-between mb-4 border-b border-[#e2dfe1] dark:border-zinc-800 pb-3"
+      >
         <TouchableOpacity
           onPress={handleExitWorkout}
           className="w-10 h-10 rounded-xl bg-[#f8f9fa] dark:bg-zinc-900 justify-center items-center border border-[#e2dfe1] dark:border-zinc-800"
@@ -494,10 +506,20 @@ export default function ExecuteWorkoutScreen() {
             </>
           )}
         </TouchableOpacity>
-      </View>
+      </MotiView>
 
-      {/* CARD DO CRONÔMETRO PRINCIPAL */}
-      <View className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl mb-4 border border-[#e2dfe1] dark:border-zinc-800 items-center justify-center">
+      {/* 2. CARD DO CRONÔMETRO PRINCIPAL ANIMADO */}
+      <MotiView
+        from={{ opacity: 0, scale: 0.96, translateY: 10 }}
+        animate={{ opacity: 1, scale: 1, translateY: 0 }}
+        transition={{
+          type: "spring",
+          damping: 22,
+          stiffness: 150,
+          delay: 30,
+        }}
+        className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl mb-4 border border-[#e2dfe1] dark:border-zinc-800 items-center justify-center"
+      >
         <Text className="text-[10px] font-bold text-[#59C83A] uppercase tracking-wider mb-1">
           {elapsedSeconds === 0 && isTimerPaused
             ? "Pronto para Iniciar"
@@ -557,9 +579,9 @@ export default function ExecuteWorkoutScreen() {
             </Text>
           </TouchableOpacity>
         </View>
-      </View>
+      </MotiView>
 
-      {/* LISTA DE EXERCÍCIOS */}
+      {/* 3. LISTA DE EXERCÍCIOS ANIMADA */}
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 100 }}
@@ -569,8 +591,16 @@ export default function ExecuteWorkoutScreen() {
           const setsArray = Array.from({ length: totalSetsCount });
 
           return (
-            <View
+            <MotiView
               key={exercise.id || exIndex}
+              from={{ opacity: 0, translateY: 14, scale: 0.97 }}
+              animate={{ opacity: 1, translateY: 0, scale: 1 }}
+              transition={{
+                type: "spring",
+                damping: 22,
+                stiffness: 150,
+                delay: exIndex * 40,
+              }}
               className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl mb-4 border border-[#e2dfe1] dark:border-zinc-800"
             >
               <View className="flex-row items-center justify-between mb-2">
@@ -654,7 +684,7 @@ export default function ExecuteWorkoutScreen() {
                   );
                 })}
               </View>
-            </View>
+            </MotiView>
           );
         })}
       </ScrollView>
