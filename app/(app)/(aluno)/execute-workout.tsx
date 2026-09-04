@@ -182,7 +182,7 @@ export default function ExecuteWorkoutScreen() {
     confirmText: "Entendi",
     cancelText: "Cancelar",
     showCancelButton: false,
-    onConfirm: () => {},
+    onConfirm: () => { },
   });
 
   // Referências dos intervalos
@@ -358,6 +358,17 @@ export default function ExecuteWorkoutScreen() {
   }
 
   function handleExitWorkout() {
+    // Verifica se o usuário realmente começou o treino (tempo rodando ou alguma série marcada)
+    const hasStarted = elapsedSeconds > 0 || completedSets.size > 0;
+
+    // Se NÃO iniciou nada, sai direto sem abrir o modal
+    if (!hasStarted) {
+      resetWorkoutState();
+      handleNavigateBack();
+      return;
+    }
+
+    // Se já começou o tempo ou concluiu séries, confirma a saída para não perder progresso
     showAlertModal({
       title: "Sair do Treino",
       message: "Deseja cancelar o treino em andamento? O tempo e progresso atual não serão salvos.",
@@ -524,8 +535,8 @@ export default function ExecuteWorkoutScreen() {
           {elapsedSeconds === 0 && isTimerPaused
             ? "Pronto para Iniciar"
             : isTimerPaused
-            ? "Treino Pausado"
-            : "Treino em Andamento"}
+              ? "Treino Pausado"
+              : "Treino em Andamento"}
         </Text>
 
         <View className="flex-row items-center justify-center my-1">
@@ -638,19 +649,17 @@ export default function ExecuteWorkoutScreen() {
                       key={setIndex}
                       activeOpacity={0.8}
                       onPress={() => toggleSetCompletion(exIndex, setIndex)}
-                      className={`p-3 rounded-xl border flex-row items-center justify-between ${
-                        isDone
+                      className={`p-3 rounded-xl border flex-row items-center justify-between ${isDone
                           ? "bg-[#59C83A]/10 border-[#59C83A]"
                           : "bg-white dark:bg-zinc-950 border-[#e2dfe1] dark:border-zinc-800"
-                      }`}
+                        }`}
                     >
                       <View className="flex-row items-center">
                         <View
-                          className={`w-6 h-6 rounded-lg items-center justify-center mr-3 ${
-                            isDone
+                          className={`w-6 h-6 rounded-lg items-center justify-center mr-3 ${isDone
                               ? "bg-[#59C83A]"
                               : "bg-zinc-200 dark:bg-zinc-800"
-                          }`}
+                            }`}
                         >
                           {isDone ? (
                             <Check size={14} color="#FFFFFF" weight="bold" />
@@ -661,22 +670,20 @@ export default function ExecuteWorkoutScreen() {
                           )}
                         </View>
                         <Text
-                          className={`text-xs font-bold ${
-                            isDone
+                          className={`text-xs font-bold ${isDone
                               ? "text-[#59C83A] line-through"
                               : "text-[#1b1b1d] dark:text-white"
-                          }`}
+                            }`}
                         >
                           Série {setIndex + 1}
                         </Text>
                       </View>
 
                       <Text
-                        className={`text-xs font-bold ${
-                          isDone
+                        className={`text-xs font-bold ${isDone
                             ? "text-[#59C83A]"
                             : "text-[#71717a] dark:text-zinc-400"
-                        }`}
+                          }`}
                       >
                         {exercise.reps} reps
                       </Text>
