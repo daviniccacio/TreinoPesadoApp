@@ -5,7 +5,6 @@ import {
   TextInput,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -16,33 +15,88 @@ import {
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EnvelopeSimple, LockSimple, Eye, EyeSlash, X } from 'phosphor-react-native';
+import { MotiView } from 'moti';
 import { supabase } from '../../lib/supabase';
 import { useThrottledCallback } from '../../lib/useThrottle';
+import { CustomModal } from '../../components/CustomModal';
 
 export default function LoginScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
-  // --- ESTADOS DE LOGIN ---
+  // ESTADOS DE LOGIN
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [showPassword, setShowPassword] = useState<boolean>(false);
 
-  // --- ESTADOS DE RECUPERAÇÃO DE SENHA ---
+  // ESTADOS DE RECUPERAÇÃO DE SENHA
   const [modalVisible, setModalVisible] = useState<boolean>(false);
   const [resetEmail, setResetEmail] = useState<string>('');
   const [resetLoading, setResetLoading] = useState<boolean>(false);
 
-  /**
-   * Executa o login com e-mail e senha
-   */
+  // ESTADO DO MODAL PERSONALIZADO DE ALERTA
+  const [modalConfig, setModalConfig] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    type: 'success' | 'danger' | 'info';
+    confirmText: string;
+    cancelText: string;
+    showCancelButton: boolean;
+    onConfirm: () => void;
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+    type: 'info',
+    confirmText: 'Entendi',
+    cancelText: 'Cancelar',
+    showCancelButton: false,
+    onConfirm: () => {},
+  });
+
+  function showAlertModal({
+    title,
+    message,
+    type = 'info',
+    confirmText = 'Entendi',
+    cancelText = 'Cancelar',
+    showCancelButton = false,
+    onConfirm,
+  }: {
+    title: string;
+    message: string;
+    type?: 'success' | 'danger' | 'info';
+    confirmText?: string;
+    cancelText?: string;
+    showCancelButton?: boolean;
+    onConfirm?: () => void;
+  }) {
+    setModalConfig({
+      visible: true,
+      title,
+      message,
+      type,
+      confirmText,
+      cancelText,
+      showCancelButton,
+      onConfirm: () => {
+        setModalConfig((prev) => ({ ...prev, visible: false }));
+        if (onConfirm) onConfirm();
+      },
+    });
+  }
+
   async function handleLogin() {
     if (!email.trim() || !password.trim()) {
-      Alert.alert('Campos obrigatórios', 'Por favor, preencha o e-mail e a senha.');
+      showAlertModal({
+        title: 'Campos Obrigatórios',
+        message: 'Por favor, preencha o e-mail e a senha.',
+        type: 'info',
+      });
       return;
     }
 
@@ -55,43 +109,46 @@ export default function LoginScreen() {
       });
 
       if (error) {
-        // Captura o bloqueio de Rate Limit retornado pelo Supabase (HTTP 429)
         if (error.status === 429 || error.message.toLowerCase().includes('rate limit')) {
-          Alert.alert(
-            'Muitas Tentativas! 🛡️',
-            'Você realizou várias tentativas de login em pouco tempo. Por motivos de segurança, aguarde alguns minutos antes de tentar novamente.'
-          );
+          showAlertModal({
+            title: 'Muitas Tentativas! 🛡️',
+            message: 'Você realizou várias tentativas de login em pouco tempo. Por segurança, aguarde alguns minutos.',
+            type: 'danger',
+          });
           return;
         }
 
-        Alert.alert(
-          'Erro ao entrar',
-          'E-mail ou senha incorretos. Deseja redefinir sua senha?',
-          [
-            { text: 'Tentar novamente', style: 'cancel' },
-            {
-              text: 'Redefinir Senha',
-              onPress: () => {
-                setResetEmail(email.trim());
-                setModalVisible(true);
-              },
-            },
-          ]
-        );
+        showAlertModal({
+          title: 'Erro ao entrar',
+          message: 'E-mail ou senha incorretos. Deseja redefinir sua senha?',
+          type: 'danger',
+          confirmText: 'Redefinir Senha',
+          cancelText: 'Tentar novamente',
+          showCancelButton: true,
+          onConfirm: () => {
+            setResetEmail(email.trim());
+            setModalVisible(true);
+          },
+        });
       }
     } catch (err) {
-      Alert.alert('Erro', 'Ocorreu um erro inesperado ao conectar.');
+      showAlertModal({
+        title: 'Erro de Conexão',
+        message: 'Ocorreu um erro inesperado ao conectar com o servidor.',
+        type: 'danger',
+      });
     } finally {
       setLoading(false);
     }
   }
 
-  // ============================================================================
-  // 2. FUNÇÃO DE REDEFINIÇÃO DE SENHA COM TRATAMENTO DE RATE LIMIT
-  // ============================================================================
   async function handleResetPassword() {
     if (!resetEmail.trim()) {
-      Alert.alert('Atenção', 'Informe o seu e-mail para receber o link de redefinição.');
+      showAlertModal({
+        title: 'Atenção',
+        message: 'Informe o seu e-mail para receber o link de redefinição.',
+        type: 'info',
+      });
       return;
     }
 
@@ -103,35 +160,44 @@ export default function LoginScreen() {
       });
 
       if (error) {
-        // Captura o bloqueio de Rate Limit (HTTP 429) no envio de e-mails
         if (error.status === 429 || error.message.toLowerCase().includes('rate limit')) {
-          Alert.alert(
-            'Limite de Envios Excedido! ⏳',
-            'Você solicitou a redefinição de senha muitas vezes. Por favor, aguarde alguns minutos antes de tentar novamente.'
-          );
+          showAlertModal({
+            title: 'Limite de Envios Excedido! ⏳',
+            message: 'Você solicitou a redefinição de senha muitas vezes. Por favor, aguarde alguns minutos.',
+            type: 'danger',
+          });
           return;
         }
 
-        Alert.alert('Erro', error.message || 'Não foi possível enviar o e-mail.');
+        showAlertModal({
+          title: 'Erro no Envio',
+          message: error.message || 'Não foi possível enviar o e-mail de recuperação.',
+          type: 'danger',
+        });
       } else {
-        Alert.alert(
-          'E-mail Enviado! 📩',
-          'Enviamos um link de redefinição para o seu e-mail. Verifique sua caixa de entrada e spam.',
-          [{ text: 'OK', onPress: () => setModalVisible(false) }]
-        );
+        setModalVisible(false);
+        showAlertModal({
+          title: 'E-mail Enviado! 📩',
+          message: 'Enviamos um link de redefinição para o seu e-mail. Verifique sua caixa de entrada e spam.',
+          type: 'success',
+        });
       }
     } catch (err) {
-      Alert.alert('Erro', 'Ocorreu uma falha ao solicitar a redefinição.');
+      showAlertModal({
+        title: 'Falha na Solicitação',
+        message: 'Ocorreu uma falha ao solicitar a redefinição de senha.',
+        type: 'danger',
+      });
     } finally {
       setResetLoading(false);
     }
   }
 
-  // ============================================================================
-  // 3. CRIAÇÃO DOS CALLBACKS PROTEGIDOS CONTRA CLIQUE DUPLO (THROTTLE)
-  // ============================================================================
   const handleLoginThrottled = useThrottledCallback(handleLogin, 2000);
-  const handleResetPasswordThrottled = useThrottledCallback(handleResetPassword, 2000)
+  const handleResetPasswordThrottled = useThrottledCallback(handleResetPassword, 2000);
+
+  const safeTopPadding = Math.max(insets?.top || 0, 16);
+  const safeBottomPadding = Math.max(insets?.bottom || 0, 16);
 
   return (
     <KeyboardAvoidingView
@@ -141,11 +207,20 @@ export default function LoginScreen() {
       <ScrollView
         contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}
         className="bg-white dark:bg-zinc-950 px-6 py-8"
-        style={{ paddingTop: insets.top, paddingBottom: insets.bottom }}
+        style={{ paddingTop: safeTopPadding, paddingBottom: safeBottomPadding }}
         showsVerticalScrollIndicator={false}
       >
-        {/* Cabeçalho Visual */}
-        <View className="items-center mb-10">
+        {/* 1. LOGO E CABEÇALHO ANIMADOS */}
+        <MotiView
+          from={{ opacity: 0, translateY: -12 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{
+            type: 'spring',
+            damping: 24,
+            stiffness: 160,
+          }}
+          className="items-center mb-10"
+        >
           <View className="w-48 h-48 rounded-3xl items-center justify-center overflow-hidden mb-2">
             <Image
               source={
@@ -160,10 +235,20 @@ export default function LoginScreen() {
           <Text className="text-sm text-[#71717a] dark:text-zinc-400 text-center font-medium tracking-wide">
             Entre para continuar a sua evolução
           </Text>
-        </View>
+        </MotiView>
 
-        {/* Formulário */}
-        <View className="space-y-4">
+        {/* 2. FORMULÁRIO ANIMADO */}
+        <MotiView
+          from={{ opacity: 0, translateY: 12 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{
+            type: 'spring',
+            damping: 22,
+            stiffness: 150,
+            delay: 30,
+          }}
+          className="space-y-4"
+        >
           {/* Campo E-mail */}
           <View className="mb-3">
             <Text className="text-xs font-bold uppercase tracking-wider text-[#71717a] dark:text-zinc-400 mb-2 ml-1">
@@ -208,7 +293,7 @@ export default function LoginScreen() {
             </View>
           </View>
 
-          {/* Link Esqueci Minha Senha */}
+          {/* Esqueci minha senha */}
           <TouchableOpacity
             onPress={() => {
               setResetEmail(email.trim());
@@ -238,7 +323,7 @@ export default function LoginScreen() {
             )}
           </TouchableOpacity>
 
-          {/* Link Cadastro */}
+          {/* Link para Cadastro */}
           <TouchableOpacity
             onPress={() => router.push('/(auth)/register')}
             className="items-center py-4 mt-3"
@@ -250,7 +335,7 @@ export default function LoginScreen() {
               </Text>
             </Text>
           </TouchableOpacity>
-        </View>
+        </MotiView>
 
         {/* MODAL DE REDEFINIÇÃO DE SENHA */}
         <Modal visible={modalVisible} transparent animationType="slide">
@@ -302,6 +387,19 @@ export default function LoginScreen() {
             </View>
           </View>
         </Modal>
+
+        {/* MODAL DE ALERTA PERSONALIZADO */}
+        <CustomModal
+          visible={modalConfig.visible}
+          title={modalConfig.title}
+          message={modalConfig.message}
+          type={modalConfig.type}
+          confirmText={modalConfig.confirmText}
+          cancelText={modalConfig.cancelText}
+          showCancelButton={modalConfig.showCancelButton}
+          onConfirm={modalConfig.onConfirm}
+          onClose={() => setModalConfig((prev) => ({ ...prev, visible: false }))}
+        />
       </ScrollView>
     </KeyboardAvoidingView>
   );
