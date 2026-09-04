@@ -3,6 +3,11 @@
     "version": ">= 10.0.0"
   },
   "build": {
+    "production": {
+      "android": {
+        "buildType": "app-bundle"
+      }
+    },
     "development": {
       "developmentClient": true,
       "distribution": "internal"
@@ -12,8 +17,7 @@
       "android": {
         "buildType": "apk"
       }
-    },
-    "production": {}
+    }
   },
   "submit": {
     "production": {}
