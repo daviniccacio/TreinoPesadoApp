@@ -20,6 +20,7 @@ import {
   CaretRight,
 } from 'phosphor-react-native';
 import { useQuery } from '@tanstack/react-query';
+import { MotiView } from 'moti';
 import { supabase } from '../../../lib/supabase';
 
 // --- TIPAGENS DE DADOS ---
@@ -111,13 +112,24 @@ export default function StudentWorkoutDetailScreen() {
     }
   }, [router]);
 
+  const safeTopPadding = Math.max(insets?.top || 0, 16);
+
   return (
     <View
       className="flex-1 bg-white dark:bg-zinc-950 px-5"
-      style={{ paddingTop: insets.top + 10 }}
+      style={{ paddingTop: safeTopPadding + 10 }}
     >
-      {/* CABEÇALHO */}
-      <View className="flex-row items-center mb-5">
+      {/* 1. CABEÇALHO ANIMADO */}
+      <MotiView
+        from={{ opacity: 0, translateY: -8 }}
+        animate={{ opacity: 1, translateY: 0 }}
+        transition={{
+          type: 'spring',
+          damping: 24,
+          stiffness: 160,
+        }}
+        className="flex-row items-center mb-5"
+      >
         <TouchableOpacity
           activeOpacity={0.7}
           onPress={handleNavigateBack}
@@ -134,9 +146,9 @@ export default function StudentWorkoutDetailScreen() {
             Prescrição Profissional
           </Text>
         </View>
-      </View>
+      </MotiView>
 
-      {/* CONTEÚDO PRINCIPAL */}
+      {/* 2. CONTEÚDO PRINCIPAL */}
       {isLoading ? (
         <View className="flex-1 justify-center items-center">
           <ActivityIndicator size="large" color="#59C83A" />
@@ -145,7 +157,12 @@ export default function StudentWorkoutDetailScreen() {
           </Text>
         </View>
       ) : isError || !workoutPlan ? (
-        <View className="flex-1 justify-center items-center px-6">
+        <MotiView
+          from={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ type: 'timing', duration: 250 }}
+          className="flex-1 justify-center items-center px-6"
+        >
           <Info size={40} color="#ef4444" />
           <Text className="text-[#1b1b1d] dark:text-white font-bold text-base mt-3 text-center">
             {error?.message || 'Ficha de treino não encontrada.'}
@@ -156,11 +173,21 @@ export default function StudentWorkoutDetailScreen() {
           >
             <Text className="text-white font-bold text-xs">Voltar para Meus Treinos</Text>
           </TouchableOpacity>
-        </View>
+        </MotiView>
       ) : (
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
           {/* CARTÃO RESUMO DA FICHA */}
-          <View className="bg-[#f8f9fa] dark:bg-zinc-900 p-5 rounded-3xl border border-[#e2dfe1] dark:border-zinc-800 mb-4">
+          <MotiView
+            from={{ opacity: 0, translateY: 10 }}
+            animate={{ opacity: 1, translateY: 0 }}
+            transition={{
+              type: 'spring',
+              damping: 22,
+              stiffness: 150,
+              delay: 30,
+            }}
+            className="bg-[#f8f9fa] dark:bg-zinc-900 p-5 rounded-3xl border border-[#e2dfe1] dark:border-zinc-800 mb-4"
+          >
             <View className="flex-row items-center justify-between mb-3">
               <View className="bg-[#59C83A]/10 px-3 py-1 rounded-full border border-[#59C83A]/30 flex-row items-center">
                 <UserCheck size={14} color="#59C83A" weight="bold" />
@@ -204,83 +231,121 @@ export default function StudentWorkoutDetailScreen() {
                 </View>
               )}
             </View>
-          </View>
+          </MotiView>
 
           {/* BOTÃO DE INICIAR O TREINO EM TEMPO REAL */}
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() =>
-              router.push({
-                pathname: '/(aluno)/execute-workout',
-                params: { id: workoutPlan.id, type: 'personal' },
-              })
-            }
-            className="bg-[#59C83A] p-4 rounded-2xl flex-row items-center justify-center mb-6 shadow-sm"
+          <MotiView
+            from={{ opacity: 0, translateY: 10, scale: 0.98 }}
+            animate={{ opacity: 1, translateY: 0, scale: 1 }}
+            transition={{
+              type: 'spring',
+              damping: 22,
+              stiffness: 150,
+              delay: 60,
+            }}
           >
-            <PlayCircle size={24} color="#FFFFFF" weight="bold" />
-            <Text className="text-white font-extrabold text-base ml-2">
-              Iniciar Treino Agora
-            </Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() =>
+                router.push({
+                  pathname: '/(aluno)/execute-workout',
+                  params: { id: workoutPlan.id, type: 'personal' },
+                })
+              }
+              className="bg-[#59C83A] p-4 rounded-2xl flex-row items-center justify-center mb-6 shadow-sm"
+            >
+              <PlayCircle size={24} color="#FFFFFF" weight="bold" />
+              <Text className="text-white font-extrabold text-base ml-2">
+                Iniciar Treino Agora
+              </Text>
+            </TouchableOpacity>
+          </MotiView>
 
           {/* LISTA DE EXERCÍCIOS */}
-          <Text className="text-base font-extrabold text-[#1b1b1d] dark:text-white mb-1">
-            Exercícios Prescritos
-          </Text>
-          <Text className="text-xs text-[#71717a] dark:text-zinc-400 mb-3 font-medium">
-            Toque em qualquer exercício para ver a demonstração em vídeo/GIF.
-          </Text>
+          <MotiView
+            from={{ opacity: 0, translateY: 10 }}
+            animate={{ opacity: 1, translateY: 0 }}
+            transition={{
+              type: 'spring',
+              damping: 22,
+              stiffness: 150,
+              delay: 90,
+            }}
+          >
+            <Text className="text-base font-extrabold text-[#1b1b1d] dark:text-white mb-1">
+              Exercícios Prescritos
+            </Text>
+            <Text className="text-xs text-[#71717a] dark:text-zinc-400 mb-3 font-medium">
+              Toque em qualquer exercício para ver a demonstração em vídeo/GIF.
+            </Text>
+          </MotiView>
 
           {workoutPlan.plan_exercises.length === 0 ? (
-            <View className="p-6 items-center border border-dashed border-[#e2dfe1] dark:border-zinc-800 rounded-2xl">
+            <MotiView
+              from={{ opacity: 0, scale: 0.96 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ type: 'timing', duration: 250 }}
+              className="p-6 items-center border border-dashed border-[#e2dfe1] dark:border-zinc-800 rounded-2xl"
+            >
               <Barbell size={32} color={isDark ? '#71717a' : '#a1a1aa'} />
               <Text className="text-xs font-bold text-[#71717a] dark:text-zinc-400 mt-2 text-center">
                 Nenhum exercício registrado nesta ficha.
               </Text>
-            </View>
+            </MotiView>
           ) : (
             workoutPlan.plan_exercises.map((exercise, index) => (
-              <TouchableOpacity
+              <MotiView
                 key={exercise.id || index}
-                activeOpacity={0.7}
-                onPress={() => {
-                  if (exercise.exercise_id) {
-                    router.push(`/(aluno)/exercise/${exercise.exercise_id}`);
-                  }
+                from={{ opacity: 0, translateY: 14, scale: 0.97 }}
+                animate={{ opacity: 1, translateY: 0, scale: 1 }}
+                transition={{
+                  type: 'spring',
+                  damping: 22,
+                  stiffness: 150,
+                  delay: index * 40,
                 }}
-                className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl mb-3 border border-[#e2dfe1] dark:border-zinc-800"
               >
-                <View className="flex-row items-center justify-between mb-2">
-                  <Text className="text-sm font-extrabold text-[#1b1b1d] dark:text-white flex-1 mr-2">
-                    {index + 1}. {exercise.name}
-                  </Text>
-
-                  <View className="bg-[#59C83A] px-3 py-1 rounded-lg">
-                    <Text className="text-xs font-black text-white">
-                      {exercise.sets}x {exercise.reps}
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() => {
+                    if (exercise.exercise_id) {
+                      router.push(`/(aluno)/exercise/${exercise.exercise_id}`);
+                    }
+                  }}
+                  className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl mb-3 border border-[#e2dfe1] dark:border-zinc-800"
+                >
+                  <View className="flex-row items-center justify-between mb-2">
+                    <Text className="text-sm font-extrabold text-[#1b1b1d] dark:text-white flex-1 mr-2">
+                      {index + 1}. {exercise.name}
                     </Text>
-                  </View>
-                </View>
 
-                {exercise.notes ? (
-                  <View className="mt-1 bg-white dark:bg-zinc-950 p-2.5 rounded-xl border border-[#e2dfe1] dark:border-zinc-800 mb-2">
-                    <Text className="text-xs text-[#71717a] dark:text-zinc-400 font-medium">
-                      💬 <Text className="font-bold text-[#1b1b1d] dark:text-white">Observação / Carga:</Text>{' '}
-                      {exercise.notes}
-                    </Text>
+                    <View className="bg-[#59C83A] px-3 py-1 rounded-lg">
+                      <Text className="text-xs font-black text-white">
+                        {exercise.sets}x {exercise.reps}
+                      </Text>
+                    </View>
                   </View>
-                ) : null}
 
-                <View className="flex-row items-center justify-between pt-2.5 border-t border-[#e2dfe1] dark:border-zinc-800/80 mt-1">
-                  <View className="flex-row items-center">
-                    <PlayCircle size={16} color="#59C83A" weight="bold" />
-                    <Text className="text-xs font-bold text-[#59C83A] ml-1.5">
-                      Ver execução e postura (GIF)
-                    </Text>
+                  {exercise.notes ? (
+                    <View className="mt-1 bg-white dark:bg-zinc-950 p-2.5 rounded-xl border border-[#e2dfe1] dark:border-zinc-800 mb-2">
+                      <Text className="text-xs text-[#71717a] dark:text-zinc-400 font-medium">
+                        💬 <Text className="font-bold text-[#1b1b1d] dark:text-white">Observação / Carga:</Text>{' '}
+                        {exercise.notes}
+                      </Text>
+                    </View>
+                  ) : null}
+
+                  <View className="flex-row items-center justify-between pt-2.5 border-t border-[#e2dfe1] dark:border-zinc-800/80 mt-1">
+                    <View className="flex-row items-center">
+                      <PlayCircle size={16} color="#59C83A" weight="bold" />
+                      <Text className="text-xs font-bold text-[#59C83A] ml-1.5">
+                        Ver execução e postura (GIF)
+                      </Text>
+                    </View>
+                    <CaretRight size={14} color="#59C83A" weight="bold" />
                   </View>
-                  <CaretRight size={14} color="#59C83A" weight="bold" />
-                </View>
-              </TouchableOpacity>
+                </TouchableOpacity>
+              </MotiView>
             ))
           )}
         </ScrollView>
