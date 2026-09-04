@@ -29,10 +29,11 @@ import {
   Timer,
 } from 'phosphor-react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { MotiView } from 'moti';
 import { supabase } from '../../../../lib/supabase';
 import { CustomModal } from '../../../../components/CustomModal';
 
-// --- TIPAGENS DE DADOS ---
+// --- TIPAGEM DE DADOS ---
 interface StudentProfileData {
   fullName: string;
   email: string;
@@ -193,9 +194,6 @@ export default function StudentProfileScreen() {
     onConfirm: () => {},
   });
 
-  /**
-   * Função auxiliar para exibir o modal customizado usando opções parametrizadas
-   */
   function showAlertModal({
     title,
     message,
@@ -220,7 +218,6 @@ export default function StudentProfileScreen() {
     });
   }
 
-  // --- CONSULTA COM RECARREGAMENTO AUTOMÁTICO ---
   const { data: profile, isLoading } = useQuery({
     queryKey: ['student-profile-data'],
     queryFn: fetchStudentProfileData,
@@ -287,18 +284,43 @@ export default function StudentProfileScreen() {
     return `${hours}h ${String(minutes).padStart(2, '0')}m`;
   }
 
+  const safeTopPadding = Math.max(insets?.top || 0, 16);
+
   return (
-    <View className="flex-1 bg-white dark:bg-zinc-950" style={{ paddingTop: insets.top }}>
+    <View className="flex-1 bg-white dark:bg-zinc-950 px-5 pb-4" style={{ paddingTop: safeTopPadding }}>
       {/* CABEÇALHO */}
-      <View className="px-5 py-4 border-b border-[#f0edef] dark:border-zinc-800 flex-row justify-between items-center">
+      <MotiView
+        from={{ opacity: 0, translateY: -8 }}
+        animate={{ opacity: 1, translateY: 0 }}
+        transition={{
+          type: 'spring',
+          damping: 24,
+          stiffness: 160,
+        }}
+        className="py-4 border-b border-[#f0edef] dark:border-zinc-800 flex-row justify-between items-center"
+      >
         <Text className="text-xl font-extrabold text-[#1b1b1d] dark:text-white">
           Meu Perfil
         </Text>
-      </View>
+      </MotiView>
 
-      <ScrollView className="flex-1 px-5 pt-6" showsVerticalScrollIndicator={false}>
+      <ScrollView
+        className="flex-1 pt-6"
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 120 }} // Evita sobreposição com a Navbar Flutuante
+      >
         {/* CARTÃO DO ALUNO */}
-        <View className="items-center mb-6">
+        <MotiView
+          from={{ opacity: 0, scale: 0.95, translateY: 10 }}
+          animate={{ opacity: 1, scale: 1, translateY: 0 }}
+          transition={{
+            type: 'spring',
+            damping: 22,
+            stiffness: 150,
+            delay: 30,
+          }}
+          className="items-center mb-6"
+        >
           <View
             style={{ backgroundColor: '#59C83A' }}
             className="w-24 h-24 rounded-full items-center justify-center mb-3 shadow-sm border border-[#46ab2b]"
@@ -326,40 +348,61 @@ export default function StudentProfileScreen() {
               </View>
             </>
           )}
-        </View>
+        </MotiView>
 
         {/* OPÇÃO DE VÍNCULO DE PERSONAL */}
-        <Text className="text-lg font-bold text-[#1b1b1d] dark:text-white mb-3">
-          Instrutor
-        </Text>
+        <MotiView
+          from={{ opacity: 0, translateY: 12 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{
+            type: 'spring',
+            damping: 22,
+            stiffness: 150,
+            delay: 60,
+          }}
+        >
+          <Text className="text-lg font-bold text-[#1b1b1d] dark:text-white mb-3">
+            Instrutor
+          </Text>
 
-        <View className="bg-[#f8f9fa] dark:bg-zinc-900 rounded-2xl overflow-hidden mb-5 border border-[#e2dfe1] dark:border-zinc-800">
-          <TouchableOpacity
-            onPress={() => setIsLinkModalOpen(true)}
-            className="flex-row items-center justify-between p-4"
-            activeOpacity={0.7}
-          >
-            <View className="flex-row items-center gap-3">
-              <View className="w-9 h-9 rounded-xl bg-[#59C83A]/10 items-center justify-center border border-[#59C83A]/30">
-                <UserPlus size={20} color="#59C83A" weight="bold" />
+          <View className="bg-[#f8f9fa] dark:bg-zinc-900 rounded-2xl overflow-hidden mb-5 border border-[#e2dfe1] dark:border-zinc-800">
+            <TouchableOpacity
+              onPress={() => setIsLinkModalOpen(true)}
+              className="flex-row items-center justify-between p-4"
+              activeOpacity={0.7}
+            >
+              <View className="flex-row items-center gap-3">
+                <View className="w-9 h-9 rounded-xl bg-[#59C83A]/10 items-center justify-center border border-[#59C83A]/30">
+                  <UserPlus size={20} color="#59C83A" weight="bold" />
+                </View>
+                <View>
+                  <Text className="font-bold text-[#1b1b1d] dark:text-white text-sm">
+                    Conectar com meu Personal
+                  </Text>
+                  <Text className="text-xs text-[#71717a] dark:text-zinc-400">
+                    {profile?.personalName
+                      ? 'Trocar ou redefinir seu instrutor'
+                      : 'Inserir código de acesso do personal'}
+                  </Text>
+                </View>
               </View>
-              <View>
-                <Text className="font-bold text-[#1b1b1d] dark:text-white text-sm">
-                  Conectar com meu Personal
-                </Text>
-                <Text className="text-xs text-[#71717a] dark:text-zinc-400">
-                  {profile?.personalName
-                    ? 'Trocar ou redefinir seu instrutor'
-                    : 'Inserir código de acesso do personal'}
-                </Text>
-              </View>
-            </View>
-            <CaretRight size={18} color={isDark ? '#a1a1aa' : '#414755'} />
-          </TouchableOpacity>
-        </View>
+              <CaretRight size={18} color={isDark ? '#a1a1aa' : '#414755'} />
+            </TouchableOpacity>
+          </View>
+        </MotiView>
 
         {/* CARDS DE ESTATÍSTICAS */}
-        <View className="flex-row justify-between mb-6">
+        <MotiView
+          from={{ opacity: 0, translateY: 12 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{
+            type: 'spring',
+            damping: 22,
+            stiffness: 150,
+            delay: 90,
+          }}
+          className="flex-row justify-between mb-6"
+        >
           <View className="w-[48%] bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl border border-[#e2dfe1] dark:border-zinc-800 items-center">
             <View className="w-10 h-10 rounded-xl bg-[#59C83A]/10 items-center justify-center mb-2 border border-[#59C83A]/30">
               <Barbell size={22} color="#59C83A" weight="bold" />
@@ -383,130 +426,163 @@ export default function StudentProfileScreen() {
               {formatWorkoutTime(profile?.totalWorkoutMinutes || 0)}
             </Text>
           </View>
-        </View>
+        </MotiView>
 
         {/* APARÊNCIA */}
-        <Text className="text-lg font-bold text-[#1b1b1d] dark:text-white mb-3">
-          Aparência
-        </Text>
+        <MotiView
+          from={{ opacity: 0, translateY: 12 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{
+            type: 'spring',
+            damping: 22,
+            stiffness: 150,
+            delay: 120,
+          }}
+        >
+          <Text className="text-lg font-bold text-[#1b1b1d] dark:text-white mb-3">
+            Aparência
+          </Text>
 
-        <View className="bg-[#f8f9fa] dark:bg-zinc-900 rounded-2xl p-2 mb-6 border border-[#e2dfe1] dark:border-zinc-800 flex-row">
-          <TouchableOpacity
-            onPress={() => handleThemeChange('light')}
-            className={`flex-1 py-3 rounded-xl flex-row items-center justify-center gap-1.5 ${
-              themeMode === 'light'
-                ? 'bg-white dark:bg-zinc-800 border border-[#e2dfe1] dark:border-zinc-700'
-                : 'bg-transparent'
-            }`}
-          >
-            <Sun size={16} color={themeMode === 'light' ? '#59C83A' : '#9ca3af'} />
-            <Text
-              style={themeMode === 'light' ? { color: '#59C83A' } : undefined}
-              className={`font-bold text-xs ${
-                themeMode !== 'light' ? 'text-[#414755] dark:text-zinc-300' : ''
+          <View className="bg-[#f8f9fa] dark:bg-zinc-900 rounded-2xl p-2 mb-6 border border-[#e2dfe1] dark:border-zinc-800 flex-row">
+            <TouchableOpacity
+              onPress={() => handleThemeChange('light')}
+              className={`flex-1 py-3 rounded-xl flex-row items-center justify-center gap-1.5 ${
+                themeMode === 'light'
+                  ? 'bg-white dark:bg-zinc-800 border border-[#e2dfe1] dark:border-zinc-700'
+                  : 'bg-transparent'
               }`}
             >
-              Claro
-            </Text>
-          </TouchableOpacity>
+              <Sun size={16} color={themeMode === 'light' ? '#59C83A' : '#9ca3af'} />
+              <Text
+                style={themeMode === 'light' ? { color: '#59C83A' } : undefined}
+                className={`font-bold text-xs ${
+                  themeMode !== 'light' ? 'text-[#414755] dark:text-zinc-300' : ''
+                }`}
+              >
+                Claro
+              </Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            onPress={() => handleThemeChange('dark')}
-            className={`flex-1 py-3 rounded-xl flex-row items-center justify-center gap-1.5 ${
-              themeMode === 'dark'
-                ? 'bg-white dark:bg-zinc-800 border border-[#e2dfe1] dark:border-zinc-700'
-                : 'bg-transparent'
-            }`}
-          >
-            <Moon size={16} color={themeMode === 'dark' ? '#59C83A' : '#9ca3af'} />
-            <Text
-              style={themeMode === 'dark' ? { color: '#59C83A' } : undefined}
-              className={`font-bold text-xs ${
-                themeMode !== 'dark' ? 'text-[#414755] dark:text-zinc-300' : ''
+            <TouchableOpacity
+              onPress={() => handleThemeChange('dark')}
+              className={`flex-1 py-3 rounded-xl flex-row items-center justify-center gap-1.5 ${
+                themeMode === 'dark'
+                  ? 'bg-white dark:bg-zinc-800 border border-[#e2dfe1] dark:border-zinc-700'
+                  : 'bg-transparent'
               }`}
             >
-              Escuro
-            </Text>
-          </TouchableOpacity>
+              <Moon size={16} color={themeMode === 'dark' ? '#59C83A' : '#9ca3af'} />
+              <Text
+                style={themeMode === 'dark' ? { color: '#59C83A' } : undefined}
+                className={`font-bold text-xs ${
+                  themeMode !== 'dark' ? 'text-[#414755] dark:text-zinc-300' : ''
+                }`}
+              >
+                Escuro
+              </Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            onPress={() => handleThemeChange('system')}
-            className={`flex-1 py-3 rounded-xl flex-row items-center justify-center gap-1.5 ${
-              themeMode === 'system'
-                ? 'bg-white dark:bg-zinc-800 border border-[#e2dfe1] dark:border-zinc-700'
-                : 'bg-transparent'
-            }`}
-          >
-            <Desktop size={16} color={themeMode === 'system' ? '#59C83A' : '#9ca3af'} />
-            <Text
-              style={themeMode === 'system' ? { color: '#59C83A' } : undefined}
-              className={`font-bold text-xs ${
-                themeMode !== 'system' ? 'text-[#414755] dark:text-zinc-300' : ''
+            <TouchableOpacity
+              onPress={() => handleThemeChange('system')}
+              className={`flex-1 py-3 rounded-xl flex-row items-center justify-center gap-1.5 ${
+                themeMode === 'system'
+                  ? 'bg-white dark:bg-zinc-800 border border-[#e2dfe1] dark:border-zinc-700'
+                  : 'bg-transparent'
               }`}
             >
-              Sistema
-            </Text>
-          </TouchableOpacity>
-        </View>
+              <Desktop size={16} color={themeMode === 'system' ? '#59C83A' : '#9ca3af'} />
+              <Text
+                style={themeMode === 'system' ? { color: '#59C83A' } : undefined}
+                className={`font-bold text-xs ${
+                  themeMode !== 'system' ? 'text-[#414755] dark:text-zinc-300' : ''
+                }`}
+              >
+                Sistema
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </MotiView>
 
         {/* CONFIGURAÇÕES: NOTIFICAÇÕES E PRIVACIDADE */}
-        <Text className="text-lg font-bold text-[#1b1b1d] dark:text-white mb-3">
-          Configurações
-        </Text>
+        <MotiView
+          from={{ opacity: 0, translateY: 12 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{
+            type: 'spring',
+            damping: 22,
+            stiffness: 150,
+            delay: 150,
+          }}
+        >
+          <Text className="text-lg font-bold text-[#1b1b1d] dark:text-white mb-3">
+            Configurações
+          </Text>
 
-        <View className="bg-[#f8f9fa] dark:bg-zinc-900 rounded-2xl overflow-hidden mb-6 border border-[#e2dfe1] dark:border-zinc-800">
-          <TouchableOpacity
-            onPress={() =>
-              showAlertModal({
-                title: 'Notificações',
-                message: 'Recurso em desenvolvimento.',
-                type: 'info',
-                showCancelButton: false,
-              })
-            }
-            className="flex-row items-center justify-between p-4 border-b border-[#e2dfe1] dark:border-zinc-800"
-            activeOpacity={0.7}
-          >
-            <View className="flex-row items-center gap-3">
-              <Bell size={20} color={isDark ? '#ffffff' : '#1b1b1d'} />
-              <Text className="font-semibold text-[#1b1b1d] dark:text-white">
-                Notificações
-              </Text>
-            </View>
-            <CaretRight size={18} color={isDark ? '#a1a1aa' : '#414755'} />
-          </TouchableOpacity>
+          <View className="bg-[#f8f9fa] dark:bg-zinc-900 rounded-2xl overflow-hidden mb-6 border border-[#e2dfe1] dark:border-zinc-800">
+            <TouchableOpacity
+              onPress={() =>
+                showAlertModal({
+                  title: 'Notificações',
+                  message: 'Recurso em desenvolvimento.',
+                  type: 'info',
+                  showCancelButton: false,
+                })
+              }
+              className="flex-row items-center justify-between p-4 border-b border-[#e2dfe1] dark:border-zinc-800"
+              activeOpacity={0.7}
+            >
+              <View className="flex-row items-center gap-3">
+                <Bell size={20} color={isDark ? '#ffffff' : '#1b1b1d'} />
+                <Text className="font-semibold text-[#1b1b1d] dark:text-white">
+                  Notificações
+                </Text>
+              </View>
+              <CaretRight size={18} color={isDark ? '#a1a1aa' : '#414755'} />
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            onPress={() =>
-              showAlertModal({
-                title: 'Privacidade',
-                message: 'Seus dados estão protegidos com criptografia.',
-                type: 'info',
-                showCancelButton: false,
-              })
-            }
-            className="flex-row items-center justify-between p-4"
-            activeOpacity={0.7}
-          >
-            <View className="flex-row items-center gap-3">
-              <Shield size={20} color={isDark ? '#ffffff' : '#1b1b1d'} />
-              <Text className="font-semibold text-[#1b1b1d] dark:text-white">
-                Privacidade
-              </Text>
-            </View>
-            <CaretRight size={18} color={isDark ? '#a1a1aa' : '#414755'} />
-          </TouchableOpacity>
-        </View>
+            <TouchableOpacity
+              onPress={() =>
+                showAlertModal({
+                  title: 'Privacidade',
+                  message: 'Seus dados estão protegidos com criptografia.',
+                  type: 'info',
+                  showCancelButton: false,
+                })
+              }
+              className="flex-row items-center justify-between p-4"
+              activeOpacity={0.7}
+            >
+              <View className="flex-row items-center gap-3">
+                <Shield size={20} color={isDark ? '#ffffff' : '#1b1b1d'} />
+                <Text className="font-semibold text-[#1b1b1d] dark:text-white">
+                  Privacidade
+                </Text>
+              </View>
+              <CaretRight size={18} color={isDark ? '#a1a1aa' : '#414755'} />
+            </TouchableOpacity>
+          </View>
+        </MotiView>
 
         {/* BOTÃO DE SAIR DA CONTA */}
-        <TouchableOpacity
-          onPress={handleSignOut}
-          className="bg-[#ffebe8] dark:bg-red-950/40 p-4 rounded-2xl items-center flex-row justify-center mb-10 border border-transparent dark:border-red-900/30"
-          activeOpacity={0.8}
+        <MotiView
+          from={{ opacity: 0, translateY: 12 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{
+            type: 'spring',
+            damping: 22,
+            stiffness: 150,
+            delay: 180,
+          }}
         >
-          <SignOut size={20} color="#e11d48" />
-          <Text className="text-[#e11d48] font-bold text-base ml-2">Sair da Conta</Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            onPress={handleSignOut}
+            className="bg-[#ffebe8] dark:bg-red-950/40 p-4 rounded-2xl items-center flex-row justify-center mb-6 border border-transparent dark:border-red-900/30"
+            activeOpacity={0.8}
+          >
+            <SignOut size={20} color="#e11d48" />
+            <Text className="text-[#e11d48] font-bold text-base ml-2">Sair da Conta</Text>
+          </TouchableOpacity>
+        </MotiView>
       </ScrollView>
 
       {/* MODAL CÓDIGO PERSONAL */}

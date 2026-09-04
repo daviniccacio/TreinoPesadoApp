@@ -10,7 +10,7 @@ import {
 } from "phosphor-react-native";
 import { MotiView } from "moti";
 
-// --- COMPONENTE DE ÍCONE ANIMADO COM LINHA INDICADORA ---
+// --- COMPONENTE DE ÍCONE ANIMADO (MINIMALISTA) ---
 interface AnimatedTabItemProps {
   focused: boolean;
   children: React.ReactNode;
@@ -19,37 +19,15 @@ interface AnimatedTabItemProps {
 function AnimatedTabItem({ focused, children }: AnimatedTabItemProps) {
   return (
     <View className="items-center justify-center relative w-full h-full">
-      {/* Linha indicadora superior animada */}
-      <MotiView
-        animate={{
-          scaleX: focused ? 1 : 0,
-          opacity: focused ? 1 : 0,
-        }}
-        transition={{
-          type: "spring",
-          damping: 15,
-          stiffness: 180,
-        }}
-        style={{
-          position: "absolute",
-          top: -6,
-          width: 20,
-          height: 3,
-          borderRadius: 2,
-          backgroundColor: "#59C83A",
-        }}
-      />
-
-      {/* Ícone com animação de elevação sutil */}
       <MotiView
         animate={{
           scale: focused ? 1.12 : 1.0,
-          translateY: focused ? -2 : 0,
+          translateY: focused ? -1 : 0,
         }}
         transition={{
           type: "spring",
-          damping: 12,
-          stiffness: 170,
+          damping: 22,
+          stiffness: 160,
         }}
       >
         {children}
@@ -58,7 +36,6 @@ function AnimatedTabItem({ focused, children }: AnimatedTabItemProps) {
   );
 }
 
-// --- LAYOUT DA NAVBAR PRINCIPAL ---
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme();
@@ -68,27 +45,37 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
+        animation: "fade",
+
+        // 🟢 COR EXATA DO BACKGROUND (Sincronizado com dark:bg-zinc-950)
+        sceneStyle: {
+          backgroundColor: isDark ? "#09090b" : "#f8f9fa",
+        },
+
         tabBarActiveTintColor: "#59C83A",
-        tabBarInactiveTintColor: isDark ? "#71717a" : "#8e8e93",
+        tabBarInactiveTintColor: isDark ? "#a1a1aa" : "#71717a",
+
         tabBarStyle: {
           position: "absolute",
-          bottom: insets.bottom + 10,
+          bottom: Math.max(insets.bottom, 12),
           left: 16,
           right: 16,
-          height: 64,
+          height: 62,
           borderRadius: 24,
-          borderTopWidth: 0,
           borderWidth: 1,
-          borderColor: isDark ? "#27272a" : "#e5e7eb",
-          backgroundColor: isDark ? "#09090b" : "#ffffff",
+          borderColor: isDark ? "#27272a" : "#e2dfe1",
+          backgroundColor: isDark
+            ? "rgba(24, 24, 27, 0.96)"
+            : "rgba(255, 255, 255, 0.96)",
+          elevation: 6,
           shadowColor: "#000000",
-          shadowOffset: { width: 0, height: 8 },
-          shadowOpacity: isDark ? 0.4 : 0.08,
-          shadowRadius: 12,
-          elevation: 8,
-          paddingBottom: 8,
-          paddingTop: 8,
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: isDark ? 0.3 : 0.08,
+          shadowRadius: 10,
+          paddingBottom: 6,
+          paddingTop: 6,
         },
+
         tabBarLabelStyle: {
           fontSize: 10,
           fontWeight: "700",

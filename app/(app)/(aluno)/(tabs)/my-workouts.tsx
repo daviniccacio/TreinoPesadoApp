@@ -22,6 +22,7 @@ import {
   Target,
 } from "phosphor-react-native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { MotiView } from "moti";
 import { supabase } from "../../../../lib/supabase";
 import { CustomModal } from "../../../../components/CustomModal";
 
@@ -51,9 +52,6 @@ const CATEGORY_FILTERS = [
 
 type FilterType = "all" | "personal" | "custom";
 
-/**
- * Busca de treinos unificada e protegida contra erros de coluna
- */
 async function fetchStudentWorkouts(): Promise<WorkoutCardItem[]> {
   const {
     data: { user },
@@ -63,7 +61,6 @@ async function fetchStudentWorkouts(): Promise<WorkoutCardItem[]> {
 
   const combinedList: WorkoutCardItem[] = [];
 
-  // 1. Busca treinos do Personal Trainer (workout_plans)
   try {
     const { data: prescribedData, error } = await supabase
       .from("workout_plans")
@@ -85,7 +82,6 @@ async function fetchStudentWorkouts(): Promise<WorkoutCardItem[]> {
     console.warn("Erro ao carregar workout_plans:", e);
   }
 
-  // 2. Busca treinos criados pelo Aluno (custom_workouts)
   try {
     const { data: customData, error } = await supabase
       .from("custom_workouts")
@@ -122,7 +118,6 @@ export default function MyWorkoutsScreen() {
 
   const [selectedFilter, setSelectedFilter] = useState<FilterType>("all");
 
-  // ESTADO DO MODAL PERSONALIZADO REUTILIZÁVEL
   const [modalConfig, setModalConfig] = useState<{
     visible: boolean;
     title: string;
@@ -143,9 +138,6 @@ export default function MyWorkoutsScreen() {
     onConfirm: () => {},
   });
 
-  /**
-   * Função auxiliar para abrir o modal customizado
-   */
   function showAlertModal({
     title,
     message,
@@ -238,13 +230,24 @@ export default function MyWorkoutsScreen() {
     return true;
   });
 
+  const safeTopPadding = Math.max(insets?.top || 0, 16);
+
   return (
     <View
       className="flex-1 bg-white dark:bg-zinc-950 px-5"
-      style={{ paddingTop: insets.top + 10 }}
+      style={{ paddingTop: safeTopPadding + 10 }}
     >
-      {/* CABEÇALHO */}
-      <View className="flex-row items-center justify-between mb-4">
+      {/* CABEÇALHO COM TRAVAMENTO FIRME */}
+      <MotiView
+        from={{ opacity: 0, translateY: -8 }}
+        animate={{ opacity: 1, translateY: 0 }}
+        transition={{
+          type: "spring",
+          damping: 24, // Fricção alta para travar sem balanço
+          stiffness: 160,
+        }}
+        className="flex-row items-center justify-between mb-4"
+      >
         <View>
           <Text className="text-2xl font-black text-[#1b1b1d] dark:text-white">
             Meus Treinos
@@ -261,52 +264,64 @@ export default function MyWorkoutsScreen() {
         >
           <Plus size={20} color="#FFFFFF" weight="bold" />
         </TouchableOpacity>
-      </View>
+      </MotiView>
 
-      {/* FILTROS DE CATEGORIA */}
+      {/* FILTROS DE CATEGORIA SEM OSCILAÇÃO EXTRA */}
       <View className="mb-4">
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={{ paddingRight: 20 }}
         >
-          {CATEGORY_FILTERS.map((filter) => {
+          {CATEGORY_FILTERS.map((filter, index) => {
             const isActive = selectedFilter === filter.id;
             return (
-              <TouchableOpacity
+              <MotiView
                 key={`filter-${filter.id}`}
-                activeOpacity={0.7}
-                onPress={() => setSelectedFilter(filter.id)}
-                className={`px-4 py-2.5 rounded-xl mr-2 border ${
-                  isActive
-                    ? "bg-[#59C83A] border-[#59C83A]"
-                    : "bg-[#f8f9fa] dark:bg-zinc-900 border-[#e2dfe1] dark:border-zinc-800"
-                }`}
+                from={{ opacity: 0, translateX: -10 }}
+                animate={{ opacity: 1, translateX: 0 }}
+                transition={{
+                  type: "spring",
+                  damping: 22,
+                  stiffness: 160,
+                  delay: index * 40,
+                }}
               >
-                <Text
-                  className={`text-xs font-bold ${
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() => setSelectedFilter(filter.id)}
+                  className={`px-4 py-2.5 rounded-xl mr-2 border ${
                     isActive
-                      ? "text-white"
-                      : "text-[#1b1b1d] dark:text-zinc-300"
+                      ? "bg-[#59C83A] border-[#59C83A]"
+                      : "bg-[#f8f9fa] dark:bg-zinc-900 border-[#e2dfe1] dark:border-zinc-800"
                   }`}
                 >
-                  {filter.label}
-                </Text>
-              </TouchableOpacity>
+                  <Text
+                    className={`text-xs font-bold ${
+                      isActive
+                        ? "text-white"
+                        : "text-[#1b1b1d] dark:text-zinc-300"
+                    }`}
+                  >
+                    {filter.label}
+                  </Text>
+                </TouchableOpacity>
+              </MotiView>
             );
           })}
         </ScrollView>
       </View>
 
-      {/* LISTA DE TREINOS */}
+      {/* LISTA DE TREINOS COM ENTRADA SUAVE E PARADA IMEDIATA */}
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 40 }}
+        contentContainerStyle={{ paddingBottom: 120 }}
         refreshControl={
           <RefreshControl
             refreshing={isRefetching}
             onRefresh={refetch}
             tintColor="#59C83A"
+            colors={["#59C83A"]}
           />
         }
       >
@@ -318,7 +333,12 @@ export default function MyWorkoutsScreen() {
             </Text>
           </View>
         ) : filteredWorkouts.length === 0 ? (
-          <View className="bg-[#f8f9fa] dark:bg-zinc-900 p-8 rounded-2xl border border-dashed border-[#e2dfe1] dark:border-zinc-800 items-center my-2">
+          <MotiView
+            from={{ opacity: 0, scale: 0.97 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ type: "timing", duration: 250 }}
+            className="bg-[#f8f9fa] dark:bg-zinc-900 p-8 rounded-2xl border border-dashed border-[#e2dfe1] dark:border-zinc-800 items-center my-2"
+          >
             <Barbell size={40} color={isDark ? "#71717a" : "#a1a1aa"} />
             <Text className="text-[#1b1b1d] dark:text-white font-bold mt-3 text-base text-center">
               Nenhum treino encontrado
@@ -330,17 +350,25 @@ export default function MyWorkoutsScreen() {
                 ? "Você ainda não criou nenhum treino personalizado."
                 : "Nenhuma ficha de treino cadastrada até o momento."}
             </Text>
-          </View>
+          </MotiView>
         ) : (
-          filteredWorkouts.map((workout) => {
+          filteredWorkouts.map((workout, index) => {
             const isPersonal = workout.type === "personal";
 
             return (
-              <View
+              <MotiView
                 key={`workout-${workout.id}`}
+                from={{ opacity: 0, translateY: 14, scale: 0.97 }}
+                animate={{ opacity: 1, translateY: 0, scale: 1 }}
+                transition={{
+                  type: "spring",
+                  damping: 22,     // Damping mais alto remove o balanço final!
+                  stiffness: 150,  // Mantém o início ágil e preciso
+                  delay: index * 40,
+                }}
                 className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl mb-3 border border-[#e2dfe1] dark:border-zinc-800"
               >
-                {/* CABEÇALHO DO CARD: TÍTULO, TAG E ÍCONE */}
+                {/* CABEÇALHO DO CARD */}
                 <View className="flex-row items-center justify-between mb-2">
                   <View className="flex-row items-center flex-1 mr-2 gap-2">
                     <View
@@ -385,7 +413,7 @@ export default function MyWorkoutsScreen() {
                   </Text>
                 </View>
 
-                {/* RODAPÉ DO CARD COM BOTÕES DE AÇÃO */}
+                {/* RODAPÉ DO CARD */}
                 <View className="flex-row items-center justify-between mt-3 pt-3 border-t border-[#e2dfe1]/60 dark:border-zinc-800">
                   <Text className="text-[10px] font-bold text-[#71717a] dark:text-zinc-500 uppercase tracking-wider">
                     {isPersonal ? "Ficha do Personal" : "Criado por mim"}
@@ -412,7 +440,10 @@ export default function MyWorkoutsScreen() {
 
                         <TouchableOpacity
                           onPress={() =>
-                            handleDeleteCustomWorkout(workout.id, workout.title)
+                            handleDeleteCustomWorkout(
+                              workout.id,
+                              workout.title
+                            )
                           }
                           disabled={deleteWorkoutMutation.isPending}
                           className="w-8 h-8 rounded-lg bg-red-500/10 items-center justify-center border border-red-500/20"
@@ -434,13 +465,13 @@ export default function MyWorkoutsScreen() {
                     </TouchableOpacity>
                   </View>
                 </View>
-              </View>
+              </MotiView>
             );
           })
         )}
       </ScrollView>
 
-      {/* COMPONENTE DO MODAL PERSONALIZADO REUTILIZÁVEL */}
+      {/* MODAL PERSONALIZADO */}
       <CustomModal
         visible={modalConfig.visible}
         title={modalConfig.title}

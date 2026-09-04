@@ -20,6 +20,7 @@ import {
   CheckCircle,
 } from 'phosphor-react-native';
 import { useQuery } from '@tanstack/react-query';
+import { MotiView } from 'moti';
 import { supabase } from '../../../../lib/supabase';
 
 // --- TIPAGEM DE DADOS ---
@@ -57,24 +58,20 @@ async function fetchWorkoutHistory(): Promise<WorkoutLog[]> {
  * Converte segundos para um formato legível (Ex: "0 min", "2s", "5 min", "1h 02m")
  */
 function formatDuration(totalSeconds: number): string {
-  // Se for 0 ou negativo, retorna 0 min
   if (!totalSeconds || totalSeconds <= 0) return '0 min';
 
   const hours = Math.floor(totalSeconds / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
   const seconds = totalSeconds % 60;
 
-  // 1. Se durou mais de 1 hora (ex: 1h 05m)
   if (hours > 0) {
     return `${hours}h ${String(minutes).padStart(2, '0')}m`;
   }
 
-  // 2. Se durou pelo menos 1 minuto (ex: 5 min)
   if (minutes > 0) {
     return `${minutes} min`;
   }
 
-  // 3. Se durou menos de 1 minuto (ex: 2s, 45s)
   return `${seconds}s`;
 }
 
@@ -119,13 +116,24 @@ export default function StudentWorkoutHistoryScreen() {
     0
   );
 
+  const safeTopPadding = Math.max(insets?.top || 0, 16);
+
   return (
     <View
       className="flex-1 bg-white dark:bg-zinc-950 px-5"
-      style={{ paddingTop: insets.top + 10 }}
+      style={{ paddingTop: safeTopPadding + 10 }}
     >
-      {/* CABEÇALHO DA TELA */}
-      <View className="flex-row items-center mb-5">
+      {/* CABEÇALHO DA TELA COM ANIMAÇÃO */}
+      <MotiView
+        from={{ opacity: 0, translateY: -8 }}
+        animate={{ opacity: 1, translateY: 0 }}
+        transition={{
+          type: 'spring',
+          damping: 24,
+          stiffness: 160,
+        }}
+        className="flex-row items-center mb-5"
+      >
         <TouchableOpacity
           activeOpacity={0.7}
           onPress={() => router.back()}
@@ -142,11 +150,11 @@ export default function StudentWorkoutHistoryScreen() {
             Seu registro de constância e evolução
           </Text>
         </View>
-      </View>
+      </MotiView>
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 40 }}
+        contentContainerStyle={{ paddingBottom: 120 }} // Evita sobreposição com a Navbar Flutuante
         refreshControl={
           <RefreshControl
             refreshing={isRefetching}
@@ -156,8 +164,18 @@ export default function StudentWorkoutHistoryScreen() {
           />
         }
       >
-        {/* CARTÕES DE RESUMO E ESTATÍSTICAS */}
-        <View className="flex-row gap-3 mb-6">
+        {/* CARTÕES DE RESUMO E ESTATÍSTICAS COM ESCALA SUAVE */}
+        <MotiView
+          from={{ opacity: 0, scale: 0.96, translateY: 10 }}
+          animate={{ opacity: 1, scale: 1, translateY: 0 }}
+          transition={{
+            type: 'spring',
+            damping: 22,
+            stiffness: 150,
+            delay: 40,
+          }}
+          className="flex-row gap-3 mb-6"
+        >
           {/* Card 1: Total de Treinos */}
           <View className="flex-1 bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl border border-[#e2dfe1] dark:border-zinc-800">
             <View className="w-8 h-8 rounded-lg bg-[#59C83A]/10 items-center justify-center mb-2">
@@ -183,14 +201,25 @@ export default function StudentWorkoutHistoryScreen() {
               Tempo Dedicado
             </Text>
           </View>
-        </View>
+        </MotiView>
 
         {/* TÍTULO DA LISTA */}
-        <Text className="text-base font-extrabold text-[#1b1b1d] dark:text-white mb-3">
-          Sessões Concluídas
-        </Text>
+        <MotiView
+          from={{ opacity: 0, translateX: -10 }}
+          animate={{ opacity: 1, translateX: 0 }}
+          transition={{
+            type: 'spring',
+            damping: 22,
+            stiffness: 160,
+            delay: 80,
+          }}
+        >
+          <Text className="text-base font-extrabold text-[#1b1b1d] dark:text-white mb-3">
+            Sessões Concluídas
+          </Text>
+        </MotiView>
 
-        {/* LISTAGEM DOS LOGS */}
+        {/* LISTAGEM DOS LOGS ANIMADA */}
         {isLoading ? (
           <View className="py-12 items-center">
             <ActivityIndicator size="large" color="#59C83A" />
@@ -199,7 +228,12 @@ export default function StudentWorkoutHistoryScreen() {
             </Text>
           </View>
         ) : logs.length === 0 ? (
-          <View className="bg-[#f8f9fa] dark:bg-zinc-900 p-8 rounded-2xl border border-dashed border-[#e2dfe1] dark:border-zinc-800 items-center my-2">
+          <MotiView
+            from={{ opacity: 0, scale: 0.96 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ type: 'timing', duration: 250 }}
+            className="bg-[#f8f9fa] dark:bg-zinc-900 p-8 rounded-2xl border border-dashed border-[#e2dfe1] dark:border-zinc-800 items-center my-2"
+          >
             <Barbell size={40} color={isDark ? '#71717a' : '#808591'} />
             <Text className="text-[#1b1b1d] dark:text-white font-bold mt-3 text-base text-center">
               Nenhum treino registrado ainda
@@ -207,11 +241,19 @@ export default function StudentWorkoutHistoryScreen() {
             <Text className="text-[#71717a] dark:text-zinc-400 text-xs text-center mt-1">
               Conclua o seu primeiro treino e ele aparecerá salvo aqui no seu histórico!
             </Text>
-          </View>
+          </MotiView>
         ) : (
-          logs.map((log) => (
-            <View
+          logs.map((log, index) => (
+            <MotiView
               key={log.id}
+              from={{ opacity: 0, translateY: 14, scale: 0.97 }}
+              animate={{ opacity: 1, translateY: 0, scale: 1 }}
+              transition={{
+                type: 'spring',
+                damping: 22,     // Fricção alta para parada precisa
+                stiffness: 150,  // Impulso inicial ágil
+                delay: index * 40, // Cascata de entrada
+              }}
               className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl mb-3 border border-[#e2dfe1] dark:border-zinc-800 flex-row items-center justify-between"
             >
               <View className="flex-1 mr-3">
@@ -237,7 +279,7 @@ export default function StudentWorkoutHistoryScreen() {
                   {formatDuration(log.duration_seconds)}
                 </Text>
               </View>
-            </View>
+            </MotiView>
           ))
         )}
       </ScrollView>
