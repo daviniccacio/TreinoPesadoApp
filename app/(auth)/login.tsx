@@ -232,7 +232,7 @@ export default function LoginScreen() {
               resizeMode="contain"
             />
           </View>
-          <Text className="text-sm text-[#71717a] dark:text-zinc-400 text-center font-medium tracking-wide">
+          <Text className="font-dmsans-medium text-sm text-[#71717a] dark:text-zinc-400 text-center tracking-wide">
             Entre para continuar a sua evolução
           </Text>
         </MotiView>
@@ -251,13 +251,13 @@ export default function LoginScreen() {
         >
           {/* Campo E-mail */}
           <View className="mb-3">
-            <Text className="text-xs font-bold uppercase tracking-wider text-[#71717a] dark:text-zinc-400 mb-2 ml-1">
+            <Text className="font-dmsans-bold text-xs uppercase tracking-wider text-[#71717a] dark:text-zinc-400 mb-2 ml-1">
               E-mail
             </Text>
             <View className="flex-row items-center bg-[#f8f9fa] dark:bg-zinc-900 rounded-2xl px-4 py-3.5 border border-[#e2dfe1] dark:border-zinc-800">
               <EnvelopeSimple size={20} color={isDark ? '#59C83A' : '#414755'} />
               <TextInput
-                className="flex-1 ml-3 text-[#1b1b1d] dark:text-white text-base font-medium"
+                className="font-dmsans-medium flex-1 ml-3 text-[#1b1b1d] dark:text-white text-base"
                 placeholder="seu.email@exemplo.com"
                 placeholderTextColor={isDark ? '#71717a' : '#a09da1'}
                 value={email}
@@ -270,13 +270,13 @@ export default function LoginScreen() {
 
           {/* Campo Senha */}
           <View className="mb-1">
-            <Text className="text-xs font-bold uppercase tracking-wider text-[#71717a] dark:text-zinc-400 mb-2 ml-1">
+            <Text className="font-dmsans-bold text-xs uppercase tracking-wider text-[#71717a] dark:text-zinc-400 mb-2 ml-1">
               Senha
             </Text>
             <View className="flex-row items-center bg-[#f8f9fa] dark:bg-zinc-900 rounded-2xl px-4 py-3.5 border border-[#e2dfe1] dark:border-zinc-800">
               <LockSimple size={20} color={isDark ? '#59C83A' : '#414755'} />
               <TextInput
-                className="flex-1 ml-3 text-[#1b1b1d] dark:text-white text-base font-medium"
+                className="font-dmsans-medium flex-1 ml-3 text-[#1b1b1d] dark:text-white text-base"
                 placeholder="Sua senha secreta"
                 placeholderTextColor={isDark ? '#71717a' : '#a09da1'}
                 value={password}
@@ -301,7 +301,7 @@ export default function LoginScreen() {
             }}
             className="align-self-end items-end mb-3 py-1"
           >
-            <Text style={{ color: '#59C83A' }} className="text-xs font-bold">
+            <Text style={{ color: '#59C83A' }} className="font-dmsans-bold text-xs">
               Esqueceu a senha?
             </Text>
           </TouchableOpacity>
@@ -317,7 +317,7 @@ export default function LoginScreen() {
             {loading ? (
               <ActivityIndicator color="#ffffff" />
             ) : (
-              <Text className="text-white font-extrabold text-lg tracking-wide">
+              <Text className="font-outfit text-white text-lg tracking-wide">
                 Entrar
               </Text>
             )}
@@ -328,9 +328,9 @@ export default function LoginScreen() {
             onPress={() => router.push('/(auth)/register')}
             className="items-center py-4 mt-3"
           >
-            <Text className="text-sm text-[#71717a] dark:text-zinc-400">
+            <Text className="font-dmsans text-sm text-[#71717a] dark:text-zinc-400">
               Não tem uma conta?{' '}
-              <Text style={{ color: '#59C83A' }} className="font-bold">
+              <Text style={{ color: '#59C83A' }} className="font-dmsans-bold">
                 Cadastre-se
               </Text>
             </Text>
@@ -342,7 +342,7 @@ export default function LoginScreen() {
           <View className="flex-1 bg-black/60 justify-end">
             <View className="bg-white dark:bg-zinc-900 rounded-t-3xl p-6 border-t border-[#e2dfe1] dark:border-zinc-800">
               <View className="flex-row items-center justify-between mb-4">
-                <Text className="text-lg font-extrabold text-[#1b1b1d] dark:text-white">
+                <Text className="font-outfit text-lg text-[#1b1b1d] dark:text-white">
                   Redefinir Senha
                 </Text>
                 <TouchableOpacity
@@ -353,14 +353,14 @@ export default function LoginScreen() {
                 </TouchableOpacity>
               </View>
 
-              <Text className="text-xs text-[#71717a] dark:text-zinc-400 mb-4 font-medium leading-5">
+              <Text className="font-dmsans-medium text-xs text-[#71717a] dark:text-zinc-400 mb-4 leading-5">
                 Digite o seu e-mail cadastrado. Enviaremos um link seguro para você criar uma nova senha.
               </Text>
 
               <View className="flex-row items-center bg-[#f8f9fa] dark:bg-zinc-950 rounded-2xl px-4 py-3.5 border border-[#e2dfe1] dark:border-zinc-800 mb-5">
                 <EnvelopeSimple size={20} color={isDark ? '#59C83A' : '#414755'} />
                 <TextInput
-                  className="flex-1 ml-3 text-[#1b1b1d] dark:text-white text-base font-medium"
+                  className="font-dmsans-medium flex-1 ml-3 text-[#1b1b1d] dark:text-white text-base"
                   placeholder="seu.email@exemplo.com"
                   placeholderTextColor={isDark ? '#71717a' : '#a09da1'}
                   value={resetEmail}
@@ -379,7 +379,7 @@ export default function LoginScreen() {
                 {resetLoading ? (
                   <ActivityIndicator color="#ffffff" />
                 ) : (
-                  <Text className="text-white font-extrabold text-base">
+                  <Text className="font-outfit text-white text-base">
                     Enviar E-mail de Recuperação
                   </Text>
                 )}
