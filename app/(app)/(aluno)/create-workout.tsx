@@ -8,9 +8,6 @@ import {
   ActivityIndicator,
   useColorScheme,
   Modal,
-  LayoutAnimation,
-  Platform,
-  UIManager,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -31,13 +28,6 @@ import { Image } from "expo-image";
 import { supabase } from "../../../lib/supabase";
 import { getExerciseGif } from "../../../lib/exerciseGifs";
 import { CustomModal } from "../../../components/CustomModal";
-
-if (
-  Platform.OS === "android" &&
-  UIManager.setLayoutAnimationEnabledExperimental
-) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
 
 const DAYS_OF_WEEK = [
   "Livre",
@@ -270,7 +260,6 @@ export default function CreateOrEditWorkoutScreen() {
 
   // 5. SELEÇÃO DE EXERCÍCIO
   function handleSelectExercise(exercise: ExerciseOption) {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
 
     const alreadyExists = selectedExercises.some(
       (e) => e.exercise_id === exercise.id
@@ -751,7 +740,6 @@ export default function CreateOrEditWorkoutScreen() {
                     <TouchableOpacity
                       key={cat}
                       onPress={() => {
-                        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
                         setSelectedCategory(cat);
                       }}
                       className={`px-3.5 py-1.5 rounded-xl border ${

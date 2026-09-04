@@ -9,9 +9,6 @@ import {
   Modal,
   ActivityIndicator,
   useColorScheme,
-  LayoutAnimation,
-  Platform,
-  UIManager,
 } from 'react-native';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -36,9 +33,6 @@ import { CustomModal } from '../../../components/CustomModal';
 import { createWorkoutPlanSchema } from '../../../lib/validations/workout';
 
 // Habilita animações de layout suaves no Android
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
 
 // --- TIPAGENS DE DADOS ---
 interface RegisteredExercise {
@@ -296,7 +290,6 @@ export default function CreateWorkoutPlanScreen() {
   }
 
   function handleToggleExerciseFromLibrary(item: RegisteredExercise) {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
 
     const existingIndex = selectedExercises.findIndex((ex) => ex.exercise_id === item.id);
 
