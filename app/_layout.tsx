@@ -9,14 +9,38 @@ if (SafeAreaProvider) {
 // 3. CSS Global
 import '../global.css';
 
-// 4. Importações do React, Expo Router, Supabase e TanStack Query
+// 4. Importações do React, React Native, Expo Router, Supabase e TanStack Query
 import React, { useEffect, useState } from 'react';
-import { View, ActivityIndicator } from 'react-native';
+import { View, ActivityIndicator, useColorScheme } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import {
+  DarkTheme,
+  DefaultTheme,
+  ThemeProvider,
+} from '@react-navigation/native';
 import { supabase } from '../lib/supabase';
 
-// 5. Configuração e criação da instância do TanStack Query
+// 5. Tema escuro customizado para coincidir com a cor dark:bg-zinc-950 (#09090b)
+const CustomDarkTheme = {
+  ...DarkTheme,
+  colors: {
+    ...DarkTheme.colors,
+    background: '#09090b',
+    card: '#09090b',
+  },
+};
+
+const CustomLightTheme = {
+  ...DefaultTheme,
+  colors: {
+    ...DefaultTheme.colors,
+    background: '#ffffff',
+    card: '#ffffff',
+  },
+};
+
+// 6. Configuração da instância do TanStack Query
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -38,18 +62,20 @@ export default function RootLayout() {
   const segments = useSegments();
   const router = useRouter();
 
+  // Detecta o tema atual do dispositivo (light ou dark)
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
+
   useEffect(() => {
-    // 1. Função que valida no servidor do Supabase se o usuário realmente existe no banco
+    // Valida no servidor do Supabase se o usuário realmente existe no banco
     async function validateAuthOnServer() {
       try {
         const { data: { user }, error } = await supabase.auth.getUser();
 
         if (error || !user) {
-          // Se o usuário foi apagado do banco, força o logout para limpar o cache local
           await supabase.auth.signOut();
           setSession(null);
         } else {
-          // Usuário existe no banco, obtém a sessão válida
           const { data: { session: validSession } } = await supabase.auth.getSession();
           setSession(validSession);
         }
@@ -63,7 +89,7 @@ export default function RootLayout() {
 
     validateAuthOnServer();
 
-    // 2. Escuta alterações de login e logout em tempo real
+    // Escuta alterações de login e logout em tempo real
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, currentSession) => {
         if (event === 'SIGNED_OUT' || !currentSession) {
@@ -80,7 +106,7 @@ export default function RootLayout() {
     };
   }, []);
 
-  // 3. Controle e Proteção Global de Rotas
+  // Controle e Proteção Global de Rotas
   useEffect(() => {
     if (!isReady) return;
 
@@ -88,12 +114,10 @@ export default function RootLayout() {
     const inAuthGroup = segments[0] === '(auth)';
 
     if (session) {
-      // Usuário logado: se não estiver dentro de (app), redireciona para a área interna
       if (!inAppGroup) {
         router.replace('/(app)');
       }
     } else {
-      // Usuário deslogado ou conta apagada: se não estiver na tela de login/cadastro, manda para o login
       if (!inAuthGroup) {
         router.replace('/(auth)/login');
       }
@@ -111,13 +135,23 @@ export default function RootLayout() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <SafeAreaProvider>
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="index" />
-          <Stack.Screen name="(auth)" />
-          <Stack.Screen name="(app)" />
-        </Stack>
-      </SafeAreaProvider>
+      <ThemeProvider value={isDark ? CustomDarkTheme : CustomLightTheme}>
+        <SafeAreaProvider>
+          <Stack
+            screenOptions={{
+              headerShown: false,
+              // Fixa a cor do container nativo da Stack para evitar a piscada branca durante o fade
+              contentStyle: {
+                backgroundColor: isDark ? '#09090b' : '#ffffff',
+              },
+            }}
+          >
+            <Stack.Screen name="index" />
+            <Stack.Screen name="(auth)" />
+            <Stack.Screen name="(app)" />
+          </Stack>
+        </SafeAreaProvider>
+      </ThemeProvider>
     </QueryClientProvider>
   );
 }
