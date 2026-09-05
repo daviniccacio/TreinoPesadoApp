@@ -202,7 +202,7 @@ export default function PersonalProfileScreen() {
   const safeTopPadding = Math.max(insets?.top || 0, 16);
 
   return (
-    <View className="flex-1 bg-white dark:bg-zinc-950" style={{ paddingTop: safeTopPadding }}>
+    <View className="flex-1 bg-white pb-4 dark:bg-zinc-950" style={{ paddingTop: safeTopPadding }}>
       {/* 1. CABEÇALHO ANIMADO */}
       <MotiView
         from={{ opacity: 0, translateY: -12 }}
@@ -219,7 +219,16 @@ export default function PersonalProfileScreen() {
         </Text>
       </MotiView>
 
-      <ScrollView className="flex-1 px-5 pt-6" showsVerticalScrollIndicator={false}>
+      {/* 🟢 SCROLLVIEW CORRIGIDO COM contentContainerStyle */}
+      <ScrollView
+        className="flex-1"
+        contentContainerStyle={{
+          paddingHorizontal: 20,
+          paddingTop: 24,
+          paddingBottom: 120, // Garante espaço suficiente para rolar acima da navbar flutuante
+        }}
+        showsVerticalScrollIndicator={false}
+      >
         {/* 2. CARTÃO DO USUÁRIO ANIMADO */}
         <MotiView
           from={{ opacity: 0, scale: 0.95, translateY: 10 }}
@@ -492,7 +501,7 @@ export default function PersonalProfileScreen() {
         >
           <TouchableOpacity
             onPress={handleSignOut}
-            className="bg-[#ffebe8] dark:bg-red-950/40 p-4 rounded-2xl items-center flex-row justify-center mb-10 border border-transparent dark:border-red-900/30"
+            className="bg-[#ffebe8] dark:bg-red-950/40 p-4 rounded-2xl items-center flex-row justify-center border border-transparent dark:border-red-900/30"
             activeOpacity={0.8}
           >
             <SignOut size={20} color="#e11d48" />
