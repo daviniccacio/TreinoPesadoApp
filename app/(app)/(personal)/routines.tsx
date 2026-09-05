@@ -23,6 +23,7 @@ import {
 
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { MotiView } from 'moti';
 import { supabase } from '../../../lib/supabase';
 import { CustomModal } from '../../../components/CustomModal';
 
@@ -351,18 +352,29 @@ export default function PersonalRoutinesScreen() {
     });
   }
 
+  const safeTopPadding = Math.max(insets?.top || 0, 16);
+
   return (
     <View
       className="flex-1 bg-white dark:bg-zinc-950 px-5"
-      style={{ paddingTop: insets.top + 10 }}
+      style={{ paddingTop: safeTopPadding + 10 }}
     >
-      {/* CABEÇALHO */}
-      <View className="flex-row justify-between items-center mb-6 border-b border-[#f0edef] dark:border-zinc-800 pb-4">
+      {/* 1. CABEÇALHO ANIMADO */}
+      <MotiView
+        from={{ opacity: 0, translateY: -12 }}
+        animate={{ opacity: 1, translateY: 0 }}
+        transition={{
+          type: 'spring',
+          damping: 24,
+          stiffness: 160,
+        }}
+        className="flex-row justify-between items-center mb-6 border-b border-[#f0edef] dark:border-zinc-800 pb-4"
+      >
         <View className="flex-1 mr-2">
           <Text className="text-2xl font-extrabold text-[#1b1b1d] dark:text-white">
             Biblioteca de Rotinas
           </Text>
-          <Text className="text-sm text-[#71717a] dark:text-zinc-400 mt-1">
+          <Text className="text-sm text-[#71717a] dark:text-zinc-400 mt-1 font-medium">
             Modelos de fichas reutilizáveis
           </Text>
         </View>
@@ -374,23 +386,32 @@ export default function PersonalRoutinesScreen() {
         >
           <Plus size={22} color="#FFFFFF" weight="bold" />
         </TouchableOpacity>
-      </View>
+      </MotiView>
 
-      {/* CONTEÚDO DA LISTA */}
+      {/* 2. CONTEÚDO DA LISTA OU ESTADO VAZIO */}
       {loadingRoutines ? (
         <View className="flex-1 justify-center items-center">
           <ActivityIndicator size="large" color="#59C83A" />
         </View>
       ) : routines.length === 0 ? (
-        <View className="flex-1 justify-center items-center px-6">
+        <MotiView
+          from={{ opacity: 0, scale: 0.95, translateY: 10 }}
+          animate={{ opacity: 1, scale: 1, translateY: 0 }}
+          transition={{
+            type: 'spring',
+            damping: 22,
+            stiffness: 150,
+          }}
+          className="flex-1 justify-center items-center px-6"
+        >
           <Books size={48} color={isDark ? '#71717a' : '#a1a1aa'} />
           <Text className="text-[#1b1b1d] dark:text-white font-bold text-base mt-4 text-center">
             Nenhum modelo cadastrado
           </Text>
-          <Text className="text-xs text-[#71717a] dark:text-zinc-400 text-center mt-1">
+          <Text className="text-xs text-[#71717a] dark:text-zinc-400 text-center mt-1 font-medium">
             Clique no botão '+' no topo para criar sua primeira ficha modelo reutilizável.
           </Text>
-        </View>
+        </MotiView>
       ) : (
         <FlatList
           data={routines}
@@ -403,71 +424,82 @@ export default function PersonalRoutinesScreen() {
               tintColor="#59C83A"
             />
           }
-          renderItem={({ item }) => {
+          renderItem={({ item, index }) => {
             const exerciseCount = item.plan_exercises?.length || 0;
 
             return (
-              <View className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl mb-3 border border-[#e2dfe1] dark:border-zinc-800 flex-row items-center justify-between">
-                {/* ÁREA CLICÁVEL DO CARD: NAVEGA PARA OS DETALHES DO TREINO */}
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  onPress={() =>
-                    router.push({
-                      pathname: '/(personal)/routine/[id]',
-                      params: { id: item.id },
-                    })
-                  }
-                  className="flex-row items-center flex-1 mr-2"
-                >
-                  <View className="w-12 h-12 rounded-2xl bg-[#59C83A]/10 items-center justify-center border border-[#59C83A]/30 mr-3">
-                    <Barbell size={22} color="#59C83A" weight="bold" />
-                  </View>
-
-                  <View className="flex-1">
-                    <Text className="text-base font-bold text-[#1b1b1d] dark:text-white">
-                      {item.name}
-                    </Text>
-                    <Text className="text-xs text-[#71717a] dark:text-zinc-400 mt-0.5">
-                      {exerciseCount} {exerciseCount === 1 ? 'exercício' : 'exercícios'}
-                      {item.objective ? ` • ${item.objective}` : ''}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-
-                {/* AÇÕES DO CARTÃO */}
-                <View className="flex-row items-center gap-2">
-                  {/* 1. Botão Atribuir a Aluno */}
+              <MotiView
+                from={{ opacity: 0, translateY: 14, scale: 0.97 }}
+                animate={{ opacity: 1, translateY: 0, scale: 1 }}
+                transition={{
+                  type: 'spring',
+                  damping: 22,
+                  stiffness: 150,
+                  delay: index * 40,
+                }}
+              >
+                <View className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl mb-3 border border-[#e2dfe1] dark:border-zinc-800 flex-row items-center justify-between">
+                  {/* ÁREA CLICÁVEL DO CARD: NAVEGA PARA OS DETALHES DO TREINO */}
                   <TouchableOpacity
-                    onPress={() => handleOpenAssignFlow(item)}
-                    disabled={assignRoutineMutation.isPending}
-                    className="w-9 h-9 rounded-xl bg-[#59C83A]/10 items-center justify-center border border-[#59C83A]/30"
-                  >
-                    <UserPlus size={18} color="#59C83A" weight="bold" />
-                  </TouchableOpacity>
-
-                  {/* 2. Botão Editar Modelo */}
-                  <TouchableOpacity
+                    activeOpacity={0.7}
                     onPress={() =>
                       router.push({
-                        pathname: '/(personal)/create-workout',
-                        params: { planId: item.id },
+                        pathname: '/(personal)/routine/[id]',
+                        params: { id: item.id },
                       })
                     }
-                    className="w-9 h-9 rounded-xl bg-zinc-200 dark:bg-zinc-800 items-center justify-center border border-zinc-300 dark:border-zinc-700"
+                    className="flex-row items-center flex-1 mr-2"
                   >
-                    <PencilSimple size={18} color={isDark ? '#ffffff' : '#1b1b1d'} weight="bold" />
+                    <View className="w-12 h-12 rounded-2xl bg-[#59C83A]/10 items-center justify-center border border-[#59C83A]/30 mr-3">
+                      <Barbell size={22} color="#59C83A" weight="bold" />
+                    </View>
+
+                    <View className="flex-1">
+                      <Text className="text-base font-bold text-[#1b1b1d] dark:text-white">
+                        {item.name}
+                      </Text>
+                      <Text className="text-xs text-[#71717a] dark:text-zinc-400 mt-0.5 font-medium">
+                        {exerciseCount} {exerciseCount === 1 ? 'exercício' : 'exercícios'}
+                        {item.objective ? ` • ${item.objective}` : ''}
+                      </Text>
+                    </View>
                   </TouchableOpacity>
 
-                  {/* 3. Botão Excluir Modelo */}
-                  <TouchableOpacity
-                    onPress={() => handleDeleteRoutine(item.id, item.name)}
-                    disabled={deleteRoutineMutation.isPending}
-                    className="w-9 h-9 rounded-xl bg-red-500/10 items-center justify-center border border-red-500/20"
-                  >
-                    <Trash size={18} color="#ef4444" />
-                  </TouchableOpacity>
+                  {/* AÇÕES DO CARTÃO */}
+                  <View className="flex-row items-center gap-2">
+                    {/* 1. Botão Atribuir a Aluno */}
+                    <TouchableOpacity
+                      onPress={() => handleOpenAssignFlow(item)}
+                      disabled={assignRoutineMutation.isPending}
+                      className="w-9 h-9 rounded-xl bg-[#59C83A]/10 items-center justify-center border border-[#59C83A]/30"
+                    >
+                      <UserPlus size={18} color="#59C83A" weight="bold" />
+                    </TouchableOpacity>
+
+                    {/* 2. Botão Editar Modelo */}
+                    <TouchableOpacity
+                      onPress={() =>
+                        router.push({
+                          pathname: '/(personal)/create-workout',
+                          params: { planId: item.id },
+                        })
+                      }
+                      className="w-9 h-9 rounded-xl bg-zinc-200 dark:bg-zinc-800 items-center justify-center border border-zinc-300 dark:border-zinc-700"
+                    >
+                      <PencilSimple size={18} color={isDark ? '#ffffff' : '#1b1b1d'} weight="bold" />
+                    </TouchableOpacity>
+
+                    {/* 3. Botão Excluir Modelo */}
+                    <TouchableOpacity
+                      onPress={() => handleDeleteRoutine(item.id, item.name)}
+                      disabled={deleteRoutineMutation.isPending}
+                      className="w-9 h-9 rounded-xl bg-red-500/10 items-center justify-center border border-red-500/20"
+                    >
+                      <Trash size={18} color="#ef4444" />
+                    </TouchableOpacity>
+                  </View>
                 </View>
-              </View>
+              </MotiView>
             );
           }}
         />
@@ -502,7 +534,7 @@ export default function PersonalRoutinesScreen() {
             ) : students.length === 0 ? (
               <View className="flex-1 items-center justify-center p-6">
                 <Users size={32} color={isDark ? '#71717a' : '#a1a1aa'} />
-                <Text className="text-xs text-[#71717a] dark:text-zinc-400 mt-2 text-center">
+                <Text className="text-xs text-[#71717a] dark:text-zinc-400 mt-2 text-center font-medium">
                   Nenhum aluno cadastrado no sistema.
                 </Text>
               </View>

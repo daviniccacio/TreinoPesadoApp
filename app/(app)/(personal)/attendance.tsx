@@ -17,6 +17,7 @@ import {
   TrendUp,
 } from "phosphor-react-native";
 import { useQuery } from "@tanstack/react-query";
+import { MotiView } from "moti";
 import { supabase } from "../../../lib/supabase";
 
 /**
@@ -62,7 +63,7 @@ async function fetchAttendanceLogs(): Promise<AttendanceLog[]> {
         full_name,
         personal_id
       )
-    `,
+    `
     )
     .eq("profiles.personal_id", user.id)
     .order("created_at", { ascending: false });
@@ -145,14 +146,36 @@ export default function PersonalAttendanceScreen() {
   function renderHeader() {
     return (
       <View className="mb-4">
-        <Text className="text-2xl font-black text-[#1b1b1d] dark:text-white">
-          Frequência de Treinos
-        </Text>
-        <Text className="text-xs text-[#71717a] dark:text-zinc-400 mt-0.5 mb-5 font-medium">
-          Acompanhamento em tempo real da assiduidade dos seus alunos
-        </Text>
+        {/* TITULO ANIMADO */}
+        <MotiView
+          from={{ opacity: 0, translateY: -12 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{
+            type: "spring",
+            damping: 24,
+            stiffness: 160,
+          }}
+        >
+          <Text className="text-2xl font-black text-[#1b1b1d] dark:text-white">
+            Frequência de Treinos
+          </Text>
+          <Text className="text-xs text-[#71717a] dark:text-zinc-400 mt-0.5 mb-5 font-medium">
+            Acompanhamento em tempo real da assiduidade dos seus alunos
+          </Text>
+        </MotiView>
 
-        <View className="flex-row gap-3 mb-5">
+        {/* CARTÕES DE ESTATÍSTICAS ANIMADOS */}
+        <MotiView
+          from={{ opacity: 0, translateY: 10 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{
+            type: "spring",
+            damping: 22,
+            stiffness: 150,
+            delay: 30,
+          }}
+          className="flex-row gap-3 mb-5"
+        >
           <View className="flex-1 bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl border border-[#e2dfe1] dark:border-zinc-800">
             <View className="w-8 h-8 rounded-xl bg-[#59C83A]/10 items-center justify-center mb-2 border border-[#59C83A]/30">
               <UserCheck size={18} color="#59C83A" weight="bold" />
@@ -176,7 +199,7 @@ export default function PersonalAttendanceScreen() {
               Treinos nesta Semana
             </Text>
           </View>
-        </View>
+        </MotiView>
 
         <Text className="text-sm font-extrabold text-[#1b1b1d] dark:text-white mb-1">
           Últimos Treinos Finalizados ({logs.length})
@@ -185,10 +208,12 @@ export default function PersonalAttendanceScreen() {
     );
   }
 
+  const safeTopPadding = Math.max(insets?.top || 0, 16);
+
   return (
     <View
       className="flex-1 bg-white dark:bg-zinc-950 px-5"
-      style={{ paddingTop: insets.top + 10 }}
+      style={{ paddingTop: safeTopPadding + 10 }}
     >
       {isError && (
         <View className="bg-red-500/10 border border-red-500/30 p-4 rounded-2xl mb-4 flex-row items-center">
@@ -221,54 +246,74 @@ export default function PersonalAttendanceScreen() {
             />
           }
           ListEmptyComponent={
-            <View className="bg-[#f8f9fa] dark:bg-zinc-900 p-8 rounded-2xl border border-dashed border-[#e2dfe1] dark:border-zinc-800 items-center my-2">
+            <MotiView
+              from={{ opacity: 0, scale: 0.95, translateY: 10 }}
+              animate={{ opacity: 1, scale: 1, translateY: 0 }}
+              transition={{
+                type: "spring",
+                damping: 22,
+                stiffness: 150,
+              }}
+              className="bg-[#f8f9fa] dark:bg-zinc-900 p-8 rounded-2xl border border-dashed border-[#e2dfe1] dark:border-zinc-800 items-center my-2"
+            >
               <CalendarCheck size={40} color={isDark ? "#71717a" : "#808591"} />
               <Text className="text-[#1b1b1d] dark:text-white font-bold text-base mt-3 text-center">
                 Nenhum treino registrado
               </Text>
-              <Text className="text-xs text-[#71717a] dark:text-zinc-400 text-center mt-1 leading-5">
+              <Text className="text-xs text-[#71717a] dark:text-zinc-400 text-center mt-1 leading-5 font-medium">
                 Assim que os seus alunos finalizarem os treinos no aplicativo, a
                 frequência aparecerá automaticamente aqui.
               </Text>
-            </View>
+            </MotiView>
           }
-          renderItem={({ item }) => (
-            <View className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl mb-3 border border-[#e2dfe1] dark:border-zinc-800">
-              <View className="flex-row items-center justify-between mb-1.5">
-                <Text
-                  className="text-base font-extrabold text-[#1b1b1d] dark:text-white flex-1 mr-2"
-                  numberOfLines={1}
-                >
-                  {item.profiles?.full_name || "Aluno Não Identificado"}
-                </Text>
-
-                <View className="bg-[#59C83A]/10 border border-[#59C83A]/30 px-2.5 py-0.5 rounded-full flex-row items-center">
-                  <CheckCircle size={12} color="#59C83A" weight="bold" />
-                  <Text className="text-[10px] font-extrabold text-[#59C83A] ml-1">
-                    Concluído
+          renderItem={({ item, index }) => (
+            <MotiView
+              from={{ opacity: 0, translateY: 14, scale: 0.97 }}
+              animate={{ opacity: 1, translateY: 0, scale: 1 }}
+              transition={{
+                type: "spring",
+                damping: 22,
+                stiffness: 150,
+                delay: index * 40,
+              }}
+            >
+              <View className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl mb-3 border border-[#e2dfe1] dark:border-zinc-800">
+                <View className="flex-row items-center justify-between mb-1.5">
+                  <Text
+                    className="text-base font-extrabold text-[#1b1b1d] dark:text-white flex-1 mr-2"
+                    numberOfLines={1}
+                  >
+                    {item.profiles?.full_name || "Aluno Não Identificado"}
                   </Text>
-                </View>
-              </View>
 
-              <Text className="text-xs text-[#59C83A] font-bold mb-2">
-                {item.workout_title || "Treino Finalizado"}
-              </Text>
-
-              <View className="flex-row items-center justify-between pt-2 border-t border-[#e2dfe1] dark:border-zinc-800/80">
-                <Text className="text-[11px] font-medium text-[#71717a] dark:text-zinc-400">
-                  {formatDate(item.created_at)}
-                </Text>
-
-                {item.duration_seconds ? (
-                  <View className="flex-row items-center bg-white dark:bg-zinc-950 px-2 py-0.5 rounded-md border border-[#e2dfe1] dark:border-zinc-800">
-                    <Clock size={11} color="#59C83A" weight="bold" />
-                    <Text className="text-[10px] font-bold text-[#1b1b1d] dark:text-white ml-1">
-                      {formatDuration(item.duration_seconds)}
+                  <View className="bg-[#59C83A]/10 border border-[#59C83A]/30 px-2.5 py-0.5 rounded-full flex-row items-center">
+                    <CheckCircle size={12} color="#59C83A" weight="bold" />
+                    <Text className="text-[10px] font-extrabold text-[#59C83A] ml-1">
+                      Concluído
                     </Text>
                   </View>
-                ) : null}
+                </View>
+
+                <Text className="text-xs text-[#59C83A] font-bold mb-2">
+                  {item.workout_title || "Treino Finalizado"}
+                </Text>
+
+                <View className="flex-row items-center justify-between pt-2 border-t border-[#e2dfe1] dark:border-zinc-800/80">
+                  <Text className="text-[11px] font-medium text-[#71717a] dark:text-zinc-400">
+                    {formatDate(item.created_at)}
+                  </Text>
+
+                  {item.duration_seconds ? (
+                    <View className="flex-row items-center bg-white dark:bg-zinc-950 px-2 py-0.5 rounded-md border border-[#e2dfe1] dark:border-zinc-800">
+                      <Clock size={11} color="#59C83A" weight="bold" />
+                      <Text className="text-[10px] font-bold text-[#1b1b1d] dark:text-white ml-1">
+                        {formatDuration(item.duration_seconds)}
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
               </View>
-            </View>
+            </MotiView>
           )}
         />
       )}

@@ -23,6 +23,7 @@ import {
   UserMinus,
 } from 'phosphor-react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { MotiView } from 'moti';
 import { supabase } from '../../../lib/supabase';
 import { CustomModal } from '../../../components/CustomModal';
 
@@ -191,7 +192,7 @@ export default function StudentDetailScreen() {
     mutationFn: async () => {
       if (!studentId) throw new Error('ID do aluno não informado');
 
-      // Tativa 1: Execução via Função RPC
+      // Tentativa 1: Execução via Função RPC
       const { error: rpcError } = await supabase.rpc('unlink_student', {
         p_student_id: studentId,
       });
@@ -213,7 +214,6 @@ export default function StudentDetailScreen() {
       }
     },
     onSuccess: () => {
-      // Força a limpeza completa do cache do TanStack Query
       queryClient.invalidateQueries();
 
       showAlertModal({
@@ -311,12 +311,24 @@ export default function StudentDetailScreen() {
   };
   const workoutPlans: StudentWorkoutPlan[] = detailData?.workoutPlans || [];
 
+  const safeTopPadding = Math.max(insets?.top || 0, 16);
+
   return (
     <View
       className="flex-1 bg-white dark:bg-zinc-950 px-5"
-      style={{ paddingTop: insets.top + 10 }}
+      style={{ paddingTop: safeTopPadding + 10 }}
     >
-      <View className="flex-row items-center mb-6">
+      {/* 1. CABEÇALHO ANIMADO */}
+      <MotiView
+        from={{ opacity: 0, translateY: -12 }}
+        animate={{ opacity: 1, translateY: 0 }}
+        transition={{
+          type: 'spring',
+          damping: 24,
+          stiffness: 160,
+        }}
+        className="flex-row items-center mb-6"
+      >
         <TouchableOpacity
           activeOpacity={0.7}
           onPress={() => router.back()}
@@ -332,17 +344,28 @@ export default function StudentDetailScreen() {
           >
             {isLoading && !studentName ? 'Carregando...' : studentName}
           </Text>
-          <Text className="text-xs text-[#71717a] dark:text-zinc-400">
+          <Text className="text-xs text-[#71717a] dark:text-zinc-400 font-medium">
             Acompanhamento de progresso
           </Text>
         </View>
-      </View>
+      </MotiView>
 
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 40 }}
       >
-        <View className="bg-[#f8f9fa] dark:bg-zinc-900 p-5 rounded-3xl border border-[#e2dfe1] dark:border-zinc-800 mb-6">
+        {/* 2. CARTÃO DO ALUNO ANIMADO */}
+        <MotiView
+          from={{ opacity: 0, translateY: 10, scale: 0.98 }}
+          animate={{ opacity: 1, translateY: 0, scale: 1 }}
+          transition={{
+            type: 'spring',
+            damping: 22,
+            stiffness: 150,
+            delay: 20,
+          }}
+          className="bg-[#f8f9fa] dark:bg-zinc-900 p-5 rounded-3xl border border-[#e2dfe1] dark:border-zinc-800 mb-6"
+        >
           <View className="flex-row items-center justify-between">
             <View className="flex-row items-center flex-1 mr-2">
               <View className="w-14 h-14 rounded-2xl bg-[#59C83A]/10 items-center justify-center border border-[#59C83A]/30 mr-4">
@@ -366,121 +389,185 @@ export default function StudentDetailScreen() {
               <UserMinus size={20} color="#ef4444" weight="bold" />
             </TouchableOpacity>
           </View>
-        </View>
+        </MotiView>
 
-        <Text className="text-sm font-bold text-[#1b1b1d] dark:text-white mb-3">
-          Resumo de Atividades
-        </Text>
-
-        {isLoading ? (
-          <View className="p-8 items-center">
-            <ActivityIndicator size="small" color="#59C83A" />
-          </View>
-        ) : (
-          <View className="flex-row gap-2.5 mb-6">
-            <View className="flex-1 bg-[#f8f9fa] dark:bg-zinc-900 p-3.5 rounded-2xl border border-[#e2dfe1] dark:border-zinc-800">
-              <Trophy size={20} color="#59C83A" weight="bold" />
-              <Text className="text-xl font-black text-[#1b1b1d] dark:text-white mt-1.5">
-                {stats.prescribedWorkouts}
-              </Text>
-              <Text className="text-[10px] text-[#71717a] dark:text-zinc-400 font-bold uppercase mt-0.5">
-                Sua Ficha
-              </Text>
-            </View>
-
-            <View className="flex-1 bg-[#f8f9fa] dark:bg-zinc-900 p-3.5 rounded-2xl border border-[#e2dfe1] dark:border-zinc-800">
-              <Barbell size={20} color="#3B82F6" weight="bold" />
-              <Text className="text-xl font-black text-[#1b1b1d] dark:text-white mt-1.5">
-                {stats.totalWorkouts}
-              </Text>
-              <Text className="text-[10px] text-[#71717a] dark:text-zinc-400 font-bold uppercase mt-0.5">
-                Total Geral
-              </Text>
-            </View>
-
-            <View className="flex-1 bg-[#f8f9fa] dark:bg-zinc-900 p-3.5 rounded-2xl border border-[#e2dfe1] dark:border-zinc-800">
-              <CalendarBlank size={20} color="#59C83A" weight="bold" />
-              <Text
-                className="text-xs font-bold text-[#1b1b1d] dark:text-white mt-2"
-                numberOfLines={1}
-              >
-                {formatDate(stats.lastWorkoutDate)}
-              </Text>
-              <Text className="text-[10px] text-[#71717a] dark:text-zinc-400 font-bold uppercase mt-0.5">
-                Último Treino
-              </Text>
-            </View>
-          </View>
-        )}
-
-        <Text className="text-sm font-bold text-[#1b1b1d] dark:text-white mb-3">
-          Prescrever Treino
-        </Text>
-
-        <TouchableOpacity
-          activeOpacity={0.8}
-          onPress={() =>
-            router.push({
-              pathname: '/(personal)/create-workout',
-              params: { studentId, studentName },
-            })
-          }
-          className="bg-[#59C83A] p-4 rounded-2xl flex-row items-center mb-3 shadow-sm"
+        {/* 3. RESUMO DE ATIVIDADES ANIMADO */}
+        <MotiView
+          from={{ opacity: 0, translateY: 10 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{
+            type: 'spring',
+            damping: 22,
+            stiffness: 150,
+            delay: 40,
+          }}
         >
-          <PlusCircle size={24} color="#FFFFFF" weight="bold" />
-          <View className="ml-3 flex-1">
-            <Text className="text-white font-bold text-base">
-              Criar Treino do Zero
-            </Text>
-            <Text className="text-white/80 text-xs">
-              Monte uma ficha personalizada para este aluno
-            </Text>
-          </View>
-        </TouchableOpacity>
+          <Text className="text-sm font-bold text-[#1b1b1d] dark:text-white mb-3">
+            Resumo de Atividades
+          </Text>
 
-        <TouchableOpacity
-          activeOpacity={0.7}
-          onPress={() =>
-            router.push({
-              pathname: '/(personal)/routines',
-              params: {
-                assignToStudentId: studentId,
-                assignToStudentName: studentName,
-              },
-            })
-          }
-          className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl border border-[#e2dfe1] dark:border-zinc-800 flex-row items-center mb-6"
+          {isLoading ? (
+            <View className="p-8 items-center">
+              <ActivityIndicator size="small" color="#59C83A" />
+            </View>
+          ) : (
+            <View className="flex-row gap-2.5 mb-6">
+              <View className="flex-1 bg-[#f8f9fa] dark:bg-zinc-900 p-3.5 rounded-2xl border border-[#e2dfe1] dark:border-zinc-800">
+                <Trophy size={20} color="#59C83A" weight="bold" />
+                <Text className="text-xl font-black text-[#1b1b1d] dark:text-white mt-1.5">
+                  {stats.prescribedWorkouts}
+                </Text>
+                <Text className="text-[10px] text-[#71717a] dark:text-zinc-400 font-bold uppercase mt-0.5">
+                  Sua Ficha
+                </Text>
+              </View>
+
+              <View className="flex-1 bg-[#f8f9fa] dark:bg-zinc-900 p-3.5 rounded-2xl border border-[#e2dfe1] dark:border-zinc-800">
+                <Barbell size={20} color="#3B82F6" weight="bold" />
+                <Text className="text-xl font-black text-[#1b1b1d] dark:text-white mt-1.5">
+                  {stats.totalWorkouts}
+                </Text>
+                <Text className="text-[10px] text-[#71717a] dark:text-zinc-400 font-bold uppercase mt-0.5">
+                  Total Geral
+                </Text>
+              </View>
+
+              <View className="flex-1 bg-[#f8f9fa] dark:bg-zinc-900 p-3.5 rounded-2xl border border-[#e2dfe1] dark:border-zinc-800">
+                <CalendarBlank size={20} color="#59C83A" weight="bold" />
+                <Text
+                  className="text-xs font-bold text-[#1b1b1d] dark:text-white mt-2"
+                  numberOfLines={1}
+                >
+                  {formatDate(stats.lastWorkoutDate)}
+                </Text>
+                <Text className="text-[10px] text-[#71717a] dark:text-zinc-400 font-bold uppercase mt-0.5">
+                  Último Treino
+                </Text>
+              </View>
+            </View>
+          )}
+        </MotiView>
+
+        {/* 4. BOTÕES DE AÇÃO ANIMADOS */}
+        <MotiView
+          from={{ opacity: 0, translateY: 10 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{
+            type: 'spring',
+            damping: 22,
+            stiffness: 150,
+            delay: 60,
+          }}
         >
-          <Books size={24} color="#59C83A" weight="bold" />
-          <View className="ml-3 flex-1">
-            <Text className="text-[#1b1b1d] dark:text-white font-bold text-base">
-              Usar Modelo da Biblioteca
-            </Text>
-            <Text className="text-[#71717a] dark:text-zinc-400 text-xs">
-              Escolha uma rotina pronta para vincular
-            </Text>
-          </View>
-        </TouchableOpacity>
+          <Text className="text-sm font-bold text-[#1b1b1d] dark:text-white mb-3">
+            Prescrever Treino
+          </Text>
 
-        <Text className="text-sm font-bold text-[#1b1b1d] dark:text-white mb-3">
-          Planos de Treino do Aluno ({workoutPlans.length})
-        </Text>
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() =>
+              router.push({
+                pathname: '/(personal)/create-workout',
+                params: { studentId, studentName },
+              })
+            }
+            className="bg-[#59C83A] p-4 rounded-2xl flex-row items-center mb-3 shadow-sm"
+          >
+            <PlusCircle size={24} color="#FFFFFF" weight="bold" />
+            <View className="ml-3 flex-1">
+              <Text className="text-white font-bold text-base">
+                Criar Treino do Zero
+              </Text>
+              <Text className="text-white/80 text-xs font-medium">
+                Monte uma ficha personalizada para este aluno
+              </Text>
+            </View>
+          </TouchableOpacity>
+        </MotiView>
+
+        <MotiView
+          from={{ opacity: 0, translateY: 10 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{
+            type: 'spring',
+            damping: 22,
+            stiffness: 150,
+            delay: 80,
+          }}
+        >
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() =>
+              router.push({
+                pathname: '/(personal)/routines',
+                params: {
+                  assignToStudentId: studentId,
+                  assignToStudentName: studentName,
+                },
+              })
+            }
+            className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl border border-[#e2dfe1] dark:border-zinc-800 flex-row items-center mb-6"
+          >
+            <Books size={24} color="#59C83A" weight="bold" />
+            <View className="ml-3 flex-1">
+              <Text className="text-[#1b1b1d] dark:text-white font-bold text-base">
+                Usar Modelo da Biblioteca
+              </Text>
+              <Text className="text-[#71717a] dark:text-zinc-400 text-xs font-medium">
+                Escolha uma rotina pronta para vincular
+              </Text>
+            </View>
+          </TouchableOpacity>
+        </MotiView>
+
+        {/* 5. SEÇÃO DE PLANOS DO ALUNO ANIMADA */}
+        <MotiView
+          from={{ opacity: 0, translateY: 10 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{
+            type: 'spring',
+            damping: 22,
+            stiffness: 150,
+            delay: 100,
+          }}
+        >
+          <Text className="text-sm font-bold text-[#1b1b1d] dark:text-white mb-3">
+            Planos de Treino do Aluno ({workoutPlans.length})
+          </Text>
+        </MotiView>
 
         {workoutPlans.length === 0 ? (
-          <View className="bg-[#f8f9fa] dark:bg-zinc-900 p-6 rounded-2xl border border-dashed border-[#e2dfe1] dark:border-zinc-800 items-center justify-center">
+          <MotiView
+            from={{ opacity: 0, scale: 0.95, translateY: 10 }}
+            animate={{ opacity: 1, scale: 1, translateY: 0 }}
+            transition={{
+              type: 'spring',
+              damping: 22,
+              stiffness: 150,
+            }}
+            className="bg-[#f8f9fa] dark:bg-zinc-900 p-6 rounded-2xl border border-dashed border-[#e2dfe1] dark:border-zinc-800 items-center justify-center"
+          >
             <Barbell size={32} color={isDark ? '#71717a' : '#a1a1aa'} />
             <Text className="text-xs font-bold text-[#1b1b1d] dark:text-white mt-2 text-center">
               Nenhum plano de treino atribuído
             </Text>
-            <Text className="text-[11px] text-[#71717a] dark:text-zinc-400 text-center mt-1">
+            <Text className="text-[11px] text-[#71717a] dark:text-zinc-400 text-center mt-1 font-medium">
               Clique no botão verde acima para prescrever a primeira ficha de
               treino para este aluno.
             </Text>
-          </View>
+          </MotiView>
         ) : (
-          workoutPlans.map((plan: StudentWorkoutPlan) => (
-            <View
+          workoutPlans.map((plan: StudentWorkoutPlan, index: number) => (
+            <MotiView
               key={plan.id}
+              from={{ opacity: 0, translateY: 14, scale: 0.97 }}
+              animate={{ opacity: 1, translateY: 0, scale: 1 }}
+              transition={{
+                type: 'spring',
+                damping: 22,
+                stiffness: 150,
+                delay: index * 40,
+              }}
               className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl border border-[#e2dfe1] dark:border-zinc-800 mb-3"
             >
               <View className="flex-row items-center justify-between mb-2">
@@ -512,7 +599,7 @@ export default function StudentDetailScreen() {
               </View>
 
               {plan.description ? (
-                <Text className="text-xs text-[#71717a] dark:text-zinc-400 mb-3">
+                <Text className="text-xs text-[#71717a] dark:text-zinc-400 mb-3 font-medium">
                   {plan.description}
                 </Text>
               ) : null}
@@ -535,7 +622,7 @@ export default function StudentDetailScreen() {
                   </View>
                 ) : null}
               </View>
-            </View>
+            </MotiView>
           ))
         )}
       </ScrollView>

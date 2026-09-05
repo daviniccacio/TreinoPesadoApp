@@ -1,40 +1,86 @@
-// ============================================================================
-// LAYOUT DE NAVEGAÇÃO POR ABAS (PERSONAL TRAINER)
-// ============================================================================
-// Configura a barra de navegação inferior (Tab Bar) com suporte a modo escuro,
-// ícones interativos e ocultação de rotas internas de navegação.
-// ============================================================================
+import React from "react";
+import { useColorScheme, View } from "react-native";
+import { Tabs } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  Users,
+  Barbell,
+  Books,
+  CalendarCheck,
+  User,
+} from "phosphor-react-native";
+import { MotiView } from "moti";
 
-import React from 'react';
-import { useColorScheme } from 'react-native';
-import { Tabs } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Users, Books, CalendarCheck, User, Barbell } from 'phosphor-react-native';
+// --- COMPONENTE DE ÍCONE ANIMADO (MINIMALISTA) ---
+interface AnimatedTabItemProps {
+  focused: boolean;
+  children: React.ReactNode;
+}
+
+function AnimatedTabItem({ focused, children }: AnimatedTabItemProps) {
+  return (
+    <View className="items-center justify-center relative w-full h-full">
+      <MotiView
+        animate={{
+          scale: focused ? 1.12 : 1.0,
+          translateY: focused ? -1 : 0,
+        }}
+        transition={{
+          type: "spring",
+          damping: 22,
+          stiffness: 160,
+        }}
+      >
+        {children}
+      </MotiView>
+    </View>
+  );
+}
 
 export default function PersonalLayout() {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
   const insets = useSafeAreaInsets();
-  
-  // Altura customizada considerando a barra de navegação inferior dos celulares
-  const customTabBarHeight = 60 + insets.bottom;
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === "dark";
 
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarStyle: {
-          backgroundColor: isDark ? '#09090b' : '#ffffff',
-          borderTopColor: isDark ? '#27272a' : '#f0edef',
-          height: customTabBarHeight,
-          paddingBottom: insets.bottom > 0 ? insets.bottom : 8,
-          paddingTop: 8,
+        animation: "fade",
+
+        // 🟢 COR EXATA DO BACKGROUND (Sincronizado com dark:bg-zinc-950)
+        sceneStyle: {
+          backgroundColor: isDark ? "#09090b" : "#f8f9fa",
         },
-        tabBarActiveTintColor: '#59C83A',
-        tabBarInactiveTintColor: isDark ? '#a1a1aa' : '#71717a',
+
+        tabBarActiveTintColor: "#59C83A",
+        tabBarInactiveTintColor: isDark ? "#a1a1aa" : "#71717a",
+
+        tabBarStyle: {
+          position: "absolute",
+          bottom: Math.max(insets.bottom, 12),
+          left: 16,
+          right: 16,
+          height: 62,
+          borderRadius: 24,
+          borderWidth: 1,
+          borderColor: isDark ? "#27272a" : "#e2dfe1",
+          backgroundColor: isDark
+            ? "rgba(24, 24, 27, 0.96)"
+            : "rgba(255, 255, 255, 0.96)",
+          elevation: 6,
+          shadowColor: "#000000",
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: isDark ? 0.3 : 0.08,
+          shadowRadius: 10,
+          paddingBottom: 6,
+          paddingTop: 6,
+        },
+
         tabBarLabelStyle: {
-          fontSize: 11,
-          fontWeight: '600',
+          fontSize: 10,
+          fontWeight: "700",
+          marginTop: 2,
         },
       }}
     >
@@ -42,9 +88,15 @@ export default function PersonalLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Alunos',
+          title: "Alunos",
           tabBarIcon: ({ color, size, focused }) => (
-            <Users size={size} color={color} weight={focused ? 'fill' : 'bold'} />
+            <AnimatedTabItem focused={focused}>
+              <Users
+                size={size - 2}
+                color={color}
+                weight={focused ? "fill" : "regular"}
+              />
+            </AnimatedTabItem>
           ),
         }}
       />
@@ -53,9 +105,15 @@ export default function PersonalLayout() {
       <Tabs.Screen
         name="exercises"
         options={{
-          title: 'Exercícios',
+          title: "Exercícios",
           tabBarIcon: ({ color, size, focused }) => (
-            <Barbell size={size} color={color} weight={focused ? 'fill' : 'bold'} />
+            <AnimatedTabItem focused={focused}>
+              <Barbell
+                size={size - 2}
+                color={color}
+                weight={focused ? "fill" : "regular"}
+              />
+            </AnimatedTabItem>
           ),
         }}
       />
@@ -64,9 +122,15 @@ export default function PersonalLayout() {
       <Tabs.Screen
         name="routines"
         options={{
-          title: 'Biblioteca',
+          title: "Biblioteca",
           tabBarIcon: ({ color, size, focused }) => (
-            <Books size={size} color={color} weight={focused ? 'fill' : 'bold'} />
+            <AnimatedTabItem focused={focused}>
+              <Books
+                size={size - 2}
+                color={color}
+                weight={focused ? "fill" : "regular"}
+              />
+            </AnimatedTabItem>
           ),
         }}
       />
@@ -75,9 +139,15 @@ export default function PersonalLayout() {
       <Tabs.Screen
         name="attendance"
         options={{
-          title: 'Frequência',
+          title: "Frequência",
           tabBarIcon: ({ color, size, focused }) => (
-            <CalendarCheck size={size} color={color} weight={focused ? 'fill' : 'bold'} />
+            <AnimatedTabItem focused={focused}>
+              <CalendarCheck
+                size={size - 2}
+                color={color}
+                weight={focused ? "fill" : "regular"}
+              />
+            </AnimatedTabItem>
           ),
         }}
       />
@@ -86,15 +156,21 @@ export default function PersonalLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'Perfil',
+          title: "Perfil",
           tabBarIcon: ({ color, size, focused }) => (
-            <User size={size} color={color} weight={focused ? 'fill' : 'bold'} />
+            <AnimatedTabItem focused={focused}>
+              <User
+                size={size - 2}
+                color={color}
+                weight={focused ? "fill" : "regular"}
+              />
+            </AnimatedTabItem>
           ),
         }}
       />
 
       {/* ==================================================================== */}
-      {/* ROTAS OCULTAS DA NAVBAR (Telas acessadas por botões internos)        */}
+      {/* ROTAS OCULTAS DA NAVBAR (Telas acessadas por navegação interna)     */}
       {/* ==================================================================== */}
       <Tabs.Screen name="create-workout" options={{ href: null }} />
       <Tabs.Screen name="student-detail" options={{ href: null }} />
