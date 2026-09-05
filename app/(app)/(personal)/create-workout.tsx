@@ -25,14 +25,13 @@ import {
 
 import { useQueryClient } from '@tanstack/react-query';
 import { Image } from 'expo-image';
+import { MotiView } from 'moti';
 
 import { supabase } from '../../../lib/supabase';
 import { getExerciseGif } from '../../../lib/exerciseGifs';
 import { useThrottledCallback } from '../../../lib/useThrottle';
 import { CustomModal } from '../../../components/CustomModal';
 import { createWorkoutPlanSchema } from '../../../lib/validations/workout';
-
-// Habilita animações de layout suaves no Android
 
 // --- TIPAGENS DE DADOS ---
 interface RegisteredExercise {
@@ -290,7 +289,6 @@ export default function CreateWorkoutPlanScreen() {
   }
 
   function handleToggleExerciseFromLibrary(item: RegisteredExercise) {
-
     const existingIndex = selectedExercises.findIndex((ex) => ex.exercise_id === item.id);
 
     if (existingIndex >= 0) {
@@ -475,8 +473,17 @@ export default function CreateWorkoutPlanScreen() {
 
   return (
     <View className="flex-1 bg-white dark:bg-zinc-950 px-5" style={{ paddingTop: safeTopPadding }}>
-      {/* CABEÇALHO */}
-      <View className="flex-row items-center justify-between my-4">
+      {/* 1. CABEÇALHO ANIMADO */}
+      <MotiView
+        from={{ opacity: 0, translateY: -12 }}
+        animate={{ opacity: 1, translateY: 0 }}
+        transition={{
+          type: 'spring',
+          damping: 24,
+          stiffness: 160,
+        }}
+        className="flex-row items-center justify-between my-4"
+      >
         <View className="flex-row items-center flex-1 mr-2">
           <TouchableOpacity
             onPress={handleNavigateBack}
@@ -513,16 +520,26 @@ export default function CreateWorkoutPlanScreen() {
             </>
           )}
         </TouchableOpacity>
-      </View>
+      </MotiView>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 50 }}>
-        {/* INFORMAÇÕES DO PLANO */}
-        <View className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl border border-[#e2dfe1] dark:border-zinc-800 mb-5">
+        {/* 2. INFORMAÇÕES DO PLANO ANIMADAS */}
+        <MotiView
+          from={{ opacity: 0, translateY: 10 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{
+            type: 'spring',
+            damping: 22,
+            stiffness: 150,
+            delay: 20,
+          }}
+          className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl border border-[#e2dfe1] dark:border-zinc-800 mb-5"
+        >
           <Text className="text-xs font-bold text-[#1b1b1d] dark:text-white mb-1.5">
             Nome do Plano *
           </Text>
           <TextInput
-            className="bg-white dark:bg-zinc-950 border border-[#e2dfe1] dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-[#1b1b1d] dark:text-white mb-4"
+            className="bg-white dark:bg-zinc-950 border border-[#e2dfe1] dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-[#1b1b1d] dark:text-white mb-4 font-medium"
             placeholder="Ex: Treino A - Peito e Tríceps"
             placeholderTextColor={isDark ? '#71717a' : '#a09da1'}
             value={planName}
@@ -533,7 +550,7 @@ export default function CreateWorkoutPlanScreen() {
             Para que serve / Observações
           </Text>
           <TextInput
-            className="bg-white dark:bg-zinc-950 border border-[#e2dfe1] dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-[#1b1b1d] dark:text-white mb-4"
+            className="bg-white dark:bg-zinc-950 border border-[#e2dfe1] dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-[#1b1b1d] dark:text-white mb-4 font-medium"
             placeholder="Ex: Foco na execução e hipertrofia"
             placeholderTextColor={isDark ? '#71717a' : '#a09da1'}
             value={description}
@@ -587,36 +604,76 @@ export default function CreateWorkoutPlanScreen() {
               );
             })}
           </View>
-        </View>
+        </MotiView>
 
-        {/* BOTÃO PARA ABRIR O MODAL DE SELEÇÃO */}
-        <TouchableOpacity
-          onPress={handleOpenExerciseModal}
-          className="bg-[#59C83A] p-4 rounded-2xl flex-row items-center justify-center mb-5"
-          activeOpacity={0.8}
+        {/* 3. BOTÃO PARA ABRIR O MODAL DE SELEÇÃO ANIMADO */}
+        <MotiView
+          from={{ opacity: 0, translateY: 10 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{
+            type: 'spring',
+            damping: 22,
+            stiffness: 150,
+            delay: 40,
+          }}
+          className="mb-5"
         >
-          <Plus size={20} color="#FFFFFF" weight="bold" />
-          <Text className="text-white font-bold text-sm ml-2">
-            Selecionar Exercícios da Biblioteca ({selectedExercises.length})
-          </Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            onPress={handleOpenExerciseModal}
+            className="bg-[#59C83A] p-4 rounded-2xl flex-row items-center justify-center"
+            activeOpacity={0.8}
+          >
+            <Plus size={20} color="#FFFFFF" weight="bold" />
+            <Text className="text-white font-bold text-sm ml-2">
+              Selecionar Exercícios da Biblioteca ({selectedExercises.length})
+            </Text>
+          </TouchableOpacity>
+        </MotiView>
 
-        {/* LISTA DOS EXERCÍCIOS ADICIONADOS AO PLANO */}
-        <Text className="text-base font-extrabold text-[#1b1b1d] dark:text-white mb-3">
-          Exercícios Selecionados ({selectedExercises.length})
-        </Text>
+        {/* 4. TÍTULO E LISTA DOS EXERCÍCIOS ADICIONADOS AO PLANO */}
+        <MotiView
+          from={{ opacity: 0, translateY: 10 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{
+            type: 'spring',
+            damping: 22,
+            stiffness: 150,
+            delay: 60,
+          }}
+        >
+          <Text className="text-base font-extrabold text-[#1b1b1d] dark:text-white mb-3">
+            Exercícios Selecionados ({selectedExercises.length})
+          </Text>
+        </MotiView>
 
         {selectedExercises.length === 0 ? (
-          <View className="p-8 items-center justify-center border border-dashed border-[#e2dfe1] dark:border-zinc-800 rounded-2xl">
+          <MotiView
+            from={{ opacity: 0, scale: 0.95, translateY: 10 }}
+            animate={{ opacity: 1, scale: 1, translateY: 0 }}
+            transition={{
+              type: 'spring',
+              damping: 22,
+              stiffness: 150,
+            }}
+            className="p-8 items-center justify-center border border-dashed border-[#e2dfe1] dark:border-zinc-800 rounded-2xl"
+          >
             <Barbell size={32} color={isDark ? '#52525b' : '#a1a1aa'} />
             <Text className="text-xs font-medium text-[#71717a] dark:text-zinc-400 mt-2 text-center">
               Nenhum exercício selecionado.{'\n'}Clique no botão verde para abrir a lista e selecionar.
             </Text>
-          </View>
+          </MotiView>
         ) : (
           selectedExercises.map((item, index) => (
-            <View
+            <MotiView
               key={item.tempId}
+              from={{ opacity: 0, translateY: 14, scale: 0.97 }}
+              animate={{ opacity: 1, translateY: 0, scale: 1 }}
+              transition={{
+                type: 'spring',
+                damping: 22,
+                stiffness: 150,
+                delay: index * 40,
+              }}
               className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl border border-[#e2dfe1] dark:border-zinc-800 mb-3"
             >
               <View className="flex-row items-center justify-between mb-3">
@@ -670,7 +727,7 @@ export default function CreateWorkoutPlanScreen() {
                 value={item.notes}
                 onChangeText={(text) => handleUpdateExercise(item.tempId, 'notes', text)}
               />
-            </View>
+            </MotiView>
           ))
         )}
       </ScrollView>
@@ -756,12 +813,20 @@ export default function CreateWorkoutPlanScreen() {
                 data={filteredRegisteredExercises}
                 keyExtractor={(item) => item.id}
                 showsVerticalScrollIndicator={false}
-                renderItem={({ item }) => {
+                renderItem={({ item, index }) => {
                   const isAdded = selectedExercises.some((ex) => ex.exercise_id === item.id);
                   const isGifExpanded = expandedModalExerciseId === item.id;
 
                   return (
-                    <View
+                    <MotiView
+                      from={{ opacity: 0, translateY: 10 }}
+                      animate={{ opacity: 1, translateY: 0 }}
+                      transition={{
+                        type: 'spring',
+                        damping: 22,
+                        stiffness: 150,
+                        delay: index * 30,
+                      }}
                       className={`p-3.5 rounded-2xl border mb-2.5 overflow-hidden ${
                         isAdded
                           ? 'bg-[#59C83A]/10 border-[#59C83A]'
@@ -777,7 +842,7 @@ export default function CreateWorkoutPlanScreen() {
                           <Text className="text-sm font-bold text-[#1b1b1d] dark:text-white" numberOfLines={1}>
                             {item.name}
                           </Text>
-                          <Text className="text-xs text-[#71717a] dark:text-zinc-400 mt-0.5">
+                          <Text className="text-xs text-[#71717a] dark:text-zinc-400 mt-0.5 font-medium">
                             Grupo: {item.category_id || 'Geral'} | Séries: {item.sets || 3}
                           </Text>
                         </View>
@@ -803,7 +868,7 @@ export default function CreateWorkoutPlanScreen() {
                           />
                         </View>
                       )}
-                    </View>
+                    </MotiView>
                   );
                 }}
               />

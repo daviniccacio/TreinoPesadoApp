@@ -19,6 +19,7 @@ import {
 } from 'phosphor-react-native';
 import { useQuery } from '@tanstack/react-query';
 import { Image } from 'expo-image';
+import { MotiView } from 'moti';
 
 import { supabase } from '../../../../lib/supabase';
 import { getExerciseGif } from '../../../../lib/exerciseGifs';
@@ -47,7 +48,6 @@ interface RoutineDetail {
 async function fetchRoutineWithExercises(planId: string) {
   if (!planId) throw new Error('ID da rotina não fornecido');
 
-  // 1. Busca os dados do plano/modelo
   const { data: plan, error: planError } = await supabase
     .from('workout_plans')
     .select('*')
@@ -56,7 +56,6 @@ async function fetchRoutineWithExercises(planId: string) {
 
   if (planError) throw new Error(planError.message);
 
-  // 2. Busca os exercícios associados e a gif_key da tabela exercises
   const { data: exercises, error: exercisesError } = await supabase
     .from('plan_exercises')
     .select(`
@@ -88,12 +87,10 @@ export default function PersonalRoutineDetailScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
-  // NAVEGAÇÃO SEGURA PARA A TELA ANTERIOR
   const handleBack = useCallback(() => {
     router.navigate('/(personal)/routines');
   }, [router]);
 
-  // Estado para controlar o exercício selecionado no Modal
   const [selectedExerciseForGif, setSelectedExerciseForGif] = useState<{
     name: string;
     gif_key?: string;
@@ -107,10 +104,21 @@ export default function PersonalRoutineDetailScreen() {
     enabled: !!id,
   });
 
+  const safeTopPadding = Math.max(insets?.top || 0, 16);
+
   return (
-    <View className="flex-1 bg-white dark:bg-zinc-950" style={{ paddingTop: insets.top }}>
-      {/* Cabeçalho */}
-      <View className="flex-row items-center justify-between px-5 py-3 border-b border-[#f0edef] dark:border-zinc-800">
+    <View className="flex-1 bg-white dark:bg-zinc-950" style={{ paddingTop: safeTopPadding }}>
+      {/* 1. CABEÇALHO ANIMADO */}
+      <MotiView
+        from={{ opacity: 0, translateY: -12 }}
+        animate={{ opacity: 1, translateY: 0 }}
+        transition={{
+          type: 'spring',
+          damping: 24,
+          stiffness: 160,
+        }}
+        className="flex-row items-center justify-between px-5 py-3 border-b border-[#f0edef] dark:border-zinc-800"
+      >
         <TouchableOpacity
           onPress={handleBack}
           className="w-10 h-10 rounded-full bg-[#f8f9fa] dark:bg-zinc-900 items-center justify-center border border-[#e2dfe1] dark:border-zinc-800"
@@ -124,9 +132,9 @@ export default function PersonalRoutineDetailScreen() {
         </Text>
 
         <View className="w-10" />
-      </View>
+      </MotiView>
 
-      {/* Conteúdo do Treino */}
+      {/* 2. CONTEÚDO DO TREINO */}
       {isLoading ? (
         <View className="flex-1 justify-center items-center">
           <ActivityIndicator size="large" color="#59C83A" />
@@ -138,7 +146,17 @@ export default function PersonalRoutineDetailScreen() {
           contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 40 }}
           showsVerticalScrollIndicator={false}
           ListHeaderComponent={
-            <View className="mb-6">
+            <MotiView
+              from={{ opacity: 0, translateY: 10 }}
+              animate={{ opacity: 1, translateY: 0 }}
+              transition={{
+                type: 'spring',
+                damping: 22,
+                stiffness: 150,
+                delay: 20,
+              }}
+              className="mb-6"
+            >
               <Text className="text-2xl font-black text-[#1b1b1d] dark:text-white mb-2">
                 {data?.plan.name}
               </Text>
@@ -158,59 +176,70 @@ export default function PersonalRoutineDetailScreen() {
               <Text className="text-lg font-bold text-[#1b1b1d] dark:text-white mt-6 mb-1">
                 Exercícios da Ficha ({data?.exercises.length || 0})
               </Text>
-            </View>
+            </MotiView>
           }
           renderItem={({ item, index }) => {
             const gifKey = item.exercise?.gif_key;
 
             return (
-              <View className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl mb-3 border border-[#e2dfe1] dark:border-zinc-800">
-                <View className="flex-row items-center justify-between mb-3">
-                  <View className="flex-row items-center flex-1 mr-2">
-                    <View className="w-8 h-8 rounded-lg bg-[#59C83A]/10 items-center justify-center mr-2 border border-[#59C83A]/30">
-                      <Text className="text-xs font-black text-[#59C83A]">{index + 1}</Text>
+              <MotiView
+                from={{ opacity: 0, translateY: 14, scale: 0.97 }}
+                animate={{ opacity: 1, translateY: 0, scale: 1 }}
+                transition={{
+                  type: 'spring',
+                  damping: 22,
+                  stiffness: 150,
+                  delay: index * 40,
+                }}
+              >
+                <View className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl mb-3 border border-[#e2dfe1] dark:border-zinc-800">
+                  <View className="flex-row items-center justify-between mb-3">
+                    <View className="flex-row items-center flex-1 mr-2">
+                      <View className="w-8 h-8 rounded-lg bg-[#59C83A]/10 items-center justify-center mr-2 border border-[#59C83A]/30">
+                        <Text className="text-xs font-black text-[#59C83A]">{index + 1}</Text>
+                      </View>
+                      <Text className="text-base font-bold text-[#1b1b1d] dark:text-white flex-1" numberOfLines={1}>
+                        {item.name}
+                      </Text>
                     </View>
-                    <Text className="text-base font-bold text-[#1b1b1d] dark:text-white flex-1" numberOfLines={1}>
-                      {item.name}
-                    </Text>
+
+                    {/* BOTÃO PARA ABRIR O GIF EM MODAL */}
+                    <TouchableOpacity
+                      onPress={() => {
+                        setIsGifLoading(true);
+                        setSelectedExerciseForGif({
+                          name: item.name,
+                          gif_key: gifKey,
+                        });
+                      }}
+                      className="flex-row items-center bg-[#59C83A]/10 px-3 py-1.5 rounded-xl border border-[#59C83A]/30"
+                      activeOpacity={0.7}
+                    >
+                      <Eye size={16} color="#59C83A" weight="bold" />
+                      <Text style={{ color: '#59C83A' }} className="text-xs font-bold ml-1.5">
+                        Ver GIF
+                      </Text>
+                    </TouchableOpacity>
                   </View>
 
-                  {/* BOTÃO PARA ABRIR O GIF EM MODAL */}
-                  <TouchableOpacity
-                    onPress={() => {
-                      setIsGifLoading(true);
-                      setSelectedExerciseForGif({
-                        name: item.name,
-                        gif_key: gifKey,
-                      });
-                    }}
-                    className="flex-row items-center bg-[#59C83A]/10 px-3 py-1.5 rounded-xl border border-[#59C83A]/30"
-                    activeOpacity={0.7}
-                  >
-                    <Eye size={16} color="#59C83A" weight="bold" />
-                    <Text style={{ color: '#59C83A' }} className="text-xs font-bold ml-1.5">
-                      Ver GIF
-                    </Text>
-                  </TouchableOpacity>
-                </View>
+                  {/* Séries e Repetições */}
+                  <View className="flex-row items-center gap-4 border-t border-[#e2dfe1] dark:border-zinc-800 pt-2">
+                    <View className="flex-row items-center">
+                      <Stack size={14} color="#59C83A" weight="bold" />
+                      <Text className="text-xs font-medium text-[#71717a] dark:text-zinc-400 ml-1">
+                        <Text className="font-bold text-[#1b1b1d] dark:text-white">{item.sets}</Text> séries
+                      </Text>
+                    </View>
 
-                {/* Séries e Repetições */}
-                <View className="flex-row items-center gap-4 border-t border-[#e2dfe1] dark:border-zinc-800 pt-2">
-                  <View className="flex-row items-center">
-                    <Stack size={14} color="#59C83A" weight="bold" />
-                    <Text className="text-xs font-medium text-[#71717a] dark:text-zinc-400 ml-1">
-                      <Text className="font-bold text-[#1b1b1d] dark:text-white">{item.sets}</Text> séries
-                    </Text>
-                  </View>
-
-                  <View className="flex-row items-center">
-                    <Repeat size={14} color="#59C83A" weight="bold" />
-                    <Text className="text-xs font-medium text-[#71717a] dark:text-zinc-400 ml-1">
-                      <Text className="font-bold text-[#1b1b1d] dark:text-white">{item.reps}</Text> reps
-                    </Text>
+                    <View className="flex-row items-center">
+                      <Repeat size={14} color="#59C83A" weight="bold" />
+                      <Text className="text-xs font-medium text-[#71717a] dark:text-zinc-400 ml-1">
+                        <Text className="font-bold text-[#1b1b1d] dark:text-white">{item.reps}</Text> reps
+                      </Text>
+                    </View>
                   </View>
                 </View>
-              </View>
+              </MotiView>
             );
           }}
         />

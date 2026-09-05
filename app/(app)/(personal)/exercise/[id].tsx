@@ -12,6 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ArrowLeft, WarningCircle } from 'phosphor-react-native';
 import { useQuery } from '@tanstack/react-query';
 import { Image } from 'expo-image';
+import { MotiView } from 'moti';
 
 import { supabase } from '../../../../lib/supabase';
 import { getExerciseGif } from '../../../../lib/exerciseGifs';
@@ -69,11 +70,7 @@ export default function PersonalExerciseDetailScreen() {
     enabled: !!id,
   });
 
-  /**
-   * Força o retorno DIRETAMENTE para a lista de exercícios da Categoria
-   */
   function handleGoBack() {
-    // Pega o ID da categoria vindo da URL ou diretamente do exercício retornado pelo Supabase
     const targetCategory = categoryId || exercise?.category_id;
 
     if (targetCategory) {
@@ -86,10 +83,21 @@ export default function PersonalExerciseDetailScreen() {
     }
   }
 
+  const safeTopPadding = Math.max(insets?.top || 0, 16);
+
   return (
-    <View className="flex-1 bg-white dark:bg-zinc-950" style={{ paddingTop: insets.top }}>
-      {/* 1. Cabeçalho Superior */}
-      <View className="flex-row items-center justify-between px-5 py-3 border-b border-[#f0edef] dark:border-zinc-800">
+    <View className="flex-1 bg-white dark:bg-zinc-950" style={{ paddingTop: safeTopPadding }}>
+      {/* 1. CABEÇALHO ANIMADO */}
+      <MotiView
+        from={{ opacity: 0, translateY: -12 }}
+        animate={{ opacity: 1, translateY: 0 }}
+        transition={{
+          type: 'spring',
+          damping: 24,
+          stiffness: 160,
+        }}
+        className="flex-row items-center justify-between px-5 py-3 border-b border-[#f0edef] dark:border-zinc-800"
+      >
         <TouchableOpacity
           onPress={handleGoBack}
           className="w-10 h-10 rounded-full bg-[#f8f9fa] dark:bg-zinc-900 items-center justify-center border border-[#e2dfe1] dark:border-zinc-800"
@@ -103,9 +111,9 @@ export default function PersonalExerciseDetailScreen() {
         </Text>
 
         <View className="w-10" />
-      </View>
+      </MotiView>
 
-      {/* 2. Conteúdo Principal */}
+      {/* 2. CONTEÚDO PRINCIPAL */}
       {isLoading ? (
         <View className="flex-1 justify-center items-center">
           <ActivityIndicator size="large" color="#59C83A" />
@@ -114,7 +122,12 @@ export default function PersonalExerciseDetailScreen() {
           </Text>
         </View>
       ) : isError ? (
-        <View className="flex-1 justify-center items-center px-5">
+        <MotiView
+          from={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ type: 'spring', damping: 22, stiffness: 150 }}
+          className="flex-1 justify-center items-center px-5"
+        >
           <WarningCircle size={48} color="#e11d48" />
           <Text className="text-base font-bold text-[#1b1b1d] dark:text-white mt-2 text-center">
             Não foi possível carregar os detalhes do exercício
@@ -126,22 +139,32 @@ export default function PersonalExerciseDetailScreen() {
           >
             <Text className="text-white font-bold text-xs">Tentar Novamente</Text>
           </TouchableOpacity>
-        </View>
+        </MotiView>
       ) : exercise ? (
         <ScrollView
           className="flex-1 px-5 pt-4"
           contentContainerStyle={{ paddingBottom: 40 }}
           showsVerticalScrollIndicator={false}
         >
-          {/* APENAS O TÍTULO DO EXERCÍCIO */}
-          <View className="mb-4">
+          {/* TÍTULO ANIMADO */}
+          <MotiView
+            from={{ opacity: 0, translateY: 10 }}
+            animate={{ opacity: 1, translateY: 0 }}
+            transition={{ type: 'spring', damping: 22, stiffness: 150, delay: 20 }}
+            className="mb-4"
+          >
             <Text className="text-2xl font-extrabold text-[#1b1b1d] dark:text-white mb-1">
               {exercise.name}
             </Text>
-          </View>
+          </MotiView>
 
-          {/* GIF DEMONSTRATIVO */}
-          <View className="w-full h-72 bg-[#f8f9fa] dark:bg-zinc-900 rounded-3xl overflow-hidden mb-6 items-center justify-center p-2 border border-[#e2dfe1] dark:border-zinc-800 relative">
+          {/* GIF DEMONSTRATIVO ANIMADO */}
+          <MotiView
+            from={{ opacity: 0, scale: 0.95, translateY: 10 }}
+            animate={{ opacity: 1, scale: 1, translateY: 0 }}
+            transition={{ type: 'spring', damping: 22, stiffness: 150, delay: 40 }}
+            className="w-full h-72 bg-[#f8f9fa] dark:bg-zinc-900 rounded-3xl overflow-hidden mb-6 items-center justify-center p-2 border border-[#e2dfe1] dark:border-zinc-800 relative"
+          >
             {isGifLoading && (
               <View className="absolute inset-0 justify-center items-center bg-[#f8f9fa] dark:bg-zinc-900 z-10">
                 <ActivityIndicator size="large" color="#59C83A" />
@@ -161,18 +184,23 @@ export default function PersonalExerciseDetailScreen() {
               onLoad={() => setIsGifLoading(false)}
               onError={() => setIsGifLoading(false)}
             />
-          </View>
+          </MotiView>
 
-          {/* INSTRUÇÕES TÉCNICAS (SE HOUVER NO SUPABASE) */}
+          {/* INSTRUÇÕES TÉCNICAS ANIMADAS */}
           {exercise.instructions && (
-            <View className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl border border-[#e2dfe1] dark:border-zinc-800">
+            <MotiView
+              from={{ opacity: 0, translateY: 10 }}
+              animate={{ opacity: 1, translateY: 0 }}
+              transition={{ type: 'spring', damping: 22, stiffness: 150, delay: 60 }}
+              className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl border border-[#e2dfe1] dark:border-zinc-800"
+            >
               <Text className="text-sm font-bold text-[#59C83A] mb-1">
                 Instruções de Execução:
               </Text>
               <Text className="text-sm text-[#414755] dark:text-zinc-300 leading-6 font-medium">
                 {exercise.instructions}
               </Text>
-            </View>
+            </MotiView>
           )}
         </ScrollView>
       ) : null}
