@@ -9,15 +9,30 @@ import {
   Platform,
   ScrollView,
   useColorScheme,
+  Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { EnvelopeSimple, LockSimple, User, Eye, EyeSlash } from 'phosphor-react-native';
+import { StatusBar } from 'expo-status-bar';
+import {
+  EnvelopeSimple,
+  LockSimple,
+  User,
+  Eye,
+  EyeSlash,
+  ArrowRight,
+  Sparkle,
+  PersonSimpleRun,
+} from 'phosphor-react-native';
 import { z } from 'zod';
 import { MotiView } from 'moti';
 import { supabase } from '../../lib/supabase';
 import { useThrottledCallback } from '../../lib/useThrottle';
 import { CustomModal } from '../../components/CustomModal';
+
+const BRAND_GREEN = '#59C83A';
+const BRAND_GREEN_DEEP = '#2F7A16';
+const HERO_BG = '#0F1F0A';
 
 const registerSchema = z.object({
   name: z.string().min(3, "O nome deve ter pelo menos 3 caracteres."),
@@ -33,6 +48,101 @@ const registerSchema = z.object({
     ),
   role: z.enum(["aluno", "personal"]),
 });
+
+/** Anel de pulso animado — mesmo componente usado no Login, mantém a identidade consistente. */
+function PulseRing({ delay = 0, size = 96 }: { delay?: number; size?: number }) {
+  return (
+    <MotiView
+      from={{ scale: 0.7, opacity: 0.35 }}
+      animate={{ scale: 1.55, opacity: 0 }}
+      transition={{ type: 'timing', duration: 2800, loop: true, delay }}
+      style={{
+        position: 'absolute',
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        borderWidth: 1,
+        borderColor: BRAND_GREEN,
+      }}
+    />
+  );
+}
+
+/** Selo/badge premium do hero — idêntico ao do Login (glow permanente + disco com profundidade). */
+function EnergyBadge() {
+  return (
+    <View className="items-center justify-center" style={{ width: 100, height: 100 }}>
+      <View
+        style={{
+          position: 'absolute',
+          width: 100,
+          height: 100,
+          borderRadius: 50,
+          backgroundColor: BRAND_GREEN,
+          opacity: 0.12,
+        }}
+      />
+      <View
+        style={{
+          position: 'absolute',
+          width: 80,
+          height: 80,
+          borderRadius: 40,
+          backgroundColor: BRAND_GREEN,
+          opacity: 0.16,
+        }}
+      />
+
+      <PulseRing size={72} delay={0} />
+      <PulseRing size={72} delay={1400} />
+
+      <View
+        style={{
+          width: 60,
+          height: 60,
+          borderRadius: 30,
+          backgroundColor: BRAND_GREEN,
+          borderWidth: 1,
+          borderColor: 'rgba(255,255,255,0.25)',
+          alignItems: 'center',
+          justifyContent: 'center',
+          overflow: 'hidden',
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.3,
+          shadowRadius: 8,
+          elevation: 6,
+        }}
+      >
+        <View
+          style={{
+            position: 'absolute',
+            bottom: -18,
+            width: 70,
+            height: 40,
+            borderRadius: 35,
+            backgroundColor: BRAND_GREEN_DEEP,
+            opacity: 0.55,
+          }}
+        />
+        <View
+          style={{
+            position: 'absolute',
+            top: -14,
+            left: -10,
+            width: 38,
+            height: 26,
+            borderRadius: 20,
+            backgroundColor: '#ffffff',
+            opacity: 0.22,
+            transform: [{ rotate: '-20deg' }],
+          }}
+        />
+        <Sparkle size={24} color="#ffffff" weight="bold" />
+      </View>
+    </View>
+  );
+}
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -165,191 +275,279 @@ export default function RegisterScreen() {
   const safeBottomPadding = Math.max(insets?.bottom || 0, 16);
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-    >
-      <ScrollView
-        contentContainerStyle={{ flexGrow: 1, justifyContent: "center" }}
-        className="bg-white dark:bg-zinc-950 px-6 py-8"
-        style={{ paddingTop: safeTopPadding, paddingBottom: safeBottomPadding }}
-        showsVerticalScrollIndicator={false}
+    <View className="flex-1 bg-white dark:bg-zinc-950">
+      <StatusBar style="light" />
+
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
-        {/* 1. CABEÇALHO ANIMADO */}
-        <MotiView
-          from={{ opacity: 0, translateY: -12 }}
-          animate={{ opacity: 1, translateY: 0 }}
-          transition={{
-            type: "spring",
-            damping: 24,
-            stiffness: 160,
-          }}
-          className="mb-6"
+        <ScrollView
+          contentContainerStyle={{ flexGrow: 1 }}
+          showsVerticalScrollIndicator={false}
+          bounces={false}
         >
-          <Text className="text-2xl font-black text-[#1b1b1d] dark:text-white mb-1">
-            Criar Conta
-          </Text>
-          <Text className="text-xs text-[#71717a] dark:text-zinc-400 font-medium">
-            Preencha os campos abaixo para iniciar sua jornada
-          </Text>
-        </MotiView>
+          {/* ============================================================ */}
+          {/* HERO EDITORIAL — mesma linguagem visual do Login              */}
+          {/* ============================================================ */}
+          <View
+            style={{
+              backgroundColor: HERO_BG,
+              paddingTop: safeTopPadding + 8,
+              borderBottomLeftRadius: 88,
+              borderBottomRightRadius: 20,
+            }}
+            className="pb-10 px-6 overflow-hidden"
+          >
+            <View
+              style={{
+                position: 'absolute',
+                width: '160%',
+                height: 46,
+                backgroundColor: BRAND_GREEN,
+                opacity: 0.08,
+                top: 92,
+                left: -60,
+                transform: [{ rotate: '-7deg' }],
+              }}
+            />
 
-        {/* 2. FORMULÁRIO E SELEÇÃO DE PAPEL ANIMADOS */}
-        <MotiView
-          from={{ opacity: 0, translateY: 12 }}
-          animate={{ opacity: 1, translateY: 0 }}
-          transition={{
-            type: "spring",
-            damping: 22,
-            stiffness: 150,
-            delay: 30,
-          }}
-        >
-          {/* Seleção de Tipo de Conta */}
-          <View className="flex-row gap-3 mb-5">
-            <TouchableOpacity
-              onPress={() => setRole("aluno")}
-              className={`flex-1 py-3 rounded-2xl items-center border ${
-                role === "aluno"
-                  ? "bg-[#59C83A]/10 border-[#59C83A]"
-                  : "bg-[#f8f9fa] dark:bg-zinc-900 border-[#e2dfe1] dark:border-zinc-800"
-              }`}
-            >
-              <Text
-                className={`text-xs font-bold ${
+            <View className="flex-row items-center mb-8">
+              <View className="w-8 h-8 rounded-full bg-white items-center justify-center overflow-hidden mr-2">
+                <Image
+                  source={require('../../assets/splash.png')}
+                  className="w-full h-full"
+                  resizeMode="contain"
+                />
+              </View>
+              <Text className="font-dmsans-bold text-[11px] uppercase tracking-[2px] text-zinc-400">
+                Treino Pesado · Academia
+              </Text>
+            </View>
+
+            <View className="flex-row items-center justify-between">
+              <MotiView
+                from={{ opacity: 0, translateY: -10 }}
+                animate={{ opacity: 1, translateY: 0 }}
+                transition={{ type: 'spring', damping: 24, stiffness: 160 }}
+                className="flex-1 pr-3"
+              >
+                <Text className="font-outfit text-white text-[34px] leading-[36px]">
+                  Comece
+                </Text>
+                <Text
+                  style={{ color: BRAND_GREEN }}
+                  className="font-outfit text-[34px] leading-[36px] mb-3"
+                >
+                  sua jornada.
+                </Text>
+                <Text className="font-dmsans-medium text-sm text-zinc-400">
+                  Crie sua conta em menos de 1 minuto.
+                </Text>
+              </MotiView>
+
+              <EnergyBadge />
+            </View>
+          </View>
+
+          {/* ============================================================ */}
+          {/* FORMULÁRIO                                                    */}
+          {/* ============================================================ */}
+          <MotiView
+            from={{ opacity: 0, translateY: 12 }}
+            animate={{ opacity: 1, translateY: 0 }}
+            transition={{ type: 'spring', damping: 22, stiffness: 150, delay: 80 }}
+            className="px-6 pt-8"
+            style={{ paddingBottom: safeBottomPadding }}
+          >
+            {/* Seleção de Tipo de Conta */}
+            <Text className="font-dmsans-bold text-xs uppercase tracking-wider text-[#71717a] dark:text-zinc-400 mb-2 ml-1">
+              Tipo de conta
+            </Text>
+            <View className="flex-row gap-3 mb-5">
+              <TouchableOpacity
+                onPress={() => setRole("aluno")}
+                className={`flex-1 flex-row items-center justify-center py-3.5 rounded-2xl border ${
                   role === "aluno"
-                    ? "text-[#59C83A]"
-                    : "text-[#71717a] dark:text-zinc-400"
+                    ? "bg-[#59C83A]/10 border-[#59C83A]"
+                    : "bg-[#f8f9fa] dark:bg-zinc-900 border-[#e2dfe1] dark:border-zinc-800"
                 }`}
               >
-                Sou Aluno
-              </Text>
-            </TouchableOpacity>
+                <User
+                  size={16}
+                  color={role === "aluno" ? BRAND_GREEN : (isDark ? '#71717a' : '#a09da1')}
+                  weight={role === "aluno" ? "bold" : "regular"}
+                />
+                <Text
+                  className={`font-dmsans-bold text-xs ml-2 ${
+                    role === "aluno"
+                      ? "text-[#59C83A]"
+                      : "text-[#71717a] dark:text-zinc-400"
+                  }`}
+                >
+                  Sou Aluno
+                </Text>
+              </TouchableOpacity>
 
-            <TouchableOpacity
-              onPress={() => setRole("personal")}
-              className={`flex-1 py-3 rounded-2xl items-center border ${
-                role === "personal"
-                  ? "bg-[#59C83A]/10 border-[#59C83A]"
-                  : "bg-[#f8f9fa] dark:bg-zinc-900 border-[#e2dfe1] dark:border-zinc-800"
-              }`}
-            >
-              <Text
-                className={`text-xs font-bold ${
+              <TouchableOpacity
+                onPress={() => setRole("personal")}
+                className={`flex-1 flex-row items-center justify-center py-3.5 rounded-2xl border ${
                   role === "personal"
-                    ? "text-[#59C83A]"
-                    : "text-[#71717a] dark:text-zinc-400"
+                    ? "bg-[#59C83A]/10 border-[#59C83A]"
+                    : "bg-[#f8f9fa] dark:bg-zinc-900 border-[#e2dfe1] dark:border-zinc-800"
                 }`}
               >
-                Sou Personal
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Campo Nome */}
-          <View className="mb-4">
-            <Text className="text-xs font-bold uppercase tracking-wider text-[#71717a] dark:text-zinc-400 mb-2 ml-1">
-              Nome Completo
-            </Text>
-            <View className="flex-row items-center bg-[#f8f9fa] dark:bg-zinc-900 rounded-2xl px-4 py-3.5 border border-[#e2dfe1] dark:border-zinc-800">
-              <User size={20} color={isDark ? "#59C83A" : "#414755"} />
-              <TextInput
-                className="flex-1 ml-3 text-[#1b1b1d] dark:text-white text-base font-medium"
-                placeholder="Seu nome"
-                placeholderTextColor={isDark ? "#71717a" : "#a09da1"}
-                value={name}
-                onChangeText={setName}
-              />
-            </View>
-          </View>
-
-          {/* Campo E-mail */}
-          <View className="mb-4">
-            <Text className="text-xs font-bold uppercase tracking-wider text-[#71717a] dark:text-zinc-400 mb-2 ml-1">
-              E-mail
-            </Text>
-            <View className="flex-row items-center bg-[#f8f9fa] dark:bg-zinc-900 rounded-2xl px-4 py-3.5 border border-[#e2dfe1] dark:border-zinc-800">
-              <EnvelopeSimple size={20} color={isDark ? "#59C83A" : "#414755"} />
-              <TextInput
-                className="flex-1 ml-3 text-[#1b1b1d] dark:text-white text-base font-medium"
-                placeholder="seu.email@exemplo.com"
-                placeholderTextColor={isDark ? "#71717a" : "#a09da1"}
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-              />
-            </View>
-          </View>
-
-          {/* Campo Senha */}
-          <View className="mb-6">
-            <Text className="text-xs font-bold uppercase tracking-wider text-[#71717a] dark:text-zinc-400 mb-2 ml-1">
-              Senha
-            </Text>
-            <View className="flex-row items-center bg-[#f8f9fa] dark:bg-zinc-900 rounded-2xl px-4 py-3.5 border border-[#e2dfe1] dark:border-zinc-800">
-              <LockSimple size={20} color={isDark ? "#59C83A" : "#414755"} />
-              <TextInput
-                className="flex-1 ml-3 text-[#1b1b1d] dark:text-white text-base font-medium"
-                placeholder="Mín. 8 caracteres, 1 maiúscula, 1 num e 1 especial"
-                placeholderTextColor={isDark ? "#71717a" : "#a09da1"}
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry={!showPassword}
-              />
-              <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                {showPassword ? (
-                  <EyeSlash size={20} color={isDark ? "#59C83A" : "#414755"} />
-                ) : (
-                  <Eye size={20} color={isDark ? "#59C83A" : "#414755"} />
-                )}
+                <PersonSimpleRun
+                  size={16}
+                  color={role === "personal" ? BRAND_GREEN : (isDark ? '#71717a' : '#a09da1')}
+                  weight={role === "personal" ? "bold" : "regular"}
+                />
+                <Text
+                  className={`font-dmsans-bold text-xs ml-2 ${
+                    role === "personal"
+                      ? "text-[#59C83A]"
+                      : "text-[#71717a] dark:text-zinc-400"
+                  }`}
+                >
+                  Sou Personal
+                </Text>
               </TouchableOpacity>
             </View>
-          </View>
 
-          {/* Botão de Cadastro */}
-          <TouchableOpacity
-            onPress={handleRegisterThrottled}
-            disabled={loading}
-            style={{ backgroundColor: "#59C83A" }}
-            className="py-4 rounded-2xl items-center shadow-md active:opacity-90"
-          >
-            {loading ? (
-              <ActivityIndicator color="#ffffff" />
-            ) : (
-              <Text className="text-white font-extrabold text-lg tracking-wide">
-                Cadastrar
+            {/* Campo Nome */}
+            <View className="mb-3">
+              <Text className="font-dmsans-bold text-xs uppercase tracking-wider text-[#71717a] dark:text-zinc-400 mb-2 ml-1">
+                Nome completo
               </Text>
-            )}
-          </TouchableOpacity>
+              <View className="flex-row items-center bg-[#f8f9fa] dark:bg-zinc-900 rounded-2xl pl-2 pr-4 py-2 border border-[#e2dfe1] dark:border-zinc-800">
+                <View
+                  className="w-9 h-9 rounded-full items-center justify-center mr-3"
+                  style={{ backgroundColor: isDark ? 'rgba(89,200,58,0.15)' : 'rgba(89,200,58,0.1)' }}
+                >
+                  <User size={18} color={BRAND_GREEN} weight="bold" />
+                </View>
+                <TextInput
+                  className="font-dmsans-medium flex-1 text-[#1b1b1d] dark:text-white text-base"
+                  placeholder="Seu nome"
+                  placeholderTextColor={isDark ? '#71717a' : '#a09da1'}
+                  value={name}
+                  onChangeText={setName}
+                />
+              </View>
+            </View>
 
-          {/* Retorno para Login */}
-          <TouchableOpacity
-            onPress={() => router.replace("/(auth)/login")}
-            className="items-center py-4 mt-3"
-          >
-            <Text className="text-sm text-[#71717a] dark:text-zinc-400">
-              Já possui uma conta?{" "}
-              <Text style={{ color: "#59C83A" }} className="font-bold">
-                Faça Login
+            {/* Campo E-mail */}
+            <View className="mb-3">
+              <Text className="font-dmsans-bold text-xs uppercase tracking-wider text-[#71717a] dark:text-zinc-400 mb-2 ml-1">
+                E-mail
               </Text>
+              <View className="flex-row items-center bg-[#f8f9fa] dark:bg-zinc-900 rounded-2xl pl-2 pr-4 py-2 border border-[#e2dfe1] dark:border-zinc-800">
+                <View
+                  className="w-9 h-9 rounded-full items-center justify-center mr-3"
+                  style={{ backgroundColor: isDark ? 'rgba(89,200,58,0.15)' : 'rgba(89,200,58,0.1)' }}
+                >
+                  <EnvelopeSimple size={18} color={BRAND_GREEN} weight="bold" />
+                </View>
+                <TextInput
+                  className="font-dmsans-medium flex-1 text-[#1b1b1d] dark:text-white text-base"
+                  placeholder="seu.email@exemplo.com"
+                  placeholderTextColor={isDark ? '#71717a' : '#a09da1'}
+                  value={email}
+                  onChangeText={setEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                />
+              </View>
+            </View>
+
+            {/* Campo Senha */}
+            <View className="mb-1">
+              <Text className="font-dmsans-bold text-xs uppercase tracking-wider text-[#71717a] dark:text-zinc-400 mb-2 ml-1">
+                Senha
+              </Text>
+              <View className="flex-row items-center bg-[#f8f9fa] dark:bg-zinc-900 rounded-2xl pl-2 pr-4 py-2 border border-[#e2dfe1] dark:border-zinc-800">
+                <View
+                  className="w-9 h-9 rounded-full items-center justify-center mr-3"
+                  style={{ backgroundColor: isDark ? 'rgba(89,200,58,0.15)' : 'rgba(89,200,58,0.1)' }}
+                >
+                  <LockSimple size={18} color={BRAND_GREEN} weight="bold" />
+                </View>
+                <TextInput
+                  className="font-dmsans-medium flex-1 text-[#1b1b1d] dark:text-white text-base"
+                  placeholder="Sua senha"
+                  placeholderTextColor={isDark ? '#71717a' : '#a09da1'}
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry={!showPassword}
+                />
+                <TouchableOpacity onPress={() => setShowPassword(!showPassword)} hitSlop={8}>
+                  {showPassword ? (
+                    <EyeSlash size={20} color={isDark ? '#71717a' : '#a09da1'} />
+                  ) : (
+                    <Eye size={20} color={isDark ? '#71717a' : '#a09da1'} />
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+            <Text className="font-dmsans text-[11px] text-[#71717a] dark:text-zinc-500 ml-1 mb-6">
+              Mín. 8 caracteres, 1 maiúscula, 1 número e 1 caractere especial.
             </Text>
-          </TouchableOpacity>
-        </MotiView>
 
-        {/* MODAL DE ALERTA PERSONALIZADO */}
-        <CustomModal
-          visible={modalConfig.visible}
-          title={modalConfig.title}
-          message={modalConfig.message}
-          type={modalConfig.type}
-          confirmText={modalConfig.confirmText}
-          cancelText={modalConfig.cancelText}
-          showCancelButton={modalConfig.showCancelButton}
-          onConfirm={modalConfig.onConfirm}
-          onClose={() => setModalConfig((prev) => ({ ...prev, visible: false }))}
-        />
-      </ScrollView>
-    </KeyboardAvoidingView>
+            {/* Botão de Cadastro */}
+            <TouchableOpacity
+              onPress={handleRegisterThrottled}
+              disabled={loading}
+              style={{
+                backgroundColor: BRAND_GREEN,
+                shadowColor: BRAND_GREEN,
+                shadowOffset: { width: 0, height: 6 },
+                shadowOpacity: 0.35,
+                shadowRadius: 14,
+                elevation: 8,
+              }}
+              className="flex-row py-4 rounded-2xl items-center justify-center active:opacity-90"
+              activeOpacity={0.85}
+            >
+              {loading ? (
+                <ActivityIndicator color="#ffffff" />
+              ) : (
+                <>
+                  <Text className="font-outfit text-white text-lg tracking-wide mr-2">
+                    Cadastrar
+                  </Text>
+                  <ArrowRight size={20} color="#ffffff" weight="bold" />
+                </>
+              )}
+            </TouchableOpacity>
+
+            {/* Retorno para Login */}
+            <TouchableOpacity
+              onPress={() => router.replace("/(auth)/login")}
+              className="items-center py-4 mt-2"
+            >
+              <Text className="font-dmsans text-sm text-[#71717a] dark:text-zinc-400">
+                Já possui uma conta?{" "}
+                <Text style={{ color: BRAND_GREEN }} className="font-dmsans-bold">
+                  Faça Login
+                </Text>
+              </Text>
+            </TouchableOpacity>
+          </MotiView>
+        </ScrollView>
+      </KeyboardAvoidingView>
+
+      {/* MODAL DE ALERTA PERSONALIZADO */}
+      <CustomModal
+        visible={modalConfig.visible}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        type={modalConfig.type}
+        confirmText={modalConfig.confirmText}
+        cancelText={modalConfig.cancelText}
+        showCancelButton={modalConfig.showCancelButton}
+        onConfirm={modalConfig.onConfirm}
+        onClose={() => setModalConfig((prev) => ({ ...prev, visible: false }))}
+      />
+    </View>
   );
 }

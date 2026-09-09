@@ -182,7 +182,9 @@ export default function PersonalExerciseDetailScreen() {
               transition={200}
               onLoadStart={() => setIsGifLoading(true)}
               onLoad={() => setIsGifLoading(false)}
-              onError={() => setIsGifLoading(false)}
+              onError={(error) => {
+                console.log('Erro detalhado do GIF:', JSON.stringify(error, null, 2));  
+              }}
             />
           </MotiView>
 
