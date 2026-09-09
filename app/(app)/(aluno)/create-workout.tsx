@@ -1,3 +1,10 @@
+// ============================================================================
+// DOCUMENTAÇÃO: TELA DE CRIAÇÃO / EDIÇÃO DE TREINO CUSTOMIZADO
+// ============================================================================
+// Permite ao aluno criar uma nova ficha personalizada ou editar um treino existente,
+// selecionando exercícios do catálogo, definindo séries, repetições, cargas e dias.
+// ============================================================================
+
 import React, { useState, useEffect, useMemo } from "react";
 import {
   View,
@@ -452,7 +459,7 @@ export default function CreateOrEditWorkoutScreen() {
         type: "success",
         showCancelButton: false,
         onConfirm: () => {
-          router.replace("/(aluno)/(tabs)/my-workouts");
+          router.replace("/(aluno)/(tabs)/my-workouts" as any);
         },
       });
     } catch (err: any) {
@@ -492,7 +499,8 @@ export default function CreateOrEditWorkoutScreen() {
           <ArrowLeft size={20} color={isDark ? "#ffffff" : "#1b1b1d"} />
         </TouchableOpacity>
 
-        <Text className="text-xl font-extrabold text-[#1b1b1d] dark:text-white">
+        {/* Título Principal em Outfit ExtraBold */}
+        <Text className="text-xl font-outfit-extrabold text-[#1b1b1d] dark:text-white">
           {isEditing ? "Editar Treino" : "Montar Novo Treino"}
         </Text>
 
@@ -502,7 +510,8 @@ export default function CreateOrEditWorkoutScreen() {
       {isLoadingWorkout ? (
         <View className="flex-1 justify-center items-center">
           <ActivityIndicator size="large" color="#59C83A" />
-          <Text className="text-xs text-[#71717a] dark:text-zinc-400 mt-3 font-medium">
+          {/* Mensagem de Carregamento em DM Sans Medium */}
+          <Text className="text-xs font-sans-medium text-[#71717a] dark:text-zinc-400 mt-3">
             Carregando informações do treino...
           </Text>
         </View>
@@ -523,11 +532,11 @@ export default function CreateOrEditWorkoutScreen() {
             }}
           >
             {/* CAMPO NOME DO TREINO */}
-            <Text className="text-xs font-bold text-[#71717a] dark:text-zinc-400 uppercase mb-1.5">
+            <Text className="text-xs font-sans-bold text-[#71717a] dark:text-zinc-400 uppercase mb-1.5">
               Nome do Treino
             </Text>
             <TextInput
-              className="bg-[#f8f9fa] dark:bg-zinc-900 border border-[#e2dfe1] dark:border-zinc-800 rounded-2xl px-4 py-3.5 text-base font-medium text-[#1b1b1d] dark:text-white mb-4"
+              className="bg-[#f8f9fa] dark:bg-zinc-900 border border-[#e2dfe1] dark:border-zinc-800 rounded-2xl px-4 py-3.5 text-base font-sans-medium text-[#1b1b1d] dark:text-white mb-4"
               placeholder="Ex: Treino A - Peito e Tríceps"
               placeholderTextColor={isDark ? "#71717a" : "#a1a1aa"}
               value={workoutTitle}
@@ -537,12 +546,12 @@ export default function CreateOrEditWorkoutScreen() {
             {/* CAMPO PROPÓSITO / PARA QUE SERVE */}
             <View className="flex-row items-center mb-1.5">
               <Target size={14} color="#59C83A" weight="bold" />
-              <Text className="text-xs font-bold text-[#71717a] dark:text-zinc-400 uppercase ml-1">
+              <Text className="text-xs font-sans-bold text-[#71717a] dark:text-zinc-400 uppercase ml-1">
                 Propósito / Para que serve
               </Text>
             </View>
             <TextInput
-              className="bg-[#f8f9fa] dark:bg-zinc-900 border border-[#e2dfe1] dark:border-zinc-800 rounded-2xl px-4 py-3 text-sm font-semibold text-[#1b1b1d] dark:text-white mb-4"
+              className="bg-[#f8f9fa] dark:bg-zinc-900 border border-[#e2dfe1] dark:border-zinc-800 rounded-2xl px-4 py-3 text-sm font-sans-medium text-[#1b1b1d] dark:text-white mb-4"
               placeholder="Ex: Hipertrofia de peitorais e ganho de força no tríceps"
               placeholderTextColor={isDark ? "#71717a" : "#a1a1aa"}
               value={workoutDescription}
@@ -552,7 +561,7 @@ export default function CreateOrEditWorkoutScreen() {
             {/* SELEÇÃO DIA DA SEMANA */}
             <View className="flex-row items-center mb-2">
               <Calendar size={14} color="#59C83A" weight="bold" />
-              <Text className="text-xs font-bold text-[#71717a] dark:text-zinc-400 uppercase ml-1">
+              <Text className="text-xs font-sans-bold text-[#71717a] dark:text-zinc-400 uppercase ml-1">
                 Dia Sugerido / Frequência
               </Text>
             </View>
@@ -574,8 +583,9 @@ export default function CreateOrEditWorkoutScreen() {
                         : "bg-[#f8f9fa] dark:bg-zinc-900 border-[#e2dfe1] dark:border-zinc-800"
                     }`}
                   >
+                    {/* Dia em DM Sans Bold */}
                     <Text
-                      className={`text-xs font-bold ${
+                      className={`text-xs font-sans-bold ${
                         isActive ? "text-white" : "text-[#71717a] dark:text-zinc-400"
                       }`}
                     >
@@ -599,7 +609,8 @@ export default function CreateOrEditWorkoutScreen() {
             }}
             className="flex-row items-center justify-between mb-3"
           >
-            <Text className="text-base font-extrabold text-[#1b1b1d] dark:text-white">
+            {/* Contador em Outfit ExtraBold */}
+            <Text className="text-base font-outfit-extrabold text-[#1b1b1d] dark:text-white">
               Exercícios ({selectedExercises.length})
             </Text>
 
@@ -608,7 +619,8 @@ export default function CreateOrEditWorkoutScreen() {
               className="bg-[#59C83A]/10 border border-[#59C83A]/30 px-3 py-1.5 rounded-xl flex-row items-center"
             >
               <Plus size={16} color="#59C83A" weight="bold" />
-              <Text className="text-xs font-bold text-[#59C83A] ml-1">
+              {/* Botão Adicionar em DM Sans Bold */}
+              <Text className="text-xs font-sans-bold text-[#59C83A] ml-1">
                 Adicionar
               </Text>
             </TouchableOpacity>
@@ -626,10 +638,12 @@ export default function CreateOrEditWorkoutScreen() {
                 className="bg-[#f8f9fa] dark:bg-zinc-900 p-8 rounded-2xl border border-dashed border-[#e2dfe1] dark:border-zinc-800 items-center mb-6"
               >
                 <Barbell size={36} color={isDark ? "#71717a" : "#a1a1aa"} />
-                <Text className="text-[#1b1b1d] dark:text-white font-bold mt-2 text-sm">
+                {/* Título de Vazio em Outfit Bold */}
+                <Text className="font-outfit text-[#1b1b1d] dark:text-white mt-2 text-sm">
                   Nenhum exercício adicionado
                 </Text>
-                <Text className="text-[#71717a] dark:text-zinc-400 text-xs text-center mt-1">
+                {/* Descrição em DM Sans Medium */}
+                <Text className="font-sans-medium text-[#71717a] dark:text-zinc-400 text-xs text-center mt-1">
                   Toque para escolher exercícios para o seu treino.
                 </Text>
               </TouchableOpacity>
@@ -650,10 +664,12 @@ export default function CreateOrEditWorkoutScreen() {
               >
                 <View className="flex-row items-center justify-between mb-3">
                   <View className="flex-1 mr-2">
-                    <Text className="text-xs font-bold text-[#59C83A] uppercase">
+                    {/* Categoria em DM Sans Bold */}
+                    <Text className="text-xs font-sans-bold text-[#59C83A] uppercase">
                       {exercise.category_id}
                     </Text>
-                    <Text className="text-base font-bold text-[#1b1b1d] dark:text-white">
+                    {/* Nome do Exercício em Outfit Bold */}
+                    <Text className="text-base font-outfit text-[#1b1b1d] dark:text-white">
                       {exercise.name}
                     </Text>
                   </View>
@@ -669,11 +685,12 @@ export default function CreateOrEditWorkoutScreen() {
                 {/* CAMPOS DE SÉRIES, REPS E CARGA */}
                 <View className="flex-row justify-between gap-2">
                   <View className="flex-1">
-                    <Text className="text-[10px] font-bold text-[#71717a] dark:text-zinc-400 mb-1">
+                    {/* Rótulo SÉRIES em DM Sans Bold */}
+                    <Text className="text-[10px] font-sans-bold text-[#71717a] dark:text-zinc-400 mb-1">
                       SÉRIES
                     </Text>
                     <TextInput
-                      className="bg-white dark:bg-zinc-950 border border-[#e2dfe1] dark:border-zinc-800 rounded-xl px-3 py-2 text-center text-sm font-bold text-[#1b1b1d] dark:text-white"
+                      className="bg-white dark:bg-zinc-950 border border-[#e2dfe1] dark:border-zinc-800 rounded-xl px-3 py-2 text-center text-sm font-sans-bold text-[#1b1b1d] dark:text-white"
                       keyboardType="numeric"
                       value={exercise.sets}
                       onChangeText={(val) =>
@@ -683,11 +700,12 @@ export default function CreateOrEditWorkoutScreen() {
                   </View>
 
                   <View className="flex-1">
-                    <Text className="text-[10px] font-bold text-[#71717a] dark:text-zinc-400 mb-1">
+                    {/* Rótulo REPS em DM Sans Bold */}
+                    <Text className="text-[10px] font-sans-bold text-[#71717a] dark:text-zinc-400 mb-1">
                       REPS
                     </Text>
                     <TextInput
-                      className="bg-white dark:bg-zinc-950 border border-[#e2dfe1] dark:border-zinc-800 rounded-xl px-3 py-2 text-center text-sm font-bold text-[#1b1b1d] dark:text-white"
+                      className="bg-white dark:bg-zinc-950 border border-[#e2dfe1] dark:border-zinc-800 rounded-xl px-3 py-2 text-center text-sm font-sans-bold text-[#1b1b1d] dark:text-white"
                       value={exercise.reps}
                       onChangeText={(val) =>
                         handleUpdateExerciseField(index, "reps", val)
@@ -696,11 +714,12 @@ export default function CreateOrEditWorkoutScreen() {
                   </View>
 
                   <View className="flex-1">
-                    <Text className="text-[10px] font-bold text-[#71717a] dark:text-zinc-400 mb-1">
+                    {/* Rótulo CARGA em DM Sans Bold */}
+                    <Text className="text-[10px] font-sans-bold text-[#71717a] dark:text-zinc-400 mb-1">
                       CARGA
                     </Text>
                     <TextInput
-                      className="bg-white dark:bg-zinc-950 border border-[#e2dfe1] dark:border-zinc-800 rounded-xl px-3 py-2 text-center text-sm font-bold text-[#1b1b1d] dark:text-white"
+                      className="bg-white dark:bg-zinc-950 border border-[#e2dfe1] dark:border-zinc-800 rounded-xl px-3 py-2 text-center text-sm font-sans-bold text-[#1b1b1d] dark:text-white"
                       value={exercise.weight}
                       onChangeText={(val) =>
                         handleUpdateExerciseField(index, "weight", val)
@@ -734,7 +753,8 @@ export default function CreateOrEditWorkoutScreen() {
               ) : (
                 <>
                   <Check size={20} color="#FFFFFF" weight="bold" />
-                  <Text className="text-white font-extrabold text-base ml-2">
+                  {/* Texto do Botão em Outfit Bold */}
+                  <Text className="text-white font-outfit text-base ml-2">
                     {isEditing ? "Salvar Alterações" : "Concluir e Criar Treino"}
                   </Text>
                 </>
@@ -751,10 +771,12 @@ export default function CreateOrEditWorkoutScreen() {
             {/* CABEÇALHO DO MODAL DE SELEÇÃO */}
             <View className="flex-row items-center justify-between mb-4 pb-3 border-b border-[#e2dfe1] dark:border-zinc-800">
               <View>
-                <Text className="text-lg font-extrabold text-[#1b1b1d] dark:text-white">
+                {/* Título do Modal em Outfit ExtraBold */}
+                <Text className="text-lg font-outfit-extrabold text-[#1b1b1d] dark:text-white">
                   Selecione o Exercício
                 </Text>
-                <Text className="text-xs text-[#59C83A] font-bold">
+                {/* Badge de Selecionados em DM Sans Bold */}
+                <Text className="text-xs font-sans-bold text-[#59C83A]">
                   {selectedExercises.length} selecionado(s)
                 </Text>
               </View>
@@ -763,15 +785,17 @@ export default function CreateOrEditWorkoutScreen() {
                 onPress={() => setIsModalOpen(false)}
                 className="bg-[#59C83A] px-4 py-2 rounded-xl"
               >
-                <Text className="text-white font-bold text-xs">Concluir</Text>
+                {/* Botão em DM Sans Bold */}
+                <Text className="text-white font-sans-bold text-xs">Concluir</Text>
               </TouchableOpacity>
             </View>
 
             {/* CAMPO DE BUSCA */}
             <View className="flex-row items-center bg-[#f8f9fa] dark:bg-zinc-950 border border-[#e2dfe1] dark:border-zinc-800 rounded-xl px-3 py-2.5 mb-3">
               <MagnifyingGlass size={18} color={isDark ? "#71717a" : "#a1a1aa"} />
+              {/* Input de Busca em DM Sans SemiBold */}
               <TextInput
-                className="flex-1 ml-2 text-sm font-semibold text-[#1b1b1d] dark:text-white"
+                className="flex-1 ml-2 text-sm font-sans-medium text-[#1b1b1d] dark:text-white"
                 placeholder="Buscar exercício pelo nome..."
                 placeholderTextColor={isDark ? "#71717a" : "#a1a1aa"}
                 value={searchQuery}
@@ -805,8 +829,9 @@ export default function CreateOrEditWorkoutScreen() {
                           : "bg-[#f8f9fa] dark:bg-zinc-950 border-[#e2dfe1] dark:border-zinc-800"
                       }`}
                     >
+                      {/* Categoria em DM Sans Bold */}
                       <Text
-                        className={`text-xs font-bold uppercase ${
+                        className={`text-xs font-sans-bold uppercase ${
                           isActive
                             ? "text-white"
                             : "text-[#71717a] dark:text-zinc-400"
@@ -828,7 +853,8 @@ export default function CreateOrEditWorkoutScreen() {
             ) : filteredExercises.length === 0 ? (
               <View className="flex-1 justify-center items-center py-10">
                 <Barbell size={32} color={isDark ? "#71717a" : "#a1a1aa"} />
-                <Text className="text-[#71717a] dark:text-zinc-400 font-bold text-sm mt-2">
+                {/* Aviso Vazio em DM Sans Bold */}
+                <Text className="text-[#71717a] dark:text-zinc-400 font-sans-medium text-sm mt-2">
                   Nenhum exercício encontrado.
                 </Text>
               </View>
@@ -855,10 +881,12 @@ export default function CreateOrEditWorkoutScreen() {
                         className="flex-row justify-between items-center"
                       >
                         <View className="flex-1 mr-2">
-                          <Text className="text-xs font-bold text-[#59C83A] uppercase">
+                          {/* Tag de Categoria em DM Sans Bold */}
+                          <Text className="text-xs font-sans-bold text-[#59C83A] uppercase">
                             {item.category_id || "GERAL"}
                           </Text>
-                          <Text className="text-sm font-bold text-[#1b1b1d] dark:text-white">
+                          {/* Nome do Exercício em Outfit Bold */}
+                          <Text className="text-sm font-outfit text-[#1b1b1d] dark:text-white">
                             {item.name}
                           </Text>
                         </View>

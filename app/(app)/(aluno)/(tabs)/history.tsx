@@ -1,3 +1,10 @@
+// ============================================================================
+// DOCUMENTAÇÃO: TELA DE HISTÓRICO DE TREINOS (ÁREA DO ALUNO)
+// ============================================================================
+// Exibe o registro de treinos concluídos pelo aluno, calculando total de
+// sessões e tempo total acumulado em tela com suporte a pull-to-refresh.
+// ============================================================================
+
 import React from 'react';
 import {
   View,
@@ -32,7 +39,7 @@ interface WorkoutLog {
 }
 
 /**
- * Busca os logs de treino do aluno no Supabase.
+ * Busca os logs de treino do aluno autenticado no Supabase.
  */
 async function fetchWorkoutHistory(): Promise<WorkoutLog[]> {
   const {
@@ -143,10 +150,12 @@ export default function StudentWorkoutHistoryScreen() {
         </TouchableOpacity>
 
         <View className="flex-1">
-          <Text className="text-xl font-extrabold text-[#1b1b1d] dark:text-white">
+          {/* Título da tela em Outfit ExtraBold */}
+          <Text className="text-xl font-outfit-extrabold text-[#1b1b1d] dark:text-white">
             Histórico de Treinos
           </Text>
-          <Text className="text-xs text-[#71717a] dark:text-zinc-400 font-medium">
+          {/* Subtítulo em DM Sans Medium */}
+          <Text className="text-xs font-sans-medium text-[#71717a] dark:text-zinc-400">
             Seu registro de constância e evolução
           </Text>
         </View>
@@ -154,7 +163,7 @@ export default function StudentWorkoutHistoryScreen() {
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 120 }} // Evita sobreposição com a Navbar Flutuante
+        contentContainerStyle={{ paddingBottom: 120 }} // Espaço livre para a Navbar Flutuante
         refreshControl={
           <RefreshControl
             refreshing={isRefetching}
@@ -164,7 +173,7 @@ export default function StudentWorkoutHistoryScreen() {
           />
         }
       >
-        {/* CARTÕES DE RESUMO E ESTATÍSTICAS COM ESCALA SUAVE */}
+        {/* CARTÕES DE RESUMO E ESTATÍSTICAS */}
         <MotiView
           from={{ opacity: 0, scale: 0.96, translateY: 10 }}
           animate={{ opacity: 1, scale: 1, translateY: 0 }}
@@ -181,10 +190,12 @@ export default function StudentWorkoutHistoryScreen() {
             <View className="w-8 h-8 rounded-lg bg-[#59C83A]/10 items-center justify-center mb-2">
               <Trophy size={18} color="#59C83A" weight="bold" />
             </View>
-            <Text className="text-2xl font-black text-[#1b1b1d] dark:text-white">
+            {/* Métrica em Outfit ExtraBold */}
+            <Text className="text-2xl font-outfit-extrabold text-[#1b1b1d] dark:text-white">
               {totalWorkouts}
             </Text>
-            <Text className="text-xs text-[#71717a] dark:text-zinc-400 font-bold mt-0.5">
+            {/* Rótulo em DM Sans Bold */}
+            <Text className="text-xs font-sans-bold text-[#71717a] dark:text-zinc-400 mt-0.5">
               Treinos Feitos
             </Text>
           </View>
@@ -194,10 +205,12 @@ export default function StudentWorkoutHistoryScreen() {
             <View className="w-8 h-8 rounded-lg bg-orange-500/10 items-center justify-center mb-2">
               <Flame size={18} color="#f97316" weight="bold" />
             </View>
-            <Text className="text-2xl font-black text-[#1b1b1d] dark:text-white">
+            {/* Métrica em Outfit ExtraBold */}
+            <Text className="text-2xl font-outfit-extrabold text-[#1b1b1d] dark:text-white">
               {formatDuration(totalSecondsTrained)}
             </Text>
-            <Text className="text-xs text-[#71717a] dark:text-zinc-400 font-bold mt-0.5">
+            {/* Rótulo em DM Sans Bold */}
+            <Text className="text-xs font-sans-bold text-[#71717a] dark:text-zinc-400 mt-0.5">
               Tempo Dedicado
             </Text>
           </View>
@@ -214,7 +227,8 @@ export default function StudentWorkoutHistoryScreen() {
             delay: 80,
           }}
         >
-          <Text className="text-base font-extrabold text-[#1b1b1d] dark:text-white mb-3">
+          {/* Título da seção em Outfit ExtraBold */}
+          <Text className="text-base font-outfit-extrabold text-[#1b1b1d] dark:text-white mb-3">
             Sessões Concluídas
           </Text>
         </MotiView>
@@ -223,7 +237,7 @@ export default function StudentWorkoutHistoryScreen() {
         {isLoading ? (
           <View className="py-12 items-center">
             <ActivityIndicator size="large" color="#59C83A" />
-            <Text className="text-xs text-[#71717a] dark:text-zinc-400 mt-3 font-medium">
+            <Text className="text-xs font-sans-medium text-[#71717a] dark:text-zinc-400 mt-3">
               Carregando seu histórico de treinos...
             </Text>
           </View>
@@ -235,10 +249,10 @@ export default function StudentWorkoutHistoryScreen() {
             className="bg-[#f8f9fa] dark:bg-zinc-900 p-8 rounded-2xl border border-dashed border-[#e2dfe1] dark:border-zinc-800 items-center my-2"
           >
             <Barbell size={40} color={isDark ? '#71717a' : '#808591'} />
-            <Text className="text-[#1b1b1d] dark:text-white font-bold mt-3 text-base text-center">
+            <Text className="font-outfit-bold text-[#1b1b1d] dark:text-white mt-3 text-base text-center">
               Nenhum treino registrado ainda
             </Text>
-            <Text className="text-[#71717a] dark:text-zinc-400 text-xs text-center mt-1">
+            <Text className="font-sans-medium text-[#71717a] dark:text-zinc-400 text-xs text-center mt-1">
               Conclua o seu primeiro treino e ele aparecerá salvo aqui no seu histórico!
             </Text>
           </MotiView>
@@ -250,23 +264,25 @@ export default function StudentWorkoutHistoryScreen() {
               animate={{ opacity: 1, translateY: 0, scale: 1 }}
               transition={{
                 type: 'spring',
-                damping: 22,     // Fricção alta para parada precisa
-                stiffness: 150,  // Impulso inicial ágil
-                delay: index * 40, // Cascata de entrada
+                damping: 22,
+                stiffness: 150,
+                delay: index * 40,
               }}
               className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl mb-3 border border-[#e2dfe1] dark:border-zinc-800 flex-row items-center justify-between"
             >
               <View className="flex-1 mr-3">
                 <View className="flex-row items-center mb-1">
                   <CheckCircle size={16} color="#59C83A" weight="bold" />
-                  <Text className="text-sm font-extrabold text-[#1b1b1d] dark:text-white ml-1.5 flex-1" numberOfLines={1}>
+                  {/* Nome do Treino em Outfit Bold */}
+                  <Text className="text-sm font-outfit text-[#1b1b1d] dark:text-white ml-1.5 flex-1" numberOfLines={1}>
                     {log.workout_title || 'Treino Concluído'}
                   </Text>
                 </View>
 
                 <View className="flex-row items-center mt-1">
                   <CalendarBlank size={12} color={isDark ? '#a1a1aa' : '#71717a'} />
-                  <Text className="text-xs text-[#71717a] dark:text-zinc-400 ml-1 font-medium">
+                  {/* Data formatada em DM Sans Medium */}
+                  <Text className="text-xs font-sans-medium text-[#71717a] dark:text-zinc-400 ml-1">
                     {formatDate(log.created_at)}
                   </Text>
                 </View>
@@ -275,7 +291,8 @@ export default function StudentWorkoutHistoryScreen() {
               {/* Pill do Tempo de Duração */}
               <View className="bg-[#59C83A]/10 border border-[#59C83A]/30 px-3 py-1.5 rounded-xl flex-row items-center">
                 <Clock size={13} color="#59C83A" weight="bold" />
-                <Text className="text-xs font-black text-[#59C83A] ml-1">
+                {/* Tempo de duração em DM Sans Bold */}
+                <Text className="text-xs font-sans-bold text-[#59C83A] ml-1">
                   {formatDuration(log.duration_seconds)}
                 </Text>
               </View>

@@ -1,3 +1,10 @@
+// ============================================================================
+// DOCUMENTAÇÃO: TELA MEUS TREINOS (ÁREA DO ALUNO)
+// ============================================================================
+// Exibe as fichas de treino prescritas pelo personal e as rotinas criadas pelo
+// próprio aluno, permitindo filtragem por categoria, execução e exclusão.
+// ============================================================================
+
 import React, { useState } from "react";
 import {
   View,
@@ -26,6 +33,7 @@ import { MotiView } from "moti";
 import { supabase } from "../../../../lib/supabase";
 import { CustomModal } from "../../../../components/CustomModal";
 
+// --- TIPAGENS DE DADOS ---
 interface WorkoutCardItem {
   id: string;
   title: string;
@@ -52,6 +60,9 @@ const CATEGORY_FILTERS = [
 
 type FilterType = "all" | "personal" | "custom";
 
+/**
+ * Busca as fichas atribuídas pelo personal e os treinos personalizados do aluno no Supabase
+ */
 async function fetchStudentWorkouts(): Promise<WorkoutCardItem[]> {
   const {
     data: { user },
@@ -204,7 +215,7 @@ export default function MyWorkoutsScreen() {
 
   function handleOpenWorkout(workout: WorkoutCardItem) {
     router.push({
-      pathname: "/(aluno)/execute-workout",
+      pathname: "/(aluno)/execute-workout" as any,
       params: {
         id: workout.id,
         type: workout.type === "custom" ? "custom" : "prescribed",
@@ -237,36 +248,38 @@ export default function MyWorkoutsScreen() {
       className="flex-1 bg-white dark:bg-zinc-950 px-5"
       style={{ paddingTop: safeTopPadding + 10 }}
     >
-      {/* CABEÇALHO COM TRAVAMENTO FIRME */}
+      {/* 1. CABEÇALHO ANIMADO */}
       <MotiView
         from={{ opacity: 0, translateY: -8 }}
         animate={{ opacity: 1, translateY: 0 }}
         transition={{
           type: "spring",
-          damping: 24, // Fricção alta para travar sem balanço
+          damping: 24,
           stiffness: 160,
         }}
         className="flex-row items-center justify-between mb-4"
       >
         <View>
-          <Text className="text-2xl font-black text-[#1b1b1d] dark:text-white">
+          {/* Título Principal em Outfit ExtraBold */}
+          <Text className="text-2xl font-outfit-extrabold text-[#1b1b1d] dark:text-white">
             Meus Treinos
           </Text>
-          <Text className="text-xs text-[#71717a] dark:text-zinc-400 font-medium mt-0.5">
+          {/* Subtítulo em DM Sans Medium */}
+          <Text className="text-xs font-sans-medium text-[#71717a] dark:text-zinc-400 mt-0.5">
             Suas fichas de exercícios e rotinas
           </Text>
         </View>
 
         <TouchableOpacity
           activeOpacity={0.8}
-          onPress={() => router.push("/(aluno)/create-workout")}
+          onPress={() => router.push("/(aluno)/create-workout" as any)}
           className="bg-[#59C83A] p-3 rounded-2xl shadow-sm"
         >
           <Plus size={20} color="#FFFFFF" weight="bold" />
         </TouchableOpacity>
       </MotiView>
 
-      {/* FILTROS DE CATEGORIA SEM OSCILAÇÃO EXTRA */}
+      {/* 2. FILTROS DE CATEGORIA */}
       <View className="mb-4">
         <ScrollView
           horizontal
@@ -296,8 +309,9 @@ export default function MyWorkoutsScreen() {
                       : "bg-[#f8f9fa] dark:bg-zinc-900 border-[#e2dfe1] dark:border-zinc-800"
                   }`}
                 >
+                  {/* Texto do Filtro em DM Sans Bold */}
                   <Text
-                    className={`text-xs font-bold ${
+                    className={`text-xs font-sans-bold ${
                       isActive
                         ? "text-white"
                         : "text-[#1b1b1d] dark:text-zinc-300"
@@ -312,10 +326,10 @@ export default function MyWorkoutsScreen() {
         </ScrollView>
       </View>
 
-      {/* LISTA DE TREINOS COM ENTRADA SUAVE E PARADA IMEDIATA */}
+      {/* 3. LISTA DE TREINOS COM ROLAGEM CONFORTÁVEL */}
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 120 }}
+        contentContainerStyle={{ paddingBottom: 120 }} // Espaço livre para a Navbar Flutuante
         refreshControl={
           <RefreshControl
             refreshing={isRefetching}
@@ -328,7 +342,7 @@ export default function MyWorkoutsScreen() {
         {isLoading ? (
           <View className="py-12 items-center">
             <ActivityIndicator size="large" color="#59C83A" />
-            <Text className="text-xs text-[#71717a] dark:text-zinc-400 mt-3 font-medium">
+            <Text className="text-xs font-sans-medium text-[#71717a] dark:text-zinc-400 mt-3">
               Carregando seus treinos...
             </Text>
           </View>
@@ -340,10 +354,12 @@ export default function MyWorkoutsScreen() {
             className="bg-[#f8f9fa] dark:bg-zinc-900 p-8 rounded-2xl border border-dashed border-[#e2dfe1] dark:border-zinc-800 items-center my-2"
           >
             <Barbell size={40} color={isDark ? "#71717a" : "#a1a1aa"} />
-            <Text className="text-[#1b1b1d] dark:text-white font-bold mt-3 text-base text-center">
+            {/* Título de Lista Vazia em Outfit Bold */}
+            <Text className="font-outfit-bold text-[#1b1b1d] dark:text-white mt-3 text-base text-center">
               Nenhum treino encontrado
             </Text>
-            <Text className="text-[#71717a] dark:text-zinc-400 text-xs text-center mt-1 leading-5">
+            {/* Mensagem em DM Sans Medium */}
+            <Text className="font-sans-medium text-[#71717a] dark:text-zinc-400 text-xs text-center mt-1 leading-5">
               {selectedFilter === "personal"
                 ? "Seu personal trainer ainda não prescreveu fichas nesta categoria."
                 : selectedFilter === "custom"
@@ -362,8 +378,8 @@ export default function MyWorkoutsScreen() {
                 animate={{ opacity: 1, translateY: 0, scale: 1 }}
                 transition={{
                   type: "spring",
-                  damping: 22,     // Damping mais alto remove o balanço final!
-                  stiffness: 150,  // Mantém o início ágil e preciso
+                  damping: 22,
+                  stiffness: 150,
                   delay: index * 40,
                 }}
                 className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl mb-3 border border-[#e2dfe1] dark:border-zinc-800"
@@ -385,8 +401,9 @@ export default function MyWorkoutsScreen() {
                       )}
                     </View>
 
+                    {/* Nome do Treino em Outfit ExtraBold */}
                     <Text
-                      className="text-base font-extrabold text-[#1b1b1d] dark:text-white flex-1"
+                      className="text-base font-outfit-extrabold text-[#1b1b1d] dark:text-white flex-1"
                       numberOfLines={1}
                     >
                       {workout.title}
@@ -396,7 +413,8 @@ export default function MyWorkoutsScreen() {
                   {/* TAG DO DIA DA SEMANA */}
                   <View className="bg-[#59C83A]/15 border border-[#59C83A]/30 px-2.5 py-1 rounded-lg flex-row items-center">
                     <Calendar size={12} color="#59C83A" weight="bold" />
-                    <Text className="text-[11px] font-black text-[#59C83A] ml-1.5 capitalize">
+                    {/* Dia da Semana em DM Sans Bold */}
+                    <Text className="text-[11px] font-sans-bold text-[#59C83A] ml-1.5 capitalize">
                       {workout.day_of_week}
                     </Text>
                   </View>
@@ -405,8 +423,9 @@ export default function MyWorkoutsScreen() {
                 {/* DESCRIÇÃO / PROPÓSITO DO TREINO */}
                 <View className="flex-row items-center my-1">
                   <Target size={14} color={isDark ? "#a1a1aa" : "#71717a"} />
+                  {/* Subtítulo do Treino em DM Sans Medium */}
                   <Text
-                    className="text-xs text-[#71717a] dark:text-zinc-400 font-medium ml-1.5 flex-1"
+                    className="text-xs font-sans-medium text-[#71717a] dark:text-zinc-400 ml-1.5 flex-1"
                     numberOfLines={1}
                   >
                     {workout.subtitle}
@@ -415,7 +434,8 @@ export default function MyWorkoutsScreen() {
 
                 {/* RODAPÉ DO CARD */}
                 <View className="flex-row items-center justify-between mt-3 pt-3 border-t border-[#e2dfe1]/60 dark:border-zinc-800">
-                  <Text className="text-[10px] font-bold text-[#71717a] dark:text-zinc-500 uppercase tracking-wider">
+                  {/* Rótulo de Origem em DM Sans Bold */}
+                  <Text className="text-[10px] font-sans-bold text-[#71717a] dark:text-zinc-500 uppercase tracking-wider">
                     {isPersonal ? "Ficha do Personal" : "Criado por mim"}
                   </Text>
 
@@ -425,7 +445,7 @@ export default function MyWorkoutsScreen() {
                         <TouchableOpacity
                           onPress={() =>
                             router.push({
-                              pathname: "/(aluno)/create-workout",
+                              pathname: "/(aluno)/create-workout" as any,
                               params: { planId: workout.id },
                             })
                           }
@@ -459,7 +479,8 @@ export default function MyWorkoutsScreen() {
                       activeOpacity={0.8}
                     >
                       <PlayCircle size={16} color="#FFFFFF" weight="bold" />
-                      <Text className="text-xs font-bold text-white">
+                      {/* Botão de Iniciar em DM Sans Bold */}
+                      <Text className="text-xs font-sans-bold text-white">
                         Iniciar
                       </Text>
                     </TouchableOpacity>

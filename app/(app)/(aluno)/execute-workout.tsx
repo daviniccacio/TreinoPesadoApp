@@ -1,3 +1,10 @@
+// ============================================================================
+// DOCUMENTAÇÃO: TELA DE EXECUÇÃO DE TREINO (ÁREA DO ALUNO)
+// ============================================================================
+// Gerencia a execução em tempo real do treino (cronômetro geral, checklist de
+// séries concluídas, timer automático de descanso e exibição de GIFs explicativos).
+// ============================================================================
+
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View,
@@ -182,7 +189,7 @@ export default function ExecuteWorkoutScreen() {
     confirmText: "Entendi",
     cancelText: "Cancelar",
     showCancelButton: false,
-    onConfirm: () => { },
+    onConfirm: () => {},
   });
 
   // Referências dos intervalos
@@ -273,7 +280,7 @@ export default function ExecuteWorkoutScreen() {
     if (router.canGoBack()) {
       router.back();
     } else {
-      router.replace("/(app)/(aluno)");
+      router.replace("/(app)/(aluno)" as any);
     }
   }, [router]);
 
@@ -358,17 +365,14 @@ export default function ExecuteWorkoutScreen() {
   }
 
   function handleExitWorkout() {
-    // Verifica se o usuário realmente começou o treino (tempo rodando ou alguma série marcada)
     const hasStarted = elapsedSeconds > 0 || completedSets.size > 0;
 
-    // Se NÃO iniciou nada, sai direto sem abrir o modal
     if (!hasStarted) {
       resetWorkoutState();
       handleNavigateBack();
       return;
     }
 
-    // Se já começou o tempo ou concluiu séries, confirma a saída para não perder progresso
     showAlertModal({
       title: "Sair do Treino",
       message: "Deseja cancelar o treino em andamento? O tempo e progresso atual não serão salvos.",
@@ -464,7 +468,8 @@ export default function ExecuteWorkoutScreen() {
     return (
       <View className="flex-1 bg-white dark:bg-zinc-950 justify-center items-center">
         <ActivityIndicator size="large" color="#59C83A" />
-        <Text className="text-xs text-[#71717a] dark:text-zinc-400 mt-2 font-medium">
+        {/* Mensagem em DM Sans Medium */}
+        <Text className="text-xs font-sans-medium text-[#71717a] dark:text-zinc-400 mt-2">
           Iniciando sessão de treino...
         </Text>
       </View>
@@ -494,8 +499,9 @@ export default function ExecuteWorkoutScreen() {
           <X size={20} color={isDark ? "#ffffff" : "#1b1b1d"} />
         </TouchableOpacity>
 
+        {/* Título do Treino em Outfit Bold */}
         <Text
-          className="text-base font-black text-[#1b1b1d] dark:text-white flex-1 mx-3 text-center"
+          className="text-base font-outfit text-[#1b1b1d] dark:text-white flex-1 mx-3 text-center"
           numberOfLines={1}
         >
           {workoutName}
@@ -511,7 +517,8 @@ export default function ExecuteWorkoutScreen() {
           ) : (
             <>
               <CheckCircle size={18} color="#FFFFFF" weight="bold" />
-              <Text className="text-white font-extrabold ml-1 text-xs">
+              {/* Texto em DM Sans Bold */}
+              <Text className="text-white font-sans-bold ml-1 text-xs">
                 Finalizar
               </Text>
             </>
@@ -519,7 +526,7 @@ export default function ExecuteWorkoutScreen() {
         </TouchableOpacity>
       </MotiView>
 
-      {/* 2. CARD DO CRONÔMETRO PRINCIPAL ANIMADO */}
+      {/* 2. CARD DO CRONÔMETRO PRINCIPAL */}
       <MotiView
         from={{ opacity: 0, scale: 0.96, translateY: 10 }}
         animate={{ opacity: 1, scale: 1, translateY: 0 }}
@@ -531,7 +538,8 @@ export default function ExecuteWorkoutScreen() {
         }}
         className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl mb-4 border border-[#e2dfe1] dark:border-zinc-800 items-center justify-center"
       >
-        <Text className="text-[10px] font-bold text-[#59C83A] uppercase tracking-wider mb-1">
+        {/* Status em DM Sans Bold */}
+        <Text className="text-[10px] font-sans-bold text-[#59C83A] uppercase tracking-wider mb-1">
           {elapsedSeconds === 0 && isTimerPaused
             ? "Pronto para Iniciar"
             : isTimerPaused
@@ -545,7 +553,8 @@ export default function ExecuteWorkoutScreen() {
             color={isTimerPaused ? "#EAB308" : "#59C83A"}
             weight="bold"
           />
-          <Text className="text-3xl font-black text-[#1b1b1d] dark:text-white ml-2">
+          {/* Mostrador Digital em Outfit ExtraBold */}
+          <Text className="text-3xl font-outfit-extrabold text-[#1b1b1d] dark:text-white ml-2">
             {formatTime(elapsedSeconds)}
           </Text>
         </View>
@@ -559,14 +568,16 @@ export default function ExecuteWorkoutScreen() {
             {isTimerPaused ? (
               <>
                 <Play size={16} color="#FFFFFF" weight="bold" />
-                <Text className="text-white font-bold text-xs ml-1.5">
+                {/* Botão em DM Sans Bold */}
+                <Text className="text-white font-sans-bold text-xs ml-1.5">
                   {elapsedSeconds === 0 ? "Iniciar" : "Continuar"}
                 </Text>
               </>
             ) : (
               <>
                 <Pause size={16} color="#FFFFFF" weight="bold" />
-                <Text className="text-white font-bold text-xs ml-1.5">
+                {/* Botão em DM Sans Bold */}
+                <Text className="text-white font-sans-bold text-xs ml-1.5">
                   Pausar
                 </Text>
               </>
@@ -585,7 +596,8 @@ export default function ExecuteWorkoutScreen() {
               color={isDark ? "#ffffff" : "#1b1b1d"}
               weight="bold"
             />
-            <Text className="text-[#1b1b1d] dark:text-white font-bold text-xs ml-1.5">
+            {/* Botão Zerar em DM Sans Bold */}
+            <Text className="text-[#1b1b1d] dark:text-white font-sans-bold text-xs ml-1.5">
               Zerar
             </Text>
           </TouchableOpacity>
@@ -615,7 +627,8 @@ export default function ExecuteWorkoutScreen() {
               className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl mb-4 border border-[#e2dfe1] dark:border-zinc-800"
             >
               <View className="flex-row items-center justify-between mb-2">
-                <Text className="text-base font-extrabold text-[#1b1b1d] dark:text-white flex-1 mr-2">
+                {/* Nome do Exercício em Outfit Bold */}
+                <Text className="text-base font-outfit text-[#1b1b1d] dark:text-white flex-1 mr-2">
                   {exIndex + 1}. {exercise.name}
                 </Text>
 
@@ -626,14 +639,16 @@ export default function ExecuteWorkoutScreen() {
                   className="bg-[#59C83A]/10 px-2.5 py-1 rounded-lg flex-row items-center border border-[#59C83A]/30"
                 >
                   <PlayCircle size={14} color="#59C83A" weight="bold" />
-                  <Text className="text-[11px] font-bold text-[#59C83A] ml-1">
+                  {/* Botão Ver GIF em DM Sans Bold */}
+                  <Text className="text-[11px] font-sans-bold text-[#59C83A] ml-1">
                     Ver GIF
                   </Text>
                 </TouchableOpacity>
               </View>
 
               {exercise.notes ? (
-                <Text className="text-xs text-[#71717a] dark:text-zinc-400 mb-3 font-medium">
+                /* Observações em DM Sans Medium */
+                <Text className="text-xs text-[#71717a] dark:text-zinc-400 mb-3 font-sans-medium">
                   💬 {exercise.notes}
                 </Text>
               ) : null}
@@ -649,41 +664,48 @@ export default function ExecuteWorkoutScreen() {
                       key={setIndex}
                       activeOpacity={0.8}
                       onPress={() => toggleSetCompletion(exIndex, setIndex)}
-                      className={`p-3 rounded-xl border flex-row items-center justify-between ${isDone
+                      className={`p-3 rounded-xl border flex-row items-center justify-between ${
+                        isDone
                           ? "bg-[#59C83A]/10 border-[#59C83A]"
                           : "bg-white dark:bg-zinc-950 border-[#e2dfe1] dark:border-zinc-800"
-                        }`}
+                      }`}
                     >
                       <View className="flex-row items-center">
                         <View
-                          className={`w-6 h-6 rounded-lg items-center justify-center mr-3 ${isDone
+                          className={`w-6 h-6 rounded-lg items-center justify-center mr-3 ${
+                            isDone
                               ? "bg-[#59C83A]"
                               : "bg-zinc-200 dark:bg-zinc-800"
-                            }`}
+                          }`}
                         >
                           {isDone ? (
                             <Check size={14} color="#FFFFFF" weight="bold" />
                           ) : (
-                            <Text className="text-xs font-bold text-[#71717a] dark:text-zinc-400">
+                            /* Número da Série em DM Sans Bold */
+                            <Text className="text-xs font-sans-bold text-[#71717a] dark:text-zinc-400">
                               {setIndex + 1}
                             </Text>
                           )}
                         </View>
+                        {/* Rótulo da Série em DM Sans Bold */}
                         <Text
-                          className={`text-xs font-bold ${isDone
+                          className={`text-xs font-sans-bold ${
+                            isDone
                               ? "text-[#59C83A] line-through"
                               : "text-[#1b1b1d] dark:text-white"
-                            }`}
+                          }`}
                         >
                           Série {setIndex + 1}
                         </Text>
                       </View>
 
+                      {/* Repetições em DM Sans Bold */}
                       <Text
-                        className={`text-xs font-bold ${isDone
+                        className={`text-xs font-sans-bold ${
+                          isDone
                             ? "text-[#59C83A]"
                             : "text-[#71717a] dark:text-zinc-400"
-                          }`}
+                        }`}
                       >
                         {exercise.reps} reps
                       </Text>
@@ -701,8 +723,9 @@ export default function ExecuteWorkoutScreen() {
         <View className="flex-1 bg-black/70 justify-end">
           <View className="bg-white dark:bg-zinc-900 rounded-t-3xl p-5 h-[75%] border-t border-[#e2dfe1] dark:border-zinc-800">
             <View className="flex-row items-center justify-between mb-3 border-b border-[#e2dfe1] dark:border-zinc-800 pb-3">
+              {/* Título do Exercício em Outfit Bold */}
               <Text
-                className="text-base font-extrabold text-[#1b1b1d] dark:text-white flex-1 mr-2"
+                className="text-base font-outfit text-[#1b1b1d] dark:text-white flex-1 mr-2"
                 numberOfLines={1}
               >
                 {demoExercise?.name}
@@ -718,7 +741,7 @@ export default function ExecuteWorkoutScreen() {
             {loadingDemo ? (
               <View className="flex-1 justify-center items-center">
                 <ActivityIndicator size="large" color="#59C83A" />
-                <Text className="text-xs text-[#71717a] dark:text-zinc-400 mt-2 font-medium">
+                <Text className="text-xs font-sans-medium text-[#71717a] dark:text-zinc-400 mt-2">
                   Buscando exercício...
                 </Text>
               </View>
@@ -740,16 +763,18 @@ export default function ExecuteWorkoutScreen() {
                 ) : (
                   <View className="w-full h-44 rounded-2xl bg-white dark:bg-white items-center justify-center mb-4 border border-dashed border-zinc-300 dark:border-zinc-700">
                     <Barbell size={36} color={isDark ? "#71717a" : "#a1a1aa"} />
-                    <Text className="text-xs font-bold text-[#71717a] dark:text-zinc-400 mt-2">
+                    <Text className="text-xs font-sans-bold text-[#71717a] dark:text-zinc-400 mt-2">
                       GIF demonstrativo não cadastrado no banco
                     </Text>
                   </View>
                 )}
 
-                <Text className="text-xs font-bold text-[#1b1b1d] dark:text-white mb-1">
+                {/* Subtítulo do Modal em Outfit Bold */}
+                <Text className="text-xs font-outfit text-[#1b1b1d] dark:text-white mb-1">
                   Postura e Execução:
                 </Text>
-                <Text className="text-xs text-[#71717a] dark:text-zinc-400 font-medium leading-5 mb-4">
+                {/* Texto Explicativo em DM Sans Medium */}
+                <Text className="text-xs font-sans-medium text-[#71717a] dark:text-zinc-400 leading-5 mb-4">
                   {demoExercise?.description ||
                     "Execute o movimento de forma controlada, mantendo a postura firme e respeitando a cadência recomendada pelo seu personal trainer."}
                 </Text>
@@ -760,7 +785,8 @@ export default function ExecuteWorkoutScreen() {
               onPress={() => setDemoModalVisible(false)}
               className="bg-[#59C83A] py-3 rounded-xl items-center mt-2"
             >
-              <Text className="text-xs font-bold text-white">
+              {/* Botão em DM Sans Bold */}
+              <Text className="text-xs font-sans-bold text-white">
                 Voltar para o Treino
               </Text>
             </TouchableOpacity>
@@ -776,10 +802,12 @@ export default function ExecuteWorkoutScreen() {
               <Timer size={28} color="#59C83A" weight="bold" />
             </View>
 
-            <Text className="text-sm font-bold text-[#71717a] dark:text-zinc-400">
+            {/* Rótulo de Descanso em DM Sans Bold */}
+            <Text className="text-sm font-sans-bold text-[#71717a] dark:text-zinc-400">
               Tempo de Descanso
             </Text>
-            <Text className="text-5xl font-black text-[#1b1b1d] dark:text-white my-2">
+            {/* Contagem em Outfit ExtraBold */}
+            <Text className="text-5xl font-outfit-extrabold text-[#1b1b1d] dark:text-white my-2">
               {formatTime(restSecondsLeft)}
             </Text>
 
@@ -788,7 +816,8 @@ export default function ExecuteWorkoutScreen() {
                 onPress={() => addRestTime(30)}
                 className="flex-1 bg-zinc-100 dark:bg-zinc-800 py-3 rounded-xl items-center border border-zinc-200 dark:border-zinc-700"
               >
-                <Text className="text-xs font-bold text-[#1b1b1d] dark:text-white">
+                {/* Botão +30s em DM Sans Bold */}
+                <Text className="text-xs font-sans-bold text-[#1b1b1d] dark:text-white">
                   +30 Segundos
                 </Text>
               </TouchableOpacity>
@@ -797,7 +826,8 @@ export default function ExecuteWorkoutScreen() {
                 onPress={skipRest}
                 className="flex-1 bg-[#59C83A] py-3 rounded-xl items-center"
               >
-                <Text className="text-xs font-bold text-white">
+                {/* Botão Pular em DM Sans Bold */}
+                <Text className="text-xs font-sans-bold text-white">
                   Pular Descanso
                 </Text>
               </TouchableOpacity>

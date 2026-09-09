@@ -1,3 +1,10 @@
+// ============================================================================
+// DOCUMENTAÇÃO: LAYOUT DE ABAS FLUTUANTE (ÁREA DO ALUNO)
+// ============================================================================
+// Gerencia a navegação principal da área do aluno com abas para Início,
+// Meus Treinos, Histórico e Perfil, utilizando animações suaves e DM Sans.
+// ============================================================================
+
 import React from "react";
 import { useColorScheme, View } from "react-native";
 import { Tabs } from "expo-router";
@@ -36,7 +43,7 @@ function AnimatedTabItem({ focused, children }: AnimatedTabItemProps) {
   );
 }
 
-export default function TabsLayout() {
+export default function StudentTabsLayout() {
   const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
@@ -76,13 +83,15 @@ export default function TabsLayout() {
           paddingTop: 6,
         },
 
+        // 🟢 TIPOGRAFIA DA NAVBAR: Usa a fonte DM Sans Bold
         tabBarLabelStyle: {
+          fontFamily: "DMSans_700Bold",
           fontSize: 10,
-          fontWeight: "700",
           marginTop: 2,
         },
       }}
     >
+      {/* 1. ABA INÍCIO */}
       <Tabs.Screen
         name="index"
         options={{
@@ -99,6 +108,7 @@ export default function TabsLayout() {
         }}
       />
 
+      {/* 2. ABA MEUS TREINOS */}
       <Tabs.Screen
         name="my-workouts"
         options={{
@@ -115,6 +125,7 @@ export default function TabsLayout() {
         }}
       />
 
+      {/* 3. ABA HISTÓRICO */}
       <Tabs.Screen
         name="history"
         options={{
@@ -131,6 +142,7 @@ export default function TabsLayout() {
         }}
       />
 
+      {/* 4. ABA PERFIL */}
       <Tabs.Screen
         name="profile"
         options={{

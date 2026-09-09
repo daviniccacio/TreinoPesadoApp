@@ -1,3 +1,10 @@
+// ============================================================================
+// DOCUMENTAÇÃO: TELA DE DETALHES DO TREINO PERSONALIZADO (ÁREA DO ALUNO)
+// ============================================================================
+// Exibe a lista completa de exercícios de um treino criado pelo próprio aluno,
+// permitindo a navegação para os detalhes do exercício, edição e exclusão.
+// ============================================================================
+
 import React, { useState } from 'react';
 import {
   View,
@@ -155,7 +162,7 @@ export default function CustomWorkoutDetailScreen() {
         message: 'Treino excluído com sucesso!',
         type: 'success',
         showCancelButton: false,
-        onConfirm: () => router.replace('/(aluno)/(tabs)/my-workouts'),
+        onConfirm: () => router.replace('/(aluno)/(tabs)/my-workouts' as any),
       });
     },
     onError: (err: any) => {
@@ -181,7 +188,7 @@ export default function CustomWorkoutDetailScreen() {
   }
 
   function handleGoBack() {
-    router.replace('/(aluno)/(tabs)/my-workouts');
+    router.replace('/(aluno)/(tabs)/my-workouts' as any);
   }
 
   const safeTopPadding = Math.max(insets?.top || 0, 16);
@@ -207,8 +214,9 @@ export default function CustomWorkoutDetailScreen() {
           <ArrowLeft size={20} color={isDark ? '#59C83A' : '#1b1b1d'} />
         </TouchableOpacity>
 
+        {/* Título do Cabeçalho em Outfit Bold */}
         <Text
-          className="text-lg font-bold text-[#1b1b1d] dark:text-white flex-1 text-center mx-2"
+          className="text-lg font-outfit-bold text-[#1b1b1d] dark:text-white flex-1 text-center mx-2"
           numberOfLines={1}
         >
           {workout?.title || 'Detalhes do Treino'}
@@ -219,7 +227,7 @@ export default function CustomWorkoutDetailScreen() {
           <TouchableOpacity
             onPress={() =>
               router.push({
-                pathname: '/(aluno)/create-workout',
+                pathname: '/(aluno)/create-workout' as any,
                 params: { planId: id },
               })
             }
@@ -248,7 +256,8 @@ export default function CustomWorkoutDetailScreen() {
       {isLoading ? (
         <View className="flex-1 justify-center items-center">
           <ActivityIndicator size="large" color="#59C83A" />
-          <Text className="mt-3 text-[#414755] dark:text-zinc-400 font-medium text-xs">
+          {/* Mensagem em DM Sans Medium */}
+          <Text className="mt-3 text-[#414755] dark:text-zinc-400 font-sans-medium text-xs">
             Carregando exercícios do treino...
           </Text>
         </View>
@@ -265,10 +274,12 @@ export default function CustomWorkoutDetailScreen() {
               delay: 30,
             }}
           >
-            <Text className="text-2xl font-extrabold text-[#1b1b1d] dark:text-white mb-1">
+            {/* Título Principal em Outfit ExtraBold */}
+            <Text className="text-2xl font-outfit-extrabold text-[#1b1b1d] dark:text-white mb-1">
               {workout.title}
             </Text>
-            <Text style={{ color: '#59C83A' }} className="text-xs font-bold uppercase mb-6">
+            {/* Contador de Exercícios em DM Sans Bold */}
+            <Text style={{ color: '#59C83A' }} className="text-xs font-sans-bold uppercase mb-6">
               {workout.custom_workout_exercises?.length || 0} Exercícios no Total
             </Text>
           </MotiView>
@@ -289,7 +300,7 @@ export default function CustomWorkoutDetailScreen() {
               <TouchableOpacity
                 onPress={() =>
                   router.push({
-                    pathname: '/(aluno)/exercise/[id]',
+                    pathname: '/(aluno)/exercise/[id]' as any,
                     params: {
                       id: item.exercises?.id,
                       from: 'custom-workout',
@@ -301,28 +312,31 @@ export default function CustomWorkoutDetailScreen() {
                 activeOpacity={0.8}
               >
                 <View className="flex-1 mr-3">
-                  <Text style={{ color: '#59C83A' }} className="text-xs font-bold uppercase mb-0.5">
+                  {/* Categoria do Exercício em DM Sans Bold */}
+                  <Text style={{ color: '#59C83A' }} className="text-xs font-sans-bold uppercase mb-0.5">
                     {index + 1}. {item.exercises?.category_id}
                   </Text>
-                  <Text className="text-base font-bold text-[#1b1b1d] dark:text-white mb-1">
+                  {/* Nome do Exercício em Outfit Bold */}
+                  <Text className="text-base font-outfit-bold text-[#1b1b1d] dark:text-white mb-1">
                     {item.exercises?.name}
                   </Text>
+                  {/* Detalhes de Séries, Repetições e Carga em DM Sans */}
                   <View className="flex-row items-center gap-3">
-                    <Text className="text-xs text-[#414755] dark:text-zinc-400">
-                      <Text style={{ color: '#59C83A' }} className="font-bold">
+                    <Text className="text-xs font-sans-medium text-[#414755] dark:text-zinc-400">
+                      <Text style={{ color: '#59C83A' }} className="font-sans-bold">
                         {item.sets}
                       </Text>{' '}
                       séries
                     </Text>
-                    <Text className="text-xs text-[#414755] dark:text-zinc-400">
-                      <Text style={{ color: '#59C83A' }} className="font-bold">
+                    <Text className="text-xs font-sans-medium text-[#414755] dark:text-zinc-400">
+                      <Text style={{ color: '#59C83A' }} className="font-sans-bold">
                         {item.reps}
                       </Text>{' '}
                       reps
                     </Text>
-                    <Text className="text-xs text-[#414755] dark:text-zinc-400">
+                    <Text className="text-xs font-sans-medium text-[#414755] dark:text-zinc-400">
                       Carga:{' '}
-                      <Text style={{ color: '#59C83A' }} className="font-bold">
+                      <Text style={{ color: '#59C83A' }} className="font-sans-bold">
                         {item.weight}
                       </Text>
                     </Text>

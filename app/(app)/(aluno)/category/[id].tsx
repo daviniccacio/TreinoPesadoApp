@@ -1,3 +1,10 @@
+// ============================================================================
+// DOCUMENTAÇÃO: TELA DE EXERCÍCIOS POR CATEGORIA (ÁREA DO ALUNO)
+// ============================================================================
+// Exibe a lista de exercícios cadastrados para uma categoria específica,
+// com suporte a busca local, animação de entrada e Pull-to-Refresh.
+// ============================================================================
+
 import React, { useState } from 'react';
 import {
   View,
@@ -93,7 +100,7 @@ export default function CategoryScreen() {
         <TouchableOpacity
           onPress={() =>
             router.push({
-              pathname: '/(aluno)/exercise/[id]',
+              pathname: '/(aluno)/exercise/[id]' as any,
               params: { id: item.id, from: 'category', categoryId: id },
             })
           }
@@ -101,24 +108,27 @@ export default function CategoryScreen() {
           activeOpacity={0.8}
         >
           <View className="flex-1 mr-3">
-            <Text className="text-base font-bold text-[#1b1b1d] dark:text-white mb-1">
+            {/* Nome do Exercício em Outfit Bold */}
+            <Text className="text-base font-outfit text-[#1b1b1d] dark:text-white mb-1">
               {item.name}
             </Text>
+
+            {/* Detalhes de Séries, Repetições e Carga em DM Sans */}
             <View className="flex-row items-center gap-3">
-              <Text className="text-xs text-[#414755] dark:text-zinc-400">
-                <Text style={{ color: '#59C83A' }} className="font-bold">
+              <Text className="text-xs font-sans-medium text-[#414755] dark:text-zinc-400">
+                <Text style={{ color: '#59C83A' }} className="font-sans-bold">
                   {item.sets}
                 </Text>{' '}
                 séries
               </Text>
-              <Text className="text-xs text-[#414755] dark:text-zinc-400">
-                <Text style={{ color: '#59C83A' }} className="font-bold">
+              <Text className="text-xs font-sans-medium text-[#414755] dark:text-zinc-400">
+                <Text style={{ color: '#59C83A' }} className="font-sans-bold">
                   {item.reps}
                 </Text>{' '}
                 reps
               </Text>
-              <Text className="text-xs text-[#414755] dark:text-zinc-400">
-                <Text style={{ color: '#59C83A' }} className="font-bold">
+              <Text className="text-xs font-sans-medium text-[#414755] dark:text-zinc-400">
+                <Text style={{ color: '#59C83A' }} className="font-sans-bold">
                   {item.weight}
                 </Text>
               </Text>
@@ -154,7 +164,8 @@ export default function CategoryScreen() {
           <ArrowLeft size={20} color={isDark ? '#59C83A' : '#1b1b1d'} />
         </TouchableOpacity>
 
-        <Text className="text-lg font-bold text-[#1b1b1d] dark:text-white">
+        {/* Título da Categoria em Outfit Bold */}
+        <Text className="text-lg font-outfit text-[#1b1b1d] dark:text-white">
           {categoryTitle}
         </Text>
 
@@ -165,7 +176,8 @@ export default function CategoryScreen() {
       {isLoading ? (
         <View className="flex-1 justify-center items-center">
           <ActivityIndicator size="large" color="#59C83A" />
-          <Text className="mt-3 text-[#414755] dark:text-zinc-400 font-medium text-xs">
+          {/* Mensagem em DM Sans Medium */}
+          <Text className="mt-3 text-[#414755] dark:text-zinc-400 font-sans-medium text-xs">
             Carregando exercícios...
           </Text>
         </View>
@@ -177,7 +189,8 @@ export default function CategoryScreen() {
           className="flex-1 justify-center items-center px-5"
         >
           <WarningCircle size={48} color="#e11d48" />
-          <Text className="text-base font-bold text-[#1b1b1d] dark:text-white mt-2 text-center">
+          {/* Título de Erro em Outfit Bold */}
+          <Text className="text-base font-outfit-bold text-[#1b1b1d] dark:text-white mt-2 text-center">
             Não foi possível carregar os exercícios
           </Text>
           <TouchableOpacity
@@ -185,7 +198,8 @@ export default function CategoryScreen() {
             style={{ backgroundColor: '#59C83A' }}
             className="mt-4 px-5 py-2.5 rounded-xl"
           >
-            <Text className="text-white font-bold text-xs">Tentar Novamente</Text>
+            {/* Texto do Botão em DM Sans Bold */}
+            <Text className="text-white font-sans-bold text-xs">Tentar Novamente</Text>
           </TouchableOpacity>
         </MotiView>
       ) : (
@@ -215,15 +229,17 @@ export default function CategoryScreen() {
               }}
               className="mb-4"
             >
-              <Text className="text-xl font-bold text-[#1b1b1d] dark:text-white mb-3">
+              {/* Título de Seção em Outfit ExtraBold */}
+              <Text className="text-xl font-outfit-extrabold text-[#1b1b1d] dark:text-white mb-3">
                 Exercícios Disponíveis
               </Text>
 
               {/* Campo de Busca por Exercício */}
               <View className="bg-[#f8f9fa] dark:bg-zinc-900 flex-row items-center px-4 py-2.5 rounded-2xl border border-[#e2dfe1] dark:border-zinc-800">
                 <MagnifyingGlass size={18} color={isDark ? '#59C83A' : '#414755'} />
+                {/* Input em DM Sans Medium */}
                 <TextInput
-                  className="flex-1 ml-2.5 text-[#1b1b1d] dark:text-white text-sm font-medium"
+                  className="flex-1 ml-2.5 text-[#1b1b1d] dark:text-white text-sm font-sans-medium"
                   placeholder={`Buscar em ${categoryTitle.toLowerCase()}...`}
                   placeholderTextColor={isDark ? '#71717a' : '#a09da1'}
                   value={searchQuery}
@@ -246,7 +262,8 @@ export default function CategoryScreen() {
               transition={{ type: 'timing', duration: 200 }}
               className="py-10 items-center"
             >
-              <Text className="text-[#414755] dark:text-zinc-400 font-medium text-center text-xs">
+              {/* Mensagem Vazia em DM Sans Medium */}
+              <Text className="text-[#414755] dark:text-zinc-400 font-sans-medium text-center text-xs">
                 {searchQuery.trim().length > 0
                   ? `Nenhum exercício encontrado com "${searchQuery}" em ${categoryTitle}.`
                   : 'Nenhum exercício cadastrado para esta categoria.'}

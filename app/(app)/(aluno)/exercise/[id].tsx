@@ -1,3 +1,10 @@
+// ============================================================================
+// DOCUMENTAÇÃO: TELA DE DETALHES DO EXERCÍCIO (ÁREA DO ALUNO)
+// ============================================================================
+// Exibe a demonstração visual (GIF), a categoria/grupo muscular e os parâmetros
+// de execução (séries, repetições e carga) de um exercício individual.
+// ============================================================================
+
 import React, { useState } from 'react';
 import {
   View,
@@ -74,7 +81,7 @@ export default function ExerciseDetailScreen() {
     if (router.canGoBack()) {
       router.back();
     } else {
-      router.replace('/(aluno)/(tabs)/my-workouts');
+      router.replace('/(aluno)/(tabs)/my-workouts' as any);
     }
   }
 
@@ -101,7 +108,8 @@ export default function ExerciseDetailScreen() {
           <ArrowLeft size={20} color={isDark ? '#59C83A' : '#1b1b1d'} />
         </TouchableOpacity>
 
-        <Text className="text-lg font-bold text-[#1b1b1d] dark:text-white text-center flex-1">
+        {/* Título do Cabeçalho em Outfit Bold */}
+        <Text className="text-lg font-outfit text-[#1b1b1d] dark:text-white text-center flex-1">
           Detalhes do Exercício
         </Text>
 
@@ -131,12 +139,14 @@ export default function ExerciseDetailScreen() {
             }}
             className="mb-4"
           >
-            <Text className="text-2xl font-extrabold text-[#1b1b1d] dark:text-white mb-2">
+            {/* Nome do Exercício em Outfit ExtraBold */}
+            <Text className="text-2xl font-outfit-extrabold text-[#1b1b1d] dark:text-white mb-2">
               {exercise.name}
             </Text>
 
+            {/* Categoria em DM Sans Bold */}
             <View className="self-start bg-[#59C83A]/10 px-3 py-1 rounded-full border border-[#59C83A]/30">
-              <Text style={{ color: '#59C83A' }} className="text-xs font-bold uppercase tracking-wider">
+              <Text style={{ color: '#59C83A' }} className="text-xs font-sans-bold uppercase tracking-wider">
                 Grupo: {exercise.category_id}
               </Text>
             </View>
@@ -157,7 +167,8 @@ export default function ExerciseDetailScreen() {
             {isGifLoading && (
               <View className="absolute inset-0 justify-center items-center bg-[#f8f9fa] dark:bg-zinc-900 z-10">
                 <ActivityIndicator size="large" color="#59C83A" />
-                <Text className="text-xs text-[#71717a] dark:text-zinc-400 mt-2 font-medium">
+                {/* Texto de Carregamento em DM Sans Medium */}
+                <Text className="text-xs font-sans-medium text-[#71717a] dark:text-zinc-400 mt-2">
                   Carregando via internet...
                 </Text>
               </View>
@@ -190,32 +201,35 @@ export default function ExerciseDetailScreen() {
             }}
             className="flex-row justify-between mb-6"
           >
+            {/* Card Séries */}
             <View className="w-[31%] bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl items-center border border-[#e2dfe1] dark:border-zinc-800">
               <Stack size={22} color="#59C83A" />
-              <Text className="text-xs text-[#414755] dark:text-zinc-400 mt-1 font-medium">
+              <Text className="text-xs font-sans-bold text-[#414755] dark:text-zinc-400 mt-1">
                 Séries
               </Text>
-              <Text className="text-lg font-extrabold text-[#1b1b1d] dark:text-white mt-1">
+              <Text className="text-lg font-outfit-extrabold text-[#1b1b1d] dark:text-white mt-1">
                 {exercise.sets}
               </Text>
             </View>
 
+            {/* Card Repetições */}
             <View className="w-[31%] bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl items-center border border-[#e2dfe1] dark:border-zinc-800">
               <Repeat size={22} color="#59C83A" />
-              <Text className="text-xs text-[#414755] dark:text-zinc-400 mt-1 font-medium">
+              <Text className="text-xs font-sans-bold text-[#414755] dark:text-zinc-400 mt-1">
                 Reps
               </Text>
-              <Text className="text-lg font-extrabold text-[#1b1b1d] dark:text-white mt-1">
+              <Text className="text-lg font-outfit-extrabold text-[#1b1b1d] dark:text-white mt-1">
                 {exercise.reps}
               </Text>
             </View>
 
+            {/* Card Carga */}
             <View className="w-[31%] bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl items-center border border-[#e2dfe1] dark:border-zinc-800">
               <Barbell size={22} color="#59C83A" />
-              <Text className="text-xs text-[#414755] dark:text-zinc-400 mt-1 font-medium">
+              <Text className="text-xs font-sans-bold text-[#414755] dark:text-zinc-400 mt-1">
                 Carga
               </Text>
-              <Text className="text-lg font-extrabold text-[#1b1b1d] dark:text-white mt-1">
+              <Text className="text-lg font-outfit-extrabold text-[#1b1b1d] dark:text-white mt-1">
                 {exercise.weight}
               </Text>
             </View>
