@@ -1,3 +1,10 @@
+// ============================================================================
+// DOCUMENTAÇÃO: TELA DE DETALHES E ACOMPANHAMENTO DO ALUNO (PERSONAL TRAINER)
+// ============================================================================
+// Apresenta o perfil do aluno, estatísticas de treinos concluídos, opções para
+// prescrever novas fichas do zero ou da biblioteca, e a gestão dos planos ativos.
+// ============================================================================
+
 import React, { useState } from 'react';
 import {
   View,
@@ -27,6 +34,7 @@ import { MotiView } from 'moti';
 import { supabase } from '../../../lib/supabase';
 import { CustomModal } from '../../../components/CustomModal';
 
+// --- TIPAGENS DE DADOS ---
 interface StudentStats {
   prescribedWorkouts: number;
   totalWorkouts: number;
@@ -58,6 +66,9 @@ interface ShowAlertModalOptions {
   onConfirm?: () => void;
 }
 
+/**
+ * Busca os dados do perfil, estatísticas de presença e planos de treino do aluno no Supabase
+ */
 async function fetchStudentDetailData(
   studentId?: string,
   fallbackName?: string
@@ -338,23 +349,26 @@ export default function StudentDetailScreen() {
         </TouchableOpacity>
 
         <View className="flex-1">
+          {/* Nome do aluno com Outfit ExtraBold */}
           <Text
-            className="text-xl font-extrabold text-[#1b1b1d] dark:text-white"
+            className="text-xl font-outfit-extrabold text-[#1b1b1d] dark:text-white"
             numberOfLines={1}
           >
             {isLoading && !studentName ? 'Carregando...' : studentName}
           </Text>
-          <Text className="text-xs text-[#71717a] dark:text-zinc-400 font-medium">
+          {/* Subtítulo com DM Sans Medium */}
+          <Text className="text-xs font-sans-medium text-[#71717a] dark:text-zinc-400">
             Acompanhamento de progresso
           </Text>
         </View>
       </MotiView>
 
+      {/* 2. ROLAGEM COM ESPAÇAMENTO INFERIOR AUMENTADO */}
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 40 }}
+        contentContainerStyle={{ paddingBottom: 120 }} // 🟢 Espaço de sobra para a Navbar Flutuante
       >
-        {/* 2. CARTÃO DO ALUNO ANIMADO */}
+        {/* CARTÃO DO ALUNO ANIMADO */}
         <MotiView
           from={{ opacity: 0, translateY: 10, scale: 0.98 }}
           animate={{ opacity: 1, translateY: 0, scale: 1 }}
@@ -372,10 +386,12 @@ export default function StudentDetailScreen() {
                 <User size={28} color="#59C83A" weight="bold" />
               </View>
               <View className="flex-1">
-                <Text className="text-lg font-bold text-[#1b1b1d] dark:text-white">
+                {/* Nome no cartão em Outfit Bold */}
+                <Text className="text-lg font-outfit-bold text-[#1b1b1d] dark:text-white">
                   {studentName}
                 </Text>
-                <Text className="text-xs text-[#59C83A] font-semibold mt-0.5">
+                {/* Status em DM Sans Bold */}
+                <Text className="text-xs font-sans-bold text-[#59C83A] mt-0.5">
                   Aluno Ativo
                 </Text>
               </View>
@@ -402,7 +418,8 @@ export default function StudentDetailScreen() {
             delay: 40,
           }}
         >
-          <Text className="text-sm font-bold text-[#1b1b1d] dark:text-white mb-3">
+          {/* Título da seção em Outfit Bold */}
+          <Text className="text-sm font-outfit-bold text-[#1b1b1d] dark:text-white mb-3">
             Resumo de Atividades
           </Text>
 
@@ -412,35 +429,38 @@ export default function StudentDetailScreen() {
             </View>
           ) : (
             <View className="flex-row gap-2.5 mb-6">
+              {/* Métrica 1: Sua Ficha */}
               <View className="flex-1 bg-[#f8f9fa] dark:bg-zinc-900 p-3.5 rounded-2xl border border-[#e2dfe1] dark:border-zinc-800">
                 <Trophy size={20} color="#59C83A" weight="bold" />
-                <Text className="text-xl font-black text-[#1b1b1d] dark:text-white mt-1.5">
+                <Text className="text-xl font-outfit-extrabold text-[#1b1b1d] dark:text-white mt-1.5">
                   {stats.prescribedWorkouts}
                 </Text>
-                <Text className="text-[10px] text-[#71717a] dark:text-zinc-400 font-bold uppercase mt-0.5">
+                <Text className="text-[10px] font-sans-bold text-[#71717a] dark:text-zinc-400 uppercase mt-0.5">
                   Sua Ficha
                 </Text>
               </View>
 
+              {/* Métrica 2: Total Geral */}
               <View className="flex-1 bg-[#f8f9fa] dark:bg-zinc-900 p-3.5 rounded-2xl border border-[#e2dfe1] dark:border-zinc-800">
                 <Barbell size={20} color="#3B82F6" weight="bold" />
-                <Text className="text-xl font-black text-[#1b1b1d] dark:text-white mt-1.5">
+                <Text className="text-xl font-outfit-extrabold text-[#1b1b1d] dark:text-white mt-1.5">
                   {stats.totalWorkouts}
                 </Text>
-                <Text className="text-[10px] text-[#71717a] dark:text-zinc-400 font-bold uppercase mt-0.5">
+                <Text className="text-[10px] font-sans-bold text-[#71717a] dark:text-zinc-400 uppercase mt-0.5">
                   Total Geral
                 </Text>
               </View>
 
+              {/* Métrica 3: Último Treino */}
               <View className="flex-1 bg-[#f8f9fa] dark:bg-zinc-900 p-3.5 rounded-2xl border border-[#e2dfe1] dark:border-zinc-800">
                 <CalendarBlank size={20} color="#59C83A" weight="bold" />
                 <Text
-                  className="text-xs font-bold text-[#1b1b1d] dark:text-white mt-2"
+                  className="text-xs font-sans-bold text-[#1b1b1d] dark:text-white mt-2"
                   numberOfLines={1}
                 >
                   {formatDate(stats.lastWorkoutDate)}
                 </Text>
-                <Text className="text-[10px] text-[#71717a] dark:text-zinc-400 font-bold uppercase mt-0.5">
+                <Text className="text-[10px] font-sans-bold text-[#71717a] dark:text-zinc-400 uppercase mt-0.5">
                   Último Treino
                 </Text>
               </View>
@@ -459,10 +479,11 @@ export default function StudentDetailScreen() {
             delay: 60,
           }}
         >
-          <Text className="text-sm font-bold text-[#1b1b1d] dark:text-white mb-3">
+          <Text className="text-sm font-outfit-bold text-[#1b1b1d] dark:text-white mb-3">
             Prescrever Treino
           </Text>
 
+          {/* Botão 1: Criar Treino do Zero */}
           <TouchableOpacity
             activeOpacity={0.8}
             onPress={() =>
@@ -475,16 +496,17 @@ export default function StudentDetailScreen() {
           >
             <PlusCircle size={24} color="#FFFFFF" weight="bold" />
             <View className="ml-3 flex-1">
-              <Text className="text-white font-bold text-base">
+              <Text className="text-white font-outfit-bold text-base">
                 Criar Treino do Zero
               </Text>
-              <Text className="text-white/80 text-xs font-medium">
+              <Text className="text-white/80 text-xs font-sans-medium">
                 Monte uma ficha personalizada para este aluno
               </Text>
             </View>
           </TouchableOpacity>
         </MotiView>
 
+        {/* Botão 2: Usar Modelo da Biblioteca */}
         <MotiView
           from={{ opacity: 0, translateY: 10 }}
           animate={{ opacity: 1, translateY: 0 }}
@@ -510,10 +532,10 @@ export default function StudentDetailScreen() {
           >
             <Books size={24} color="#59C83A" weight="bold" />
             <View className="ml-3 flex-1">
-              <Text className="text-[#1b1b1d] dark:text-white font-bold text-base">
+              <Text className="text-[#1b1b1d] dark:text-white font-outfit-bold text-base">
                 Usar Modelo da Biblioteca
               </Text>
-              <Text className="text-[#71717a] dark:text-zinc-400 text-xs font-medium">
+              <Text className="text-[#71717a] dark:text-zinc-400 text-xs font-sans-medium">
                 Escolha uma rotina pronta para vincular
               </Text>
             </View>
@@ -531,7 +553,7 @@ export default function StudentDetailScreen() {
             delay: 100,
           }}
         >
-          <Text className="text-sm font-bold text-[#1b1b1d] dark:text-white mb-3">
+          <Text className="text-sm font-outfit-bold text-[#1b1b1d] dark:text-white mb-3">
             Planos de Treino do Aluno ({workoutPlans.length})
           </Text>
         </MotiView>
@@ -548,10 +570,10 @@ export default function StudentDetailScreen() {
             className="bg-[#f8f9fa] dark:bg-zinc-900 p-6 rounded-2xl border border-dashed border-[#e2dfe1] dark:border-zinc-800 items-center justify-center"
           >
             <Barbell size={32} color={isDark ? '#71717a' : '#a1a1aa'} />
-            <Text className="text-xs font-bold text-[#1b1b1d] dark:text-white mt-2 text-center">
+            <Text className="text-xs font-outfit-bold text-[#1b1b1d] dark:text-white mt-2 text-center">
               Nenhum plano de treino atribuído
             </Text>
-            <Text className="text-[11px] text-[#71717a] dark:text-zinc-400 text-center mt-1 font-medium">
+            <Text className="text-[11px] font-sans-medium text-[#71717a] dark:text-zinc-400 text-center mt-1">
               Clique no botão verde acima para prescrever a primeira ficha de
               treino para este aluno.
             </Text>
@@ -571,7 +593,8 @@ export default function StudentDetailScreen() {
               className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl border border-[#e2dfe1] dark:border-zinc-800 mb-3"
             >
               <View className="flex-row items-center justify-between mb-2">
-                <Text className="text-base font-extrabold text-[#1b1b1d] dark:text-white flex-1 mr-2">
+                {/* Nome da ficha em Outfit SemiBold */}
+                <Text className="text-base font-outfit-semibold text-[#1b1b1d] dark:text-white flex-1 mr-2">
                   {plan.name}
                 </Text>
 
@@ -599,7 +622,7 @@ export default function StudentDetailScreen() {
               </View>
 
               {plan.description ? (
-                <Text className="text-xs text-[#71717a] dark:text-zinc-400 mb-3 font-medium">
+                <Text className="text-xs font-sans-medium text-[#71717a] dark:text-zinc-400 mb-3">
                   {plan.description}
                 </Text>
               ) : null}
@@ -608,7 +631,7 @@ export default function StudentDetailScreen() {
                 {plan.objective ? (
                   <View className="bg-[#59C83A]/10 px-2.5 py-1 rounded-md flex-row items-center border border-[#59C83A]/30">
                     <Target size={12} color="#59C83A" weight="bold" />
-                    <Text className="text-[10px] font-bold text-[#59C83A] ml-1">
+                    <Text className="text-[10px] font-sans-bold text-[#59C83A] ml-1">
                       {plan.objective}
                     </Text>
                   </View>
@@ -616,7 +639,7 @@ export default function StudentDetailScreen() {
 
                 {plan.days_of_week && plan.days_of_week.length > 0 ? (
                   <View className="bg-[#f0f0f0] dark:bg-zinc-800 px-2.5 py-1 rounded-md border border-[#e2dfe1] dark:border-zinc-700">
-                    <Text className="text-[10px] font-bold text-[#71717a] dark:text-zinc-300">
+                    <Text className="text-[10px] font-sans-bold text-[#71717a] dark:text-zinc-300">
                       {plan.days_of_week.join(', ')}
                     </Text>
                   </View>

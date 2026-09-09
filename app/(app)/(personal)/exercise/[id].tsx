@@ -1,3 +1,10 @@
+// ============================================================================
+// DOCUMENTAÇÃO: TELA DE DEMONSTRAÇÃO DO EXERCÍCIO (PERSONAL TRAINER)
+// ============================================================================
+// Exibe a execução em GIF animado e as instruções técnicas detalhadas de um
+// exercício específico selecionado no catálogo.
+// ============================================================================
+
 import React, { useState } from 'react';
 import {
   View,
@@ -106,7 +113,8 @@ export default function PersonalExerciseDetailScreen() {
           <ArrowLeft size={20} color={isDark ? '#59C83A' : '#1b1b1d'} />
         </TouchableOpacity>
 
-        <Text className="text-lg font-bold text-[#1b1b1d] dark:text-white text-center flex-1" numberOfLines={1}>
+        {/* Título do Cabeçalho em Outfit Bold */}
+        <Text className="text-lg font-outfit text-[#1b1b1d] dark:text-white text-center flex-1" numberOfLines={1}>
           Demonstração do Exercício
         </Text>
 
@@ -117,7 +125,8 @@ export default function PersonalExerciseDetailScreen() {
       {isLoading ? (
         <View className="flex-1 justify-center items-center">
           <ActivityIndicator size="large" color="#59C83A" />
-          <Text className="mt-3 text-[#414755] dark:text-zinc-400 font-medium text-xs">
+          {/* Texto em DM Sans Medium */}
+          <Text className="mt-3 text-[#414755] dark:text-zinc-400 font-sans-medium text-xs">
             Carregando demonstração...
           </Text>
         </View>
@@ -129,21 +138,24 @@ export default function PersonalExerciseDetailScreen() {
           className="flex-1 justify-center items-center px-5"
         >
           <WarningCircle size={48} color="#e11d48" />
-          <Text className="text-base font-bold text-[#1b1b1d] dark:text-white mt-2 text-center">
+          {/* Texto em Outfit Bold */}
+          <Text className="text-base font-outfit-bold text-[#1b1b1d] dark:text-white mt-2 text-center">
             Não foi possível carregar os detalhes do exercício
           </Text>
+          {/* Botão em DM Sans Bold */}
           <TouchableOpacity
             onPress={() => refetch()}
             style={{ backgroundColor: '#59C83A' }}
             className="mt-4 px-5 py-2.5 rounded-xl"
           >
-            <Text className="text-white font-bold text-xs">Tentar Novamente</Text>
+            <Text className="text-white font-sans-bold text-xs">Tentar Novamente</Text>
           </TouchableOpacity>
         </MotiView>
       ) : exercise ? (
         <ScrollView
           className="flex-1 px-5 pt-4"
-          contentContainerStyle={{ paddingBottom: 40 }}
+          // 🟢 paddingBottom: 120 para rolagem inteiramente desimpedida acima da navbar
+          contentContainerStyle={{ paddingBottom: 120 }}
           showsVerticalScrollIndicator={false}
         >
           {/* TÍTULO ANIMADO */}
@@ -153,7 +165,8 @@ export default function PersonalExerciseDetailScreen() {
             transition={{ type: 'spring', damping: 22, stiffness: 150, delay: 20 }}
             className="mb-4"
           >
-            <Text className="text-2xl font-extrabold text-[#1b1b1d] dark:text-white mb-1">
+            {/* Nome do exercício em Outfit ExtraBold */}
+            <Text className="text-2xl font-outfit-extrabold text-[#1b1b1d] dark:text-white mb-1">
               {exercise.name}
             </Text>
           </MotiView>
@@ -168,7 +181,8 @@ export default function PersonalExerciseDetailScreen() {
             {isGifLoading && (
               <View className="absolute inset-0 justify-center items-center bg-[#f8f9fa] dark:bg-zinc-900 z-10">
                 <ActivityIndicator size="large" color="#59C83A" />
-                <Text className="text-xs text-[#71717a] dark:text-zinc-400 mt-2 font-medium">
+                {/* Texto em DM Sans Medium */}
+                <Text className="text-xs text-[#71717a] dark:text-zinc-400 mt-2 font-sans-medium">
                   Carregando GIF...
                 </Text>
               </View>
@@ -196,10 +210,12 @@ export default function PersonalExerciseDetailScreen() {
               transition={{ type: 'spring', damping: 22, stiffness: 150, delay: 60 }}
               className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl border border-[#e2dfe1] dark:border-zinc-800"
             >
-              <Text className="text-sm font-bold text-[#59C83A] mb-1">
+              {/* Rótulo de Instruções em DM Sans Bold */}
+              <Text className="text-sm font-sans-bold text-[#59C83A] mb-1">
                 Instruções de Execução:
               </Text>
-              <Text className="text-sm text-[#414755] dark:text-zinc-300 leading-6 font-medium">
+              {/* Texto de Instrução em DM Sans Medium */}
+              <Text className="text-sm text-[#414755] dark:text-zinc-300 leading-6 font-sans-medium">
                 {exercise.instructions}
               </Text>
             </MotiView>

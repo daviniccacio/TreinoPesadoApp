@@ -1,3 +1,10 @@
+// ============================================================================
+// DOCUMENTAÇÃO: BIBLIOTECA DE ROTINAS DA APLICAÇÃO (PERSONAL TRAINER)
+// ============================================================================
+// Exibe os modelos de treinos reutilizáveis do Personal, permitindo criar,
+// editar, excluir e atribuir cópias das fichas diretamente aos alunos.
+// ============================================================================
+
 import React, { useState, useCallback } from 'react';
 import {
   View,
@@ -371,10 +378,12 @@ export default function PersonalRoutinesScreen() {
         className="flex-row justify-between items-center mb-6 border-b border-[#f0edef] dark:border-zinc-800 pb-4"
       >
         <View className="flex-1 mr-2">
-          <Text className="text-2xl font-extrabold text-[#1b1b1d] dark:text-white">
+          {/* Título com a fonte Outfit ExtraBold */}
+          <Text className="text-2xl font-outfit-extrabold text-[#1b1b1d] dark:text-white">
             Biblioteca de Rotinas
           </Text>
-          <Text className="text-sm text-[#71717a] dark:text-zinc-400 mt-1 font-medium">
+          {/* Subtítulo com a fonte DM Sans Medium */}
+          <Text className="text-sm font-sans-medium text-[#71717a] dark:text-zinc-400 mt-1">
             Modelos de fichas reutilizáveis
           </Text>
         </View>
@@ -405,10 +414,10 @@ export default function PersonalRoutinesScreen() {
           className="flex-1 justify-center items-center px-6"
         >
           <Books size={48} color={isDark ? '#71717a' : '#a1a1aa'} />
-          <Text className="text-[#1b1b1d] dark:text-white font-bold text-base mt-4 text-center">
+          <Text className="text-[#1b1b1d] dark:text-white font-outfit-bold text-base mt-4 text-center">
             Nenhum modelo cadastrado
           </Text>
-          <Text className="text-xs text-[#71717a] dark:text-zinc-400 text-center mt-1 font-medium">
+          <Text className="text-xs font-sans-medium text-[#71717a] dark:text-zinc-400 text-center mt-1">
             Clique no botão '+' no topo para criar sua primeira ficha modelo reutilizável.
           </Text>
         </MotiView>
@@ -417,6 +426,7 @@ export default function PersonalRoutinesScreen() {
           data={routines}
           keyExtractor={(item) => item.id}
           showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 120 }} // 🟢 Espaço de sobra para a Navbar Flutuante
           refreshControl={
             <RefreshControl
               refreshing={isRefetching}
@@ -455,10 +465,12 @@ export default function PersonalRoutinesScreen() {
                     </View>
 
                     <View className="flex-1">
-                      <Text className="text-base font-bold text-[#1b1b1d] dark:text-white">
+                      {/* Nome do modelo com Outfit SemiBold */}
+                      <Text className="text-base font-outfit text-[#1b1b1d] dark:text-white">
                         {item.name}
                       </Text>
-                      <Text className="text-xs text-[#71717a] dark:text-zinc-400 mt-0.5 font-medium">
+                      {/* Detalhes do modelo com DM Sans Medium */}
+                      <Text className="text-xs font-sans-medium text-[#71717a] dark:text-zinc-400 mt-0.5">
                         {exerciseCount} {exerciseCount === 1 ? 'exercício' : 'exercícios'}
                         {item.objective ? ` • ${item.objective}` : ''}
                       </Text>
@@ -511,10 +523,10 @@ export default function PersonalRoutinesScreen() {
           <View className="bg-white dark:bg-zinc-900 rounded-t-3xl p-5 h-[60%] border-t border-[#e2dfe1] dark:border-zinc-800">
             <View className="flex-row items-center justify-between mb-4 border-b border-[#e2dfe1] dark:border-zinc-800 pb-3">
               <View>
-                <Text className="text-lg font-extrabold text-[#1b1b1d] dark:text-white">
+                <Text className="text-lg font-outfit-extrabold text-[#1b1b1d] dark:text-white">
                   Escolha o Aluno
                 </Text>
-                <Text className="text-xs text-[#59C83A] font-bold">
+                <Text className="text-xs font-sans-bold text-[#59C83A]">
                   Para o treino: {selectedRoutine?.name}
                 </Text>
               </View>
@@ -534,7 +546,7 @@ export default function PersonalRoutinesScreen() {
             ) : students.length === 0 ? (
               <View className="flex-1 items-center justify-center p-6">
                 <Users size={32} color={isDark ? '#71717a' : '#a1a1aa'} />
-                <Text className="text-xs text-[#71717a] dark:text-zinc-400 mt-2 text-center font-medium">
+                <Text className="text-xs font-sans-medium text-[#71717a] dark:text-zinc-400 mt-2 text-center">
                   Nenhum aluno cadastrado no sistema.
                 </Text>
               </View>
@@ -551,10 +563,10 @@ export default function PersonalRoutinesScreen() {
                     }
                     className="p-4 rounded-xl bg-[#f8f9fa] dark:bg-zinc-950 border border-[#e2dfe1] dark:border-zinc-800 mb-2.5 flex-row items-center justify-between"
                   >
-                    <Text className="text-sm font-bold text-[#1b1b1d] dark:text-white">
+                    <Text className="text-sm font-outfit-semibold text-[#1b1b1d] dark:text-white">
                       {item.full_name}
                     </Text>
-                    <Text className="text-xs font-bold text-[#59C83A]">
+                    <Text className="text-xs font-sans-bold text-[#59C83A]">
                       Selecionar →
                     </Text>
                   </TouchableOpacity>

@@ -1,4 +1,11 @@
-import React, { useMemo } from "react";
+// ============================================================================
+// DOCUMENTAÇÃO: TELA DE FREQUÊNCIA DE TREINOS (PERSONAL TRAINER)
+// ============================================================================
+// Apresenta o histórico de assiduidade e métricas semanais dos alunos
+// vinculados ao Personal com tipografia padronizada e MotiView animations.
+// ============================================================================
+
+import React, { useMemo } from 'react';
 import {
   View,
   Text,
@@ -6,8 +13,8 @@ import {
   ActivityIndicator,
   RefreshControl,
   useColorScheme,
-} from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   CalendarCheck,
   CheckCircle,
@@ -15,14 +22,12 @@ import {
   Clock,
   UserCheck,
   TrendUp,
-} from "phosphor-react-native";
-import { useQuery } from "@tanstack/react-query";
-import { MotiView } from "moti";
-import { supabase } from "../../../lib/supabase";
+} from 'phosphor-react-native';
+import { useQuery } from '@tanstack/react-query';
+import { MotiView } from 'moti';
+import { supabase } from '../../../lib/supabase';
 
-/**
- * Estrutura de um registro de frequência
- */
+// --- ESTRUTURA DE DADOS ---
 interface AttendanceLog {
   id: string;
   created_at: string;
@@ -36,10 +41,9 @@ interface AttendanceLog {
 }
 
 /**
- * Busca o histórico de frequência estritamente dos alunos vinculados ao Personal logado
+ * Busca o histórico de frequência dos alunos vinculados ao Personal logado
  */
 async function fetchAttendanceLogs(): Promise<AttendanceLog[]> {
-  // 1. Obtém o utilizador/Personal autenticado na sessão atual
   const {
     data: { user },
     error: authError,
@@ -49,9 +53,8 @@ async function fetchAttendanceLogs(): Promise<AttendanceLog[]> {
     return [];
   }
 
-  // 2. Realiza a busca com Inner Join (profiles!inner) e filtro por personal_id
   const { data, error } = await supabase
-    .from("workout_logs")
+    .from('workout_logs')
     .select(
       `
       id,
@@ -65,12 +68,12 @@ async function fetchAttendanceLogs(): Promise<AttendanceLog[]> {
       )
     `
     )
-    .eq("profiles.personal_id", user.id)
-    .order("created_at", { ascending: false });
+    .eq('profiles.personal_id', user.id)
+    .order('created_at', { ascending: false });
 
   if (error) {
-    console.error("Erro ao buscar histórico de frequência:", error.message);
-    throw new Error("Não foi possível carregar o histórico de frequência.");
+    console.error('Erro ao buscar histórico de frequência:', error.message);
+    throw new Error('Não foi possível carregar o histórico de frequência.');
   }
 
   return (data || []) as unknown as AttendanceLog[];
@@ -79,9 +82,9 @@ async function fetchAttendanceLogs(): Promise<AttendanceLog[]> {
 export default function PersonalAttendanceScreen() {
   const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme();
-  const isDark = colorScheme === "dark";
+  const isDark = colorScheme === 'dark';
 
-  // --- BUSCA REATIVA COM TANSTACK QUERY ---
+  // --- CONSULTA COM TANSTACK QUERY ---
   const {
     data: logs = [],
     isLoading,
@@ -90,7 +93,7 @@ export default function PersonalAttendanceScreen() {
     isRefetching,
     refetch,
   } = useQuery({
-    queryKey: ["personal-attendance-logs"],
+    queryKey: ['personal-attendance-logs'],
     queryFn: fetchAttendanceLogs,
   });
 
@@ -120,26 +123,26 @@ export default function PersonalAttendanceScreen() {
   }, [logs]);
 
   function formatDate(isoString: string) {
-    if (!isoString) return "Data não disponível";
+    if (!isoString) return 'Data não disponível';
 
     try {
       const date = new Date(isoString);
-      return date.toLocaleDateString("pt-BR", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
+      return date.toLocaleDateString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
       });
     } catch (e) {
-      return "Data inválida";
+      return 'Data inválida';
     }
   }
 
   function formatDuration(seconds?: number): string {
-    if (!seconds || seconds <= 0) return "Duração N/D";
+    if (!seconds || seconds <= 0) return 'Duração N/D';
     const mins = Math.floor(seconds / 60);
-    if (mins < 1) return "Menos de 1 min";
+    if (mins < 1) return 'Menos de 1 min';
     return `${mins} min`;
   }
 
@@ -151,15 +154,17 @@ export default function PersonalAttendanceScreen() {
           from={{ opacity: 0, translateY: -12 }}
           animate={{ opacity: 1, translateY: 0 }}
           transition={{
-            type: "spring",
+            type: 'spring',
             damping: 24,
             stiffness: 160,
           }}
         >
-          <Text className="text-2xl font-black text-[#1b1b1d] dark:text-white">
+          {/* Título com Outfit ExtraBold */}
+          <Text className="text-2xl font-outfit-extrabold text-[#1b1b1d] dark:text-white">
             Frequência de Treinos
           </Text>
-          <Text className="text-xs text-[#71717a] dark:text-zinc-400 mt-0.5 mb-5 font-medium">
+          {/* Subtítulo com DM Sans Medium */}
+          <Text className="text-xs font-sans-medium text-[#71717a] dark:text-zinc-400 mt-0.5 mb-5">
             Acompanhamento em tempo real da assiduidade dos seus alunos
           </Text>
         </MotiView>
@@ -169,7 +174,7 @@ export default function PersonalAttendanceScreen() {
           from={{ opacity: 0, translateY: 10 }}
           animate={{ opacity: 1, translateY: 0 }}
           transition={{
-            type: "spring",
+            type: 'spring',
             damping: 22,
             stiffness: 150,
             delay: 30,
@@ -180,10 +185,12 @@ export default function PersonalAttendanceScreen() {
             <View className="w-8 h-8 rounded-xl bg-[#59C83A]/10 items-center justify-center mb-2 border border-[#59C83A]/30">
               <UserCheck size={18} color="#59C83A" weight="bold" />
             </View>
-            <Text className="text-2xl font-black text-[#1b1b1d] dark:text-white">
+            {/* Número em Outfit ExtraBold */}
+            <Text className="text-2xl font-outfit-extrabold text-[#1b1b1d] dark:text-white">
               {weeklyStats.activeStudentsCount}
             </Text>
-            <Text className="text-[11px] font-bold text-[#71717a] dark:text-zinc-400 mt-0.5">
+            {/* Rótulo em DM Sans Bold */}
+            <Text className="text-[11px] font-sans-bold text-[#71717a] dark:text-zinc-400 mt-0.5">
               Alunos Ativos (Semana)
             </Text>
           </View>
@@ -192,16 +199,19 @@ export default function PersonalAttendanceScreen() {
             <View className="w-8 h-8 rounded-xl bg-[#59C83A]/10 items-center justify-center mb-2 border border-[#59C83A]/30">
               <TrendUp size={18} color="#59C83A" weight="bold" />
             </View>
-            <Text className="text-2xl font-black text-[#1b1b1d] dark:text-white">
+            {/* Número em Outfit ExtraBold */}
+            <Text className="text-2xl font-outfit-extrabold text-[#1b1b1d] dark:text-white">
               {weeklyStats.workoutsThisWeekCount}
             </Text>
-            <Text className="text-[11px] font-bold text-[#71717a] dark:text-zinc-400 mt-0.5">
+            {/* Rótulo em DM Sans Bold */}
+            <Text className="text-[11px] font-sans-bold text-[#71717a] dark:text-zinc-400 mt-0.5">
               Treinos nesta Semana
             </Text>
           </View>
         </MotiView>
 
-        <Text className="text-sm font-extrabold text-[#1b1b1d] dark:text-white mb-1">
+        {/* Título da Seção em Outfit Bold */}
+        <Text className="text-sm font-outfit-bold text-[#1b1b1d] dark:text-white mb-1">
           Últimos Treinos Finalizados ({logs.length})
         </Text>
       </View>
@@ -218,8 +228,8 @@ export default function PersonalAttendanceScreen() {
       {isError && (
         <View className="bg-red-500/10 border border-red-500/30 p-4 rounded-2xl mb-4 flex-row items-center">
           <WarningCircle size={20} color="#EF4444" />
-          <Text className="text-red-500 text-xs font-bold ml-2 flex-1">
-            {error?.message || "Não foi possível carregar o histórico."}
+          <Text className="text-red-500 text-xs font-sans-bold ml-2 flex-1">
+            {error?.message || 'Não foi possível carregar o histórico.'}
           </Text>
         </View>
       )}
@@ -227,7 +237,7 @@ export default function PersonalAttendanceScreen() {
       {isLoading ? (
         <View className="flex-1 justify-center items-center">
           <ActivityIndicator size="large" color="#59C83A" />
-          <Text className="text-xs text-[#71717a] dark:text-zinc-400 mt-3 font-medium">
+          <Text className="text-xs text-[#71717a] dark:text-zinc-400 mt-3 font-sans-medium">
             Carregando assiduidade dos alunos...
           </Text>
         </View>
@@ -237,7 +247,7 @@ export default function PersonalAttendanceScreen() {
           keyExtractor={(item) => item.id}
           showsVerticalScrollIndicator={false}
           ListHeaderComponent={renderHeader}
-          contentContainerStyle={{ paddingBottom: 40 }}
+          contentContainerStyle={{ paddingBottom: 120 }} // 🟢 Espaço suficiente para a Navbar Flutuante
           refreshControl={
             <RefreshControl
               refreshing={isRefetching}
@@ -250,17 +260,17 @@ export default function PersonalAttendanceScreen() {
               from={{ opacity: 0, scale: 0.95, translateY: 10 }}
               animate={{ opacity: 1, scale: 1, translateY: 0 }}
               transition={{
-                type: "spring",
+                type: 'spring',
                 damping: 22,
                 stiffness: 150,
               }}
               className="bg-[#f8f9fa] dark:bg-zinc-900 p-8 rounded-2xl border border-dashed border-[#e2dfe1] dark:border-zinc-800 items-center my-2"
             >
-              <CalendarCheck size={40} color={isDark ? "#71717a" : "#808591"} />
-              <Text className="text-[#1b1b1d] dark:text-white font-bold text-base mt-3 text-center">
+              <CalendarCheck size={40} color={isDark ? '#71717a' : '#808591'} />
+              <Text className="text-[#1b1b1d] dark:text-white font-outfit text-base mt-3 text-center">
                 Nenhum treino registrado
               </Text>
-              <Text className="text-xs text-[#71717a] dark:text-zinc-400 text-center mt-1 leading-5 font-medium">
+              <Text className="text-xs text-[#71717a] dark:text-zinc-400 text-center mt-1 leading-5 font-sans-medium">
                 Assim que os seus alunos finalizarem os treinos no aplicativo, a
                 frequência aparecerá automaticamente aqui.
               </Text>
@@ -271,7 +281,7 @@ export default function PersonalAttendanceScreen() {
               from={{ opacity: 0, translateY: 14, scale: 0.97 }}
               animate={{ opacity: 1, translateY: 0, scale: 1 }}
               transition={{
-                type: "spring",
+                type: 'spring',
                 damping: 22,
                 stiffness: 150,
                 delay: index * 40,
@@ -279,34 +289,39 @@ export default function PersonalAttendanceScreen() {
             >
               <View className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl mb-3 border border-[#e2dfe1] dark:border-zinc-800">
                 <View className="flex-row items-center justify-between mb-1.5">
+                  {/* Nome do Aluno com Outfit SemiBold */}
                   <Text
-                    className="text-base font-extrabold text-[#1b1b1d] dark:text-white flex-1 mr-2"
+                    className="text-base font-outfit-semibold text-[#1b1b1d] dark:text-white flex-1 mr-2"
                     numberOfLines={1}
                   >
-                    {item.profiles?.full_name || "Aluno Não Identificado"}
+                    {item.profiles?.full_name || 'Aluno Não Identificado'}
                   </Text>
 
+                  {/* Badge de Status com DM Sans Bold */}
                   <View className="bg-[#59C83A]/10 border border-[#59C83A]/30 px-2.5 py-0.5 rounded-full flex-row items-center">
                     <CheckCircle size={12} color="#59C83A" weight="bold" />
-                    <Text className="text-[10px] font-extrabold text-[#59C83A] ml-1">
+                    <Text className="text-[10px] font-sans-bold text-[#59C83A] ml-1">
                       Concluído
                     </Text>
                   </View>
                 </View>
 
-                <Text className="text-xs text-[#59C83A] font-bold mb-2">
-                  {item.workout_title || "Treino Finalizado"}
+                {/* Nome do Treino com DM Sans Bold */}
+                <Text className="text-xs text-[#59C83A] font-sans-bold mb-2">
+                  {item.workout_title || 'Treino Finalizado'}
                 </Text>
 
                 <View className="flex-row items-center justify-between pt-2 border-t border-[#e2dfe1] dark:border-zinc-800/80">
-                  <Text className="text-[11px] font-medium text-[#71717a] dark:text-zinc-400">
+                  {/* Data em DM Sans Medium */}
+                  <Text className="text-[11px] font-sans-medium text-[#71717a] dark:text-zinc-400">
                     {formatDate(item.created_at)}
                   </Text>
 
                   {item.duration_seconds ? (
                     <View className="flex-row items-center bg-white dark:bg-zinc-950 px-2 py-0.5 rounded-md border border-[#e2dfe1] dark:border-zinc-800">
                       <Clock size={11} color="#59C83A" weight="bold" />
-                      <Text className="text-[10px] font-bold text-[#1b1b1d] dark:text-white ml-1">
+                      {/* Duração em DM Sans Bold */}
+                      <Text className="text-[10px] font-sans-bold text-[#1b1b1d] dark:text-white ml-1">
                         {formatDuration(item.duration_seconds)}
                       </Text>
                     </View>

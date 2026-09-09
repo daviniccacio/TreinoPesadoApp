@@ -1,3 +1,10 @@
+// ============================================================================
+// DOCUMENTAÇÃO: TELA DE CRIAÇÃO / EDIÇÃO DE PLANO DE TREINO (PERSONAL TRAINER)
+// ============================================================================
+// Permite definir nome, objetivo, dias da semana e selecionar exercícios
+// da biblioteca do Supabase, ajustando séries, repetições e observações.
+// ============================================================================
+
 import React, { useState, useCallback } from 'react';
 import {
   View,
@@ -68,7 +75,6 @@ interface ShowAlertModalOptions {
 const DAYS_OF_WEEK = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta'];
 const OBJECTIVE_OPTIONS = ['Hipertrofia', 'Emagrecimento', 'Resistência', 'Força', 'Adaptação'];
 
-// LISTA FIXA DE CATEGORIAS VÁLIDAS DO SUPABASE (Sem "Braços")
 const CATEGORY_FILTERS = [
   { id: 'todos', label: 'Todos' },
   { id: 'peito', label: 'Peito' },
@@ -493,17 +499,20 @@ export default function CreateWorkoutPlanScreen() {
           </TouchableOpacity>
 
           <View className="flex-1">
-            <Text className="text-xl font-extrabold text-[#1b1b1d] dark:text-white" numberOfLines={1}>
+            {/* Título da tela em Outfit ExtraBold */}
+            <Text className="text-xl font-outfit-extrabold text-[#1b1b1d] dark:text-white" numberOfLines={1}>
               {planId ? 'Editar Plano de Treino' : 'Criar Plano de Treino'}
             </Text>
             {studentName && (
-              <Text className="text-xs text-[#59C83A] font-bold" numberOfLines={1}>
+              /* Nome do Aluno em DM Sans Bold */
+              <Text className="text-xs font-sans-bold text-[#59C83A]" numberOfLines={1}>
                 Para: {studentName}
               </Text>
             )}
           </View>
         </View>
 
+        {/* Botão de Ação do Cabeçalho com DM Sans Bold */}
         <TouchableOpacity
           onPress={handleSavePlanThrottled}
           disabled={saving}
@@ -514,7 +523,7 @@ export default function CreateWorkoutPlanScreen() {
           ) : (
             <>
               <CheckCircle size={18} color="#FFFFFF" weight="bold" />
-              <Text className="text-white font-bold ml-1.5 text-sm">
+              <Text className="text-white font-sans-bold ml-1.5 text-sm">
                 {planId ? 'Atualizar' : 'Salvar'}
               </Text>
             </>
@@ -522,7 +531,8 @@ export default function CreateWorkoutPlanScreen() {
         </TouchableOpacity>
       </MotiView>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 50 }}>
+      {/* FORMULÁRIO COM PADDING BOTTOM PARA ROLAGEM CONFORTÁVEL */}
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
         {/* 2. INFORMAÇÕES DO PLANO ANIMADAS */}
         <MotiView
           from={{ opacity: 0, translateY: 10 }}
@@ -535,29 +545,30 @@ export default function CreateWorkoutPlanScreen() {
           }}
           className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl border border-[#e2dfe1] dark:border-zinc-800 mb-5"
         >
-          <Text className="text-xs font-bold text-[#1b1b1d] dark:text-white mb-1.5">
+          {/* Rótulo de Campo em DM Sans Bold */}
+          <Text className="text-xs font-sans-bold text-[#1b1b1d] dark:text-white mb-1.5">
             Nome do Plano *
           </Text>
           <TextInput
-            className="bg-white dark:bg-zinc-950 border border-[#e2dfe1] dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-[#1b1b1d] dark:text-white mb-4 font-medium"
+            className="bg-white dark:bg-zinc-950 border border-[#e2dfe1] dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-[#1b1b1d] dark:text-white mb-4 font-sans-medium"
             placeholder="Ex: Treino A - Peito e Tríceps"
             placeholderTextColor={isDark ? '#71717a' : '#a09da1'}
             value={planName}
             onChangeText={setPlanName}
           />
 
-          <Text className="text-xs font-bold text-[#1b1b1d] dark:text-white mb-1.5">
+          <Text className="text-xs font-sans-bold text-[#1b1b1d] dark:text-white mb-1.5">
             Para que serve / Observações
           </Text>
           <TextInput
-            className="bg-white dark:bg-zinc-950 border border-[#e2dfe1] dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-[#1b1b1d] dark:text-white mb-4 font-medium"
+            className="bg-white dark:bg-zinc-950 border border-[#e2dfe1] dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-[#1b1b1d] dark:text-white mb-4 font-sans-medium"
             placeholder="Ex: Foco na execução e hipertrofia"
             placeholderTextColor={isDark ? '#71717a' : '#a09da1'}
             value={description}
             onChangeText={setDescription}
           />
 
-          <Text className="text-xs font-bold text-[#1b1b1d] dark:text-white mb-2">
+          <Text className="text-xs font-sans-bold text-[#1b1b1d] dark:text-white mb-2">
             Objetivo do Treino
           </Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row mb-4">
@@ -573,7 +584,7 @@ export default function CreateWorkoutPlanScreen() {
                       : 'bg-white dark:bg-zinc-950 border-[#e2dfe1] dark:border-zinc-800'
                   }`}
                 >
-                  <Text className={`text-xs font-bold ${active ? 'text-white' : 'text-[#414755] dark:text-zinc-400'}`}>
+                  <Text className={`text-xs font-sans-bold ${active ? 'text-white' : 'text-[#414755] dark:text-zinc-400'}`}>
                     {item}
                   </Text>
                 </TouchableOpacity>
@@ -581,7 +592,7 @@ export default function CreateWorkoutPlanScreen() {
             })}
           </ScrollView>
 
-          <Text className="text-xs font-bold text-[#1b1b1d] dark:text-white mb-2">
+          <Text className="text-xs font-sans-bold text-[#1b1b1d] dark:text-white mb-2">
             Dias da Semana:
           </Text>
           <View className="flex-row flex-wrap gap-2">
@@ -597,7 +608,7 @@ export default function CreateWorkoutPlanScreen() {
                       : 'bg-white dark:bg-zinc-950 border-[#e2dfe1] dark:border-zinc-800'
                   }`}
                 >
-                  <Text className={`text-xs font-bold ${isSelected ? 'text-[#59C83A]' : 'text-[#71717a]'}`}>
+                  <Text className={`text-xs font-sans-bold ${isSelected ? 'text-[#59C83A]' : 'text-[#71717a]'}`}>
                     {day}
                   </Text>
                 </TouchableOpacity>
@@ -606,7 +617,7 @@ export default function CreateWorkoutPlanScreen() {
           </View>
         </MotiView>
 
-        {/* 3. BOTÃO PARA ABRIR O MODAL DE SELEÇÃO ANIMADO */}
+        {/* 3. BOTÃO PARA ABRIR O MODAL DE SELEÇÃO */}
         <MotiView
           from={{ opacity: 0, translateY: 10 }}
           animate={{ opacity: 1, translateY: 0 }}
@@ -624,7 +635,8 @@ export default function CreateWorkoutPlanScreen() {
             activeOpacity={0.8}
           >
             <Plus size={20} color="#FFFFFF" weight="bold" />
-            <Text className="text-white font-bold text-sm ml-2">
+            {/* Texto com Outfit Bold */}
+            <Text className="text-white font-sans-bold text-sm ml-2">
               Selecionar Exercícios da Biblioteca ({selectedExercises.length})
             </Text>
           </TouchableOpacity>
@@ -641,7 +653,8 @@ export default function CreateWorkoutPlanScreen() {
             delay: 60,
           }}
         >
-          <Text className="text-base font-extrabold text-[#1b1b1d] dark:text-white mb-3">
+          {/* Título da seção com Outfit ExtraBold */}
+          <Text className="text-base font-outfit-extrabold text-[#1b1b1d] dark:text-white mb-3">
             Exercícios Selecionados ({selectedExercises.length})
           </Text>
         </MotiView>
@@ -658,7 +671,7 @@ export default function CreateWorkoutPlanScreen() {
             className="p-8 items-center justify-center border border-dashed border-[#e2dfe1] dark:border-zinc-800 rounded-2xl"
           >
             <Barbell size={32} color={isDark ? '#52525b' : '#a1a1aa'} />
-            <Text className="text-xs font-medium text-[#71717a] dark:text-zinc-400 mt-2 text-center">
+            <Text className="text-xs font-sans-medium text-[#71717a] dark:text-zinc-400 mt-2 text-center">
               Nenhum exercício selecionado.{'\n'}Clique no botão verde para abrir a lista e selecionar.
             </Text>
           </MotiView>
@@ -677,7 +690,8 @@ export default function CreateWorkoutPlanScreen() {
               className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl border border-[#e2dfe1] dark:border-zinc-800 mb-3"
             >
               <View className="flex-row items-center justify-between mb-3">
-                <Text className="text-sm font-extrabold text-[#1b1b1d] dark:text-white flex-1 mr-2" numberOfLines={1}>
+                {/* Nome do exercício com Outfit SemiBold */}
+                <Text className="text-sm font-outfit-semibold text-[#1b1b1d] dark:text-white flex-1 mr-2" numberOfLines={1}>
                   {index + 1}. {item.name}
                 </Text>
 
@@ -691,11 +705,11 @@ export default function CreateWorkoutPlanScreen() {
 
               <View className="flex-row gap-3 mb-2.5">
                 <View className="flex-1">
-                  <Text className="text-[10px] font-bold text-[#71717a] dark:text-zinc-400 mb-1">
+                  <Text className="text-[10px] font-sans-bold text-[#71717a] dark:text-zinc-400 mb-1">
                     Séries
                   </Text>
                   <TextInput
-                    className="bg-white dark:bg-zinc-950 border border-[#e2dfe1] dark:border-zinc-800 rounded-xl px-3 py-2 text-xs font-bold text-[#1b1b1d] dark:text-white"
+                    className="bg-white dark:bg-zinc-950 border border-[#e2dfe1] dark:border-zinc-800 rounded-xl px-3 py-2 text-xs font-sans-bold text-[#1b1b1d] dark:text-white"
                     placeholder="Ex: 3"
                     placeholderTextColor={isDark ? '#71717a' : '#a09da1'}
                     value={item.sets}
@@ -704,11 +718,11 @@ export default function CreateWorkoutPlanScreen() {
                 </View>
 
                 <View className="flex-1">
-                  <Text className="text-[10px] font-bold text-[#71717a] dark:text-zinc-400 mb-1">
+                  <Text className="text-[10px] font-sans-bold text-[#71717a] dark:text-zinc-400 mb-1">
                     Repetições
                   </Text>
                   <TextInput
-                    className="bg-white dark:bg-zinc-950 border border-[#e2dfe1] dark:border-zinc-800 rounded-xl px-3 py-2 text-xs font-bold text-[#1b1b1d] dark:text-white"
+                    className="bg-white dark:bg-zinc-950 border border-[#e2dfe1] dark:border-zinc-800 rounded-xl px-3 py-2 text-xs font-sans-bold text-[#1b1b1d] dark:text-white"
                     placeholder="Ex: 10 a 12"
                     placeholderTextColor={isDark ? '#71717a' : '#a09da1'}
                     value={item.reps}
@@ -717,11 +731,11 @@ export default function CreateWorkoutPlanScreen() {
                 </View>
               </View>
 
-              <Text className="text-[10px] font-bold text-[#71717a] dark:text-zinc-400 mb-1">
+              <Text className="text-[10px] font-sans-bold text-[#71717a] dark:text-zinc-400 mb-1">
                 Observações / Carga
               </Text>
               <TextInput
-                className="bg-white dark:bg-zinc-950 border border-[#e2dfe1] dark:border-zinc-800 rounded-xl px-3 py-2 text-xs font-medium text-[#1b1b1d] dark:text-white"
+                className="bg-white dark:bg-zinc-950 border border-[#e2dfe1] dark:border-zinc-800 rounded-xl px-3 py-2 text-xs font-sans-medium text-[#1b1b1d] dark:text-white"
                 placeholder="Ex: Carga inicial recomendada"
                 placeholderTextColor={isDark ? '#71717a' : '#a09da1'}
                 value={item.notes}
@@ -738,10 +752,12 @@ export default function CreateWorkoutPlanScreen() {
           <View className="bg-white dark:bg-zinc-900 rounded-t-3xl p-5 h-[85%] border-t border-[#e2dfe1] dark:border-zinc-800">
             <View className="flex-row items-center justify-between mb-3">
               <View>
-                <Text className="text-lg font-extrabold text-[#1b1b1d] dark:text-white">
+                {/* Título da Modal com Outfit ExtraBold */}
+                <Text className="text-lg font-outfit-extrabold text-[#1b1b1d] dark:text-white">
                   Biblioteca de Exercícios
                 </Text>
-                <Text className="text-xs text-[#59C83A] font-bold">
+                {/* Contador com DM Sans Bold */}
+                <Text className="text-xs font-sans-bold text-[#59C83A]">
                   {selectedExercises.length} selecionado(s)
                 </Text>
               </View>
@@ -749,7 +765,8 @@ export default function CreateWorkoutPlanScreen() {
                 onPress={() => setIsModalVisible(false)}
                 className="bg-[#59C83A] px-4 py-2 rounded-xl"
               >
-                <Text className="text-white font-bold text-xs">Concluir</Text>
+                {/* Botão com DM Sans Bold */}
+                <Text className="text-white font-sans-bold text-xs">Concluir</Text>
               </TouchableOpacity>
             </View>
 
@@ -757,7 +774,7 @@ export default function CreateWorkoutPlanScreen() {
             <View className="bg-[#f8f9fa] dark:bg-zinc-950 flex-row items-center px-3.5 py-2.5 rounded-xl border border-[#e2dfe1] dark:border-zinc-800 mb-3">
               <MagnifyingGlass size={18} color={isDark ? '#59C83A' : '#71717a'} />
               <TextInput
-                className="flex-1 ml-2.5 text-sm text-[#1b1b1d] dark:text-white font-medium"
+                className="flex-1 ml-2.5 text-sm font-sans-medium text-[#1b1b1d] dark:text-white"
                 placeholder="Buscar por nome ou grupo muscular..."
                 placeholderTextColor={isDark ? '#71717a' : '#a09da1'}
                 value={searchQuery}
@@ -791,7 +808,7 @@ export default function CreateWorkoutPlanScreen() {
                       }`}
                     >
                       <Text
-                        className={`text-xs font-extrabold ${
+                        className={`text-xs font-sans-bold ${
                           active ? 'text-white' : 'text-[#414755] dark:text-zinc-200'
                         }`}
                       >
@@ -839,10 +856,12 @@ export default function CreateWorkoutPlanScreen() {
                         className="flex-row items-center justify-between"
                       >
                         <View className="flex-1 mr-2">
-                          <Text className="text-sm font-bold text-[#1b1b1d] dark:text-white" numberOfLines={1}>
+                          {/* Nome com Outfit SemiBold */}
+                          <Text className="text-sm font-outfit-semibold text-[#1b1b1d] dark:text-white" numberOfLines={1}>
                             {item.name}
                           </Text>
-                          <Text className="text-xs text-[#71717a] dark:text-zinc-400 mt-0.5 font-medium">
+                          {/* Detalhes em DM Sans Medium */}
+                          <Text className="text-xs font-sans-medium text-[#71717a] dark:text-zinc-400 mt-0.5">
                             Grupo: {item.category_id || 'Geral'} | Séries: {item.sets || 3}
                           </Text>
                         </View>

@@ -1,3 +1,10 @@
+// ============================================================================
+// DOCUMENTAÇÃO: LAYOUT DE ABAS FLUTUANTE (PERSONAL TRAINER)
+// ============================================================================
+// Gerencia a navegação principal entre telas por meio de uma Bottom Tab Bar
+// flutuante animada com Moti e tipografia customizada DM Sans.
+// ============================================================================
+
 import React from "react";
 import { useColorScheme, View } from "react-native";
 import { Tabs } from "expo-router";
@@ -77,9 +84,10 @@ export default function PersonalLayout() {
           paddingTop: 6,
         },
 
+        // 🟢 TIPOGRAFIA DA NAVBAR: Usa a fonte DM Sans Bold carregada no app/_layout.tsx
         tabBarLabelStyle: {
+          fontFamily: "DMSans_700Bold",
           fontSize: 10,
-          fontWeight: "700",
           marginTop: 2,
         },
       }}

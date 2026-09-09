@@ -1,3 +1,10 @@
+// ============================================================================
+// DOCUMENTAÇÃO: TELA DE DETALHES DO MODELO DE TREINO (PERSONAL TRAINER)
+// ============================================================================
+// Exibe as informações gerais do modelo da biblioteca (objetivo e descrição)
+// juntamente com a lista de exercícios, séries, repetições e modal de GIF.
+// ============================================================================
+
 import React, { useState, useCallback } from 'react';
 import {
   View,
@@ -43,7 +50,7 @@ interface RoutineDetail {
 }
 
 /**
- * Busca os detalhes do modelo de treino e a lista de exercícios
+ * Busca os detalhes do modelo de treino e a lista de exercícios vinculados
  */
 async function fetchRoutineWithExercises(planId: string) {
   if (!planId) throw new Error('ID da rotina não fornecido');
@@ -127,7 +134,8 @@ export default function PersonalRoutineDetailScreen() {
           <ArrowLeft size={20} color={isDark ? '#59C83A' : '#1b1b1d'} />
         </TouchableOpacity>
 
-        <Text className="text-lg font-bold text-[#1b1b1d] dark:text-white text-center flex-1" numberOfLines={1}>
+        {/* Título do cabeçalho em Outfit Bold */}
+        <Text className="text-lg font-outfit text-[#1b1b1d] dark:text-white text-center flex-1" numberOfLines={1}>
           {data?.plan.name || 'Detalhes do Treino'}
         </Text>
 
@@ -143,7 +151,8 @@ export default function PersonalRoutineDetailScreen() {
         <FlatList
           data={data?.exercises || []}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 40 }}
+          // 🟢 paddingBottom: 120 garante espaço limpo acima da navbar flutuante
+          contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 120 }}
           showsVerticalScrollIndicator={false}
           ListHeaderComponent={
             <MotiView
@@ -157,23 +166,29 @@ export default function PersonalRoutineDetailScreen() {
               }}
               className="mb-6"
             >
-              <Text className="text-2xl font-black text-[#1b1b1d] dark:text-white mb-2">
+              {/* Nome do Treino em Outfit ExtraBold */}
+              <Text className="text-2xl font-outfit-extrabold text-[#1b1b1d] dark:text-white mb-2">
                 {data?.plan.name}
               </Text>
+
               {data?.plan.objective && (
                 <View className="self-start bg-[#59C83A]/10 px-3 py-1 rounded-full border border-[#59C83A]/30 mb-2">
-                  <Text style={{ color: '#59C83A' }} className="text-xs font-bold uppercase">
+                  {/* Objetivo em DM Sans Bold */}
+                  <Text style={{ color: '#59C83A' }} className="text-xs font-sans-bold uppercase">
                     Objetivo: {data.plan.objective}
                   </Text>
                 </View>
               )}
+
               {data?.plan.description && (
-                <Text className="text-sm text-[#71717a] dark:text-zinc-400 font-medium">
+                /* Descrição em DM Sans Medium */
+                <Text className="text-sm font-sans-medium text-[#71717a] dark:text-zinc-400">
                   {data.plan.description}
                 </Text>
               )}
 
-              <Text className="text-lg font-bold text-[#1b1b1d] dark:text-white mt-6 mb-1">
+              {/* Cabeçalho da Lista em Outfit Bold */}
+              <Text className="text-lg font-outfit text-[#1b1b1d] dark:text-white mt-6 mb-1">
                 Exercícios da Ficha ({data?.exercises.length || 0})
               </Text>
             </MotiView>
@@ -196,9 +211,11 @@ export default function PersonalRoutineDetailScreen() {
                   <View className="flex-row items-center justify-between mb-3">
                     <View className="flex-row items-center flex-1 mr-2">
                       <View className="w-8 h-8 rounded-lg bg-[#59C83A]/10 items-center justify-center mr-2 border border-[#59C83A]/30">
-                        <Text className="text-xs font-black text-[#59C83A]">{index + 1}</Text>
+                        {/* Índice numérico em Outfit Bold */}
+                        <Text className="text-xs font-outfit text-[#59C83A]">{index + 1}</Text>
                       </View>
-                      <Text className="text-base font-bold text-[#1b1b1d] dark:text-white flex-1" numberOfLines={1}>
+                      {/* Nome do Exercício em Outfit SemiBold */}
+                      <Text className="text-base font-outfit text-[#1b1b1d] dark:text-white flex-1" numberOfLines={1}>
                         {item.name}
                       </Text>
                     </View>
@@ -216,25 +233,26 @@ export default function PersonalRoutineDetailScreen() {
                       activeOpacity={0.7}
                     >
                       <Eye size={16} color="#59C83A" weight="bold" />
-                      <Text style={{ color: '#59C83A' }} className="text-xs font-bold ml-1.5">
+                      {/* Texto do botão em DM Sans Bold */}
+                      <Text style={{ color: '#59C83A' }} className="text-xs font-sans-bold ml-1.5">
                         Ver GIF
                       </Text>
                     </TouchableOpacity>
                   </View>
 
-                  {/* Séries e Repetições */}
+                  {/* Séries e Repetições em DM Sans */}
                   <View className="flex-row items-center gap-4 border-t border-[#e2dfe1] dark:border-zinc-800 pt-2">
                     <View className="flex-row items-center">
                       <Stack size={14} color="#59C83A" weight="bold" />
-                      <Text className="text-xs font-medium text-[#71717a] dark:text-zinc-400 ml-1">
-                        <Text className="font-bold text-[#1b1b1d] dark:text-white">{item.sets}</Text> séries
+                      <Text className="text-xs font-sans-medium text-[#71717a] dark:text-zinc-400 ml-1">
+                        <Text className="font-sans-bold text-[#1b1b1d] dark:text-white">{item.sets}</Text> séries
                       </Text>
                     </View>
 
                     <View className="flex-row items-center">
                       <Repeat size={14} color="#59C83A" weight="bold" />
-                      <Text className="text-xs font-medium text-[#71717a] dark:text-zinc-400 ml-1">
-                        <Text className="font-bold text-[#1b1b1d] dark:text-white">{item.reps}</Text> reps
+                      <Text className="text-xs font-sans-medium text-[#71717a] dark:text-zinc-400 ml-1">
+                        <Text className="font-sans-bold text-[#1b1b1d] dark:text-white">{item.reps}</Text> reps
                       </Text>
                     </View>
                   </View>
@@ -255,7 +273,8 @@ export default function PersonalRoutineDetailScreen() {
         <View className="flex-1 bg-black/80 justify-center items-center px-5">
           <View className="w-full bg-white dark:bg-zinc-900 rounded-3xl p-5 border border-[#e2dfe1] dark:border-zinc-800 shadow-2xl">
             <View className="flex-row justify-between items-center mb-4">
-              <Text className="text-lg font-black text-[#1b1b1d] dark:text-white flex-1 pr-2">
+              {/* Título da modal em Outfit ExtraBold */}
+              <Text className="text-lg font-outfit-extrabold text-[#1b1b1d] dark:text-white flex-1 pr-2">
                 {selectedExerciseForGif?.name}
               </Text>
               <TouchableOpacity
@@ -270,7 +289,7 @@ export default function PersonalRoutineDetailScreen() {
               {isGifLoading && (
                 <View className="absolute inset-0 justify-center items-center bg-[#f8f9fa] dark:bg-zinc-950 z-10">
                   <ActivityIndicator size="large" color="#59C83A" />
-                  <Text className="text-xs text-[#71717a] dark:text-zinc-400 mt-2 font-medium">
+                  <Text className="text-xs text-[#71717a] dark:text-zinc-400 mt-2 font-sans-medium">
                     Carregando demonstração...
                   </Text>
                 </View>
@@ -293,7 +312,8 @@ export default function PersonalRoutineDetailScreen() {
               style={{ backgroundColor: '#59C83A' }}
               className="mt-5 py-3 rounded-xl items-center"
             >
-              <Text className="text-white font-extrabold text-sm">Fechar Visualização</Text>
+              {/* Botão de Fechar em DM Sans Bold */}
+              <Text className="text-white font-sans-bold text-sm">Fechar Visualização</Text>
             </TouchableOpacity>
           </View>
         </View>

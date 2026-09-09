@@ -1,19 +1,22 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
-  // 1. ESTA É A LINHA QUE FALTAVA PARA O NATIVEWIND v4 FUNCIONAR:
-  presets: [require("nativewind/preset")],
-
   content: ["./app/**/*.{js,jsx,ts,tsx}", "./components/**/*.{js,jsx,ts,tsx}"],
+  presets: [require("nativewind/preset")],
   theme: {
     extend: {
+      colors: {
+        primary: "#59C83A",
+      },
       fontFamily: {
-        // Suas fontes que configuramos
-        sans: ["DMSans_400Regular"],
-        dmsans: ["DMSans_400Regular"],
-        "dmsans-medium": ["DMSans_500Medium"],
-        "dmsans-bold": ["DMSans_700Bold"],
-        outfit: ["Outfit_700Bold"],
-        "outfit-black": ["Outfit_800ExtraBold"],
+        // Títulos e Destaques (Outfit)
+        outfit: ["Outfit_700Bold", "sans-serif"],
+        "outfit-semibold": ["Outfit_600SemiBold", "sans-serif"],
+        "outfit-extrabold": ["Outfit_800ExtraBold", "sans-serif"],
+
+        // Texto de Corpo e Leitura (DM Sans)
+        sans: ["DMSans_400Regular", "sans-serif"],
+        "sans-medium": ["DMSans_500Medium", "sans-serif"],
+        "sans-bold": ["DMSans_700Bold", "sans-serif"],
       },
     },
   },

@@ -1,3 +1,7 @@
+// ============================================================================
+// TELA DE GESTÃO DE ALUNOS (PERSONAL TRAINER) - COM TIPOGRAFIA CUSTOMIZADA
+// ============================================================================
+
 import React, { useState } from 'react';
 import {
   View,
@@ -101,17 +105,20 @@ export default function PersonalStudentsScreen() {
         className="flex-row items-center justify-between mb-5"
       >
         <View className="flex-1 mr-2">
-          <Text className="text-2xl font-extrabold text-[#1b1b1d] dark:text-white">
+          {/* Título com a fonte Outfit ExtraBold */}
+          <Text className="text-2xl font-outfit-extrabold text-[#1b1b1d] dark:text-white">
             Gestão de Alunos
           </Text>
-          <Text className="text-xs text-[#71717a] dark:text-zinc-400 mt-0.5 font-medium">
+          {/* Subtítulo com a fonte DM Sans */}
+          <Text className="text-xs font-sans-medium text-[#71717a] dark:text-zinc-400 mt-0.5">
             Seus alunos vinculados
           </Text>
         </View>
 
+        {/* Contador com DM Sans Bold */}
         <View className="bg-[#59C83A]/10 border border-[#59C83A]/30 px-3 py-1.5 rounded-full flex-row items-center">
           <Sparkle size={14} color="#59C83A" weight="bold" />
-          <Text className="text-xs font-extrabold text-[#59C83A] ml-1.5">
+          <Text className="text-xs font-sans-bold text-[#59C83A] ml-1.5">
             {students.length} {students.length === 1 ? 'Aluno' : 'Alunos'}
           </Text>
         </View>
@@ -131,7 +138,7 @@ export default function PersonalStudentsScreen() {
       >
         <MagnifyingGlass size={20} color={isDark ? '#59C83A' : '#71717a'} />
         <TextInput
-          className="flex-1 ml-3 text-sm text-[#1b1b1d] dark:text-white font-semibold"
+          className="flex-1 ml-3 text-sm font-sans-medium text-[#1b1b1d] dark:text-white"
           placeholder="Buscar aluno por nome..."
           placeholderTextColor={isDark ? '#71717a' : '#a09da1'}
           value={searchQuery}
@@ -147,7 +154,7 @@ export default function PersonalStudentsScreen() {
 
       {isError && (
         <View className="bg-red-500/10 border border-red-500/30 p-3.5 rounded-2xl mb-4">
-          <Text className="text-red-500 text-xs font-bold text-center">
+          <Text className="text-red-500 text-xs font-sans-bold text-center">
             {error?.message || 'Erro ao carregar lista de alunos.'}
           </Text>
         </View>
@@ -172,10 +179,10 @@ export default function PersonalStudentsScreen() {
           <View className="w-16 h-16 rounded-3xl bg-[#f8f9fa] dark:bg-zinc-900 items-center justify-center border border-[#e2dfe1] dark:border-zinc-800 mb-3">
             <Users size={32} color={isDark ? '#71717a' : '#a1a1aa'} />
           </View>
-          <Text className="text-[#1b1b1d] dark:text-white font-extrabold text-base text-center">
+          <Text className="text-[#1b1b1d] dark:text-white font-outfit-extrabold text-base text-center">
             Nenhum aluno vinculado
           </Text>
-          <Text className="text-xs text-[#71717a] dark:text-zinc-400 text-center mt-1 font-medium">
+          <Text className="text-xs font-sans-medium text-[#71717a] dark:text-zinc-400 text-center mt-1">
             Peça aos seus alunos para inserirem o seu código no perfil deles.
           </Text>
         </MotiView>
@@ -185,7 +192,7 @@ export default function PersonalStudentsScreen() {
           data={filteredStudents}
           keyExtractor={(item) => item.id}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: 20 }}
+          contentContainerStyle={{ paddingBottom: 120 }} // 🟢 Espaço de sobra para a Navbar Flutuante
           refreshControl={
             <RefreshControl
               refreshing={isRefetching}
@@ -216,22 +223,24 @@ export default function PersonalStudentsScreen() {
                 className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl mb-3 border border-[#e2dfe1] dark:border-zinc-800 flex-row items-center justify-between"
               >
                 <View className="flex-row items-center flex-1 mr-2">
+                  {/* Avatar com iniciais em Outfit ExtraBold */}
                   <View className="w-12 h-12 rounded-2xl bg-[#59C83A]/10 items-center justify-center border border-[#59C83A]/30 mr-3.5">
-                    <Text className="text-lg font-black color-[#59C83A]">
+                    <Text className="text-lg font-outfit-extrabold color-[#59C83A]">
                       {getInitials(item.full_name)}
                     </Text>
                   </View>
 
                   <View className="flex-1">
+                    {/* Nome do Aluno em Outfit SemiBold */}
                     <Text
-                      className="text-base font-extrabold text-[#1b1b1d] dark:text-white"
+                      className="text-base font-outfit-semibold text-[#1b1b1d] dark:text-white"
                       numberOfLines={1}
                     >
                       {item.full_name}
                     </Text>
                     <View className="flex-row items-center mt-1">
                       <View className="w-2 h-2 rounded-full bg-[#59C83A] mr-1.5" />
-                      <Text className="text-[11px] font-bold text-[#71717a] dark:text-zinc-400">
+                      <Text className="text-[11px] font-sans-bold text-[#71717a] dark:text-zinc-400">
                         Atleta Ativo
                       </Text>
                     </View>

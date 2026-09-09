@@ -1,3 +1,10 @@
+// ============================================================================
+// DOCUMENTAÇÃO: TELA DE PERFIL PROFISSIONAL (PERSONAL TRAINER)
+// ============================================================================
+// Exibe dados cadastrais, código de acesso exclusivo para alunos, estatísticas
+// de trabalho, seletores de tema de aparência e ações de segurança da conta.
+// ============================================================================
+
 import React, { useState } from 'react';
 import {
   View,
@@ -77,7 +84,7 @@ async function fetchPersonalProfileData(): Promise<PersonalProfileData> {
     .is('student_id', null)
     .eq('personal_id', user.id);
 
-  // 2. Contar Alunos Vinculados (Usuários na tabela profiles que possuem o personal_id igual ao do usuário)
+  // 2. Contar Alunos Vinculados (Usuários na tabela profiles vinculados ao personal_id)
   const { count: studentsCount } = await supabase
     .from('profiles')
     .select('*', { count: 'exact', head: true })
@@ -214,22 +221,23 @@ export default function PersonalProfileScreen() {
         }}
         className="px-5 py-4 border-b border-[#f0edef] dark:border-zinc-800 flex-row justify-between items-center"
       >
-        <Text className="text-xl font-extrabold text-[#1b1b1d] dark:text-white">
+        {/* Título com Outfit ExtraBold */}
+        <Text className="text-xl font-outfit-extrabold text-[#1b1b1d] dark:text-white">
           Perfil Profissional
         </Text>
       </MotiView>
 
-      {/* 🟢 SCROLLVIEW CORRIGIDO COM contentContainerStyle */}
+      {/* 2. SCROLLVIEW COM ESPAÇAMENTO PARA NAVBAR FLUTUANTE */}
       <ScrollView
         className="flex-1"
         contentContainerStyle={{
           paddingHorizontal: 20,
           paddingTop: 24,
-          paddingBottom: 120, // Garante espaço suficiente para rolar acima da navbar flutuante
+          paddingBottom: 120, // Garante que as últimas opções fiquem acima da navegação
         }}
         showsVerticalScrollIndicator={false}
       >
-        {/* 2. CARTÃO DO USUÁRIO ANIMADO */}
+        {/* 3. CARTÃO DO USUÁRIO ANIMADO */}
         <MotiView
           from={{ opacity: 0, scale: 0.95, translateY: 10 }}
           animate={{ opacity: 1, scale: 1, translateY: 0 }}
@@ -247,15 +255,17 @@ export default function PersonalProfileScreen() {
           >
             <User size={48} color="#ffffff" weight="bold" />
           </View>
-          <Text className="text-2xl font-extrabold text-[#1b1b1d] dark:text-white">
+          {/* Nome do Personal em Outfit ExtraBold */}
+          <Text className="text-2xl font-outfit-extrabold text-[#1b1b1d] dark:text-white">
             {fullName}
           </Text>
-          <Text className="text-sm text-[#414755] dark:text-zinc-400 mt-1 font-medium">
+          {/* E-mail em DM Sans Medium */}
+          <Text className="text-sm font-sans-medium text-[#414755] dark:text-zinc-400 mt-1">
             {email}
           </Text>
         </MotiView>
 
-        {/* 3. CARD DO CÓDIGO DE ACESSO ANIMADO */}
+        {/* 4. CARD DO CÓDIGO DE ACESSO ANIMADO */}
         <MotiView
           from={{ opacity: 0, translateY: 10, scale: 0.97 }}
           animate={{ opacity: 1, translateY: 0, scale: 1 }}
@@ -272,14 +282,16 @@ export default function PersonalProfileScreen() {
               <Key size={22} color="#59C83A" weight="bold" />
             </View>
             <View className="flex-1">
-              <Text className="text-xs font-bold text-[#59C83A]">
+              {/* Rótulo com DM Sans Bold */}
+              <Text className="text-xs font-sans-bold text-[#59C83A]">
                 Seu Código de Acesso para Alunos
               </Text>
 
               {isLoading ? (
                 <ActivityIndicator size="small" color="#59C83A" className="self-start mt-1" />
               ) : (
-                <Text className="text-xl font-black text-[#1b1b1d] dark:text-white mt-0.5 tracking-wider">
+                /* Código de convite com Outfit ExtraBold */
+                <Text className="text-xl font-outfit-extrabold text-[#1b1b1d] dark:text-white mt-0.5 tracking-wider">
                   {inviteCode}
                 </Text>
               )}
@@ -297,11 +309,12 @@ export default function PersonalProfileScreen() {
             className="bg-[#59C83A] px-3.5 py-2 rounded-xl"
             activeOpacity={0.8}
           >
-            <Text className="text-xs font-extrabold text-white">Copiar</Text>
+            {/* Texto em DM Sans Bold */}
+            <Text className="text-xs font-sans-bold text-white">Copiar</Text>
           </TouchableOpacity>
         </MotiView>
 
-        {/* 4. RESUMO DE ATIVIDADES ANIMADO */}
+        {/* 5. RESUMO DE ATIVIDADES ANIMADO */}
         <MotiView
           from={{ opacity: 0, translateY: 10 }}
           animate={{ opacity: 1, translateY: 0 }}
@@ -312,7 +325,8 @@ export default function PersonalProfileScreen() {
             delay: 60,
           }}
         >
-          <Text className="text-lg font-bold text-[#1b1b1d] dark:text-white mb-3">
+          {/* Título da Seção com Outfit Bold */}
+          <Text className="text-lg font-outfit text-[#1b1b1d] dark:text-white mb-3">
             Visão Geral do Trabalho
           </Text>
 
@@ -329,10 +343,12 @@ export default function PersonalProfileScreen() {
                 activeOpacity={0.8}
               >
                 <Users size={28} color="#59C83A" weight="bold" />
-                <Text className="text-2xl font-extrabold text-[#1b1b1d] dark:text-white mt-1">
+                {/* Métricas numéricas em Outfit ExtraBold */}
+                <Text className="text-2xl font-outfit-extrabold text-[#1b1b1d] dark:text-white mt-1">
                   {linkedStudentsCount}
                 </Text>
-                <Text className="text-xs text-[#414755] dark:text-zinc-400 mt-1 text-center font-medium">
+                {/* Rótulo em DM Sans Medium */}
+                <Text className="text-xs font-sans-medium text-[#414755] dark:text-zinc-400 mt-1 text-center">
                   Alunos Vinculados
                 </Text>
               </TouchableOpacity>
@@ -344,10 +360,12 @@ export default function PersonalProfileScreen() {
                 activeOpacity={0.8}
               >
                 <Books size={28} color="#59C83A" weight="bold" />
-                <Text className="text-2xl font-extrabold text-[#1b1b1d] dark:text-white mt-1">
+                {/* Métricas numéricas em Outfit ExtraBold */}
+                <Text className="text-2xl font-outfit-extrabold text-[#1b1b1d] dark:text-white mt-1">
                   {libraryCount}
                 </Text>
-                <Text className="text-xs text-[#414755] dark:text-zinc-400 mt-1 text-center font-medium">
+                {/* Rótulo em DM Sans Medium */}
+                <Text className="text-xs font-sans-medium text-[#414755] dark:text-zinc-400 mt-1 text-center">
                   Modelos Salvos
                 </Text>
               </TouchableOpacity>
@@ -355,7 +373,7 @@ export default function PersonalProfileScreen() {
           )}
         </MotiView>
 
-        {/* 5. SELETOR DE TEMA ANIMADO */}
+        {/* 6. SELETOR DE TEMA ANIMADO */}
         <MotiView
           from={{ opacity: 0, translateY: 10 }}
           animate={{ opacity: 1, translateY: 0 }}
@@ -366,7 +384,8 @@ export default function PersonalProfileScreen() {
             delay: 80,
           }}
         >
-          <Text className="text-lg font-bold text-[#1b1b1d] dark:text-white mb-3">
+          {/* Título da Seção com Outfit Bold */}
+          <Text className="text-lg font-outfit text-[#1b1b1d] dark:text-white mb-3">
             Aparência do Aplicativo
           </Text>
 
@@ -382,7 +401,7 @@ export default function PersonalProfileScreen() {
               <Sun size={16} color={themeMode === 'light' ? '#59C83A' : '#9ca3af'} />
               <Text
                 style={themeMode === 'light' ? { color: '#59C83A' } : undefined}
-                className={`font-bold text-xs ${
+                className={`font-sans-bold text-xs ${
                   themeMode !== 'light' ? 'text-[#414755] dark:text-zinc-300' : ''
                 }`}
               >
@@ -401,7 +420,7 @@ export default function PersonalProfileScreen() {
               <Moon size={16} color={themeMode === 'dark' ? '#59C83A' : '#9ca3af'} />
               <Text
                 style={themeMode === 'dark' ? { color: '#59C83A' } : undefined}
-                className={`font-bold text-xs ${
+                className={`font-sans-bold text-xs ${
                   themeMode !== 'dark' ? 'text-[#414755] dark:text-zinc-300' : ''
                 }`}
               >
@@ -420,7 +439,7 @@ export default function PersonalProfileScreen() {
               <Desktop size={16} color={themeMode === 'system' ? '#59C83A' : '#9ca3af'} />
               <Text
                 style={themeMode === 'system' ? { color: '#59C83A' } : undefined}
-                className={`font-bold text-xs ${
+                className={`font-sans-bold text-xs ${
                   themeMode !== 'system' ? 'text-[#414755] dark:text-zinc-300' : ''
                 }`}
               >
@@ -430,7 +449,7 @@ export default function PersonalProfileScreen() {
           </View>
         </MotiView>
 
-        {/* 6. OPÇÕES DA CONTA ANIMADAS */}
+        {/* 7. OPÇÕES DA CONTA ANIMADAS */}
         <MotiView
           from={{ opacity: 0, translateY: 10 }}
           animate={{ opacity: 1, translateY: 0 }}
@@ -441,7 +460,8 @@ export default function PersonalProfileScreen() {
             delay: 100,
           }}
         >
-          <Text className="text-lg font-bold text-[#1b1b1d] dark:text-white mb-3">
+          {/* Título da Seção com Outfit Bold */}
+          <Text className="text-lg font-outfit text-[#1b1b1d] dark:text-white mb-3">
             Opções da Conta
           </Text>
 
@@ -459,7 +479,8 @@ export default function PersonalProfileScreen() {
             >
               <View className="flex-row items-center gap-3">
                 <Bell size={20} color={isDark ? '#ffffff' : '#1b1b1d'} />
-                <Text className="font-semibold text-[#1b1b1d] dark:text-white">
+                {/* Item de lista com Outfit SemiBold */}
+                <Text className="font-outfit-semibold text-[#1b1b1d] dark:text-white">
                   Notificações e Lembretes
                 </Text>
               </View>
@@ -479,7 +500,8 @@ export default function PersonalProfileScreen() {
             >
               <View className="flex-row items-center gap-3">
                 <Shield size={20} color={isDark ? '#ffffff' : '#1b1b1d'} />
-                <Text className="font-semibold text-[#1b1b1d] dark:text-white">
+                {/* Item de lista com Outfit SemiBold */}
+                <Text className="font-outfit-semibold text-[#1b1b1d] dark:text-white">
                   Privacidade e Dados
                 </Text>
               </View>
@@ -488,7 +510,7 @@ export default function PersonalProfileScreen() {
           </View>
         </MotiView>
 
-        {/* 7. BOTÃO DE SAIR ANIMADO */}
+        {/* 8. BOTÃO DE SAIR ANIMADO */}
         <MotiView
           from={{ opacity: 0, translateY: 10 }}
           animate={{ opacity: 1, translateY: 0 }}
@@ -505,7 +527,10 @@ export default function PersonalProfileScreen() {
             activeOpacity={0.8}
           >
             <SignOut size={20} color="#e11d48" />
-            <Text className="text-[#e11d48] font-bold text-base ml-2">Sair da Conta</Text>
+            {/* Texto de Ação em DM Sans Bold */}
+            <Text className="text-[#e11d48] font-sans-bold text-base ml-2">
+              Sair da Conta
+            </Text>
           </TouchableOpacity>
         </MotiView>
       </ScrollView>
