@@ -9,16 +9,11 @@ if (SafeAreaProvider) {
 // 3. CSS Global
 import '../global.css';
 
-// 4. Importações do React, React Native, Expo Router, Supabase, TanStack Query e SplashScreen
+// 4. Importações do React, React Native, Expo Router, Supabase, TanStack Query e Fonts
 import React, { useEffect, useState } from 'react';
 import { View, ActivityIndicator, useColorScheme } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import {
-  DarkTheme,
-  DefaultTheme,
-  ThemeProvider,
-} from '@react-navigation/native';
 
 // 5. Importação das fontes Outfit e DM Sans
 import {
@@ -34,28 +29,7 @@ import {
 
 import { supabase } from '../lib/supabase';
 
-// Impede que a tela de splash oculte antes da autenticação e das fontes carregarem
-
-// 6. Tema escuro customizado para coincidir com a cor dark:bg-zinc-950 (#09090b)
-const CustomDarkTheme = {
-  ...DarkTheme,
-  colors: {
-    ...DarkTheme.colors,
-    background: '#09090b',
-    card: '#09090b',
-  },
-};
-
-const CustomLightTheme = {
-  ...DefaultTheme,
-  colors: {
-    ...DefaultTheme.colors,
-    background: '#ffffff',
-    card: '#ffffff',
-  },
-};
-
-// 7. Configuração da instância do TanStack Query
+// 6. Configuração da instância do TanStack Query
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -159,23 +133,21 @@ export default function RootLayout() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider value={isDark ? CustomDarkTheme : CustomLightTheme}>
-        <SafeAreaProvider>
-          <Stack
-            screenOptions={{
-              headerShown: false,
-              // Fixa a cor do container nativo da Stack para evitar a piscada branca durante a transição
-              contentStyle: {
-                backgroundColor: isDark ? '#09090b' : '#ffffff',
-              },
-            }}
-          >
-            <Stack.Screen name="index" />
-            <Stack.Screen name="(auth)" />
-            <Stack.Screen name="(app)" />
-          </Stack>
-        </SafeAreaProvider>
-      </ThemeProvider>
+      <SafeAreaProvider>
+        <Stack
+          screenOptions={{
+            headerShown: false,
+            // Fixa a cor do container nativo da Stack para evitar a piscada branca durante a transição
+            contentStyle: {
+              backgroundColor: isDark ? '#09090b' : '#ffffff',
+            },
+          }}
+        >
+          <Stack.Screen name="index" />
+          <Stack.Screen name="(auth)" />
+          <Stack.Screen name="(app)" />
+        </Stack>
+      </SafeAreaProvider>
     </QueryClientProvider>
   );
 }

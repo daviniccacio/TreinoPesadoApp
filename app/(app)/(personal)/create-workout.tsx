@@ -2,7 +2,7 @@
 // DOCUMENTAÇÃO: TELA DE CRIAÇÃO / EDIÇÃO DE PLANO DE TREINO (PERSONAL TRAINER)
 // ============================================================================
 // Permite definir nome, objetivo, dias da semana e selecionar exercícios
-// da biblioteca do Supabase, ajustando séries, repetições e observações.
+// da biblioteca do Supabase com categorias dinâmicas carregadas em tempo real.
 // ============================================================================
 
 import React, { useState, useCallback } from 'react';
@@ -62,6 +62,11 @@ interface SelectedExerciseItem {
   gif_key?: string;
 }
 
+interface CategoryOption {
+  id: string;
+  label: string;
+}
+
 interface ShowAlertModalOptions {
   title: string;
   message: string;
@@ -74,16 +79,6 @@ interface ShowAlertModalOptions {
 
 const DAYS_OF_WEEK = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta'];
 const OBJECTIVE_OPTIONS = ['Hipertrofia', 'Emagrecimento', 'Resistência', 'Força', 'Adaptação'];
-
-const CATEGORY_FILTERS = [
-  { id: 'todos', label: 'Todos' },
-  { id: 'peito', label: 'Peito' },
-  { id: 'costas', label: 'Costas' },
-  { id: 'ombros', label: 'Ombros' },
-  { id: 'pernas', label: 'Pernas' },
-  { id: 'gluteo', label: 'Glúteo' },
-  { id: 'abdomen', label: 'Abdômen' },
-];
 
 export default function CreateWorkoutPlanScreen() {
   const router = useRouter();
@@ -112,6 +107,11 @@ export default function CreateWorkoutPlanScreen() {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [registeredExercises, setRegisteredExercises] = useState<RegisteredExercise[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+
+  // 🟢 CATEGORIAS DINÂMICAS: Inicializa com a opção 'Todos'
+  const [categoryOptions, setCategoryOptions] = useState<CategoryOption[]>([
+    { id: 'todos', label: 'Todos' },
+  ]);
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('todos');
   const [loadingModalExercises, setLoadingModalExercises] = useState(false);
 
@@ -136,7 +136,7 @@ export default function CreateWorkoutPlanScreen() {
     confirmText: 'Entendi',
     cancelText: 'Cancelar',
     showCancelButton: false,
-    onConfirm: () => {},
+    onConfirm: () => { },
   });
 
   function showAlertModal({
@@ -267,16 +267,61 @@ export default function CreateWorkoutPlanScreen() {
     }
   }
 
+  // 🟢 HELPER: FORMATAR RÓTULOS DE CATEGORIA COM PRIMEIRA LETRA MAIÚSCULA E ACENTOS
+  function formatCategoryLabel(rawCategory: string): string {
+    const normalized = rawCategory.trim().toLowerCase();
+    const mapLabels: Record<string, string> = {
+      biceps: 'Bíceps',
+      triceps: 'Tríceps',
+      abdomen: 'Abdômen',
+      gluteo: 'Glúteo',
+      ombros: 'Ombros',
+      pernas: 'Pernas',
+      costas: 'Costas',
+      peito: 'Peito',
+      cardio: 'Cardio',
+      alongamento: 'Alongamento',
+    };
+
+    if (mapLabels[normalized]) return mapLabels[normalized];
+    return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+  }
+
+  // 🟢 BUSCA DE EXERCÍCIOS E CATEGORIAS DINÂMICAS DO SUPABASE
   const fetchRegisteredExercises = useCallback(async () => {
     try {
       setLoadingModalExercises(true);
+
       const { data, error } = await supabase
         .from('exercises')
         .select('*')
         .order('name', { ascending: true });
 
       if (error) throw error;
-      if (data) setRegisteredExercises(data);
+
+      if (data) {
+        setRegisteredExercises(data);
+
+        // 🟢 CORREÇÃO DO ERRO TS18048:
+        // O filtro descarta com segurança qualquer item nulo ou indefinido (null / undefined)
+        // informando ao TypeScript que 'cat' é obrigatoriamente uma string válida.
+        const rawCategories = data
+          .map((item: RegisteredExercise) => item.category_id)
+          .filter((cat): cat is string => typeof cat === 'string' && cat.trim().length > 0);
+
+        const uniqueCategories = Array.from(new Set(rawCategories));
+
+        // Monta o array de filtros dinâmico para o modal
+        const dynamicFilters: CategoryOption[] = [
+          { id: 'todos', label: 'Todos' },
+          ...uniqueCategories.map((catKey) => ({
+            id: catKey.toLowerCase(),
+            label: formatCategoryLabel(catKey),
+          })),
+        ];
+
+        setCategoryOptions(dynamicFilters);
+      }
     } catch (err: any) {
       showAlertModal({
         title: 'Erro',
@@ -459,11 +504,12 @@ export default function CreateWorkoutPlanScreen() {
     }
   }
 
+  // 🟢 FILTRAGEM DINÂMICA DE EXERCÍCIOS
   const filteredRegisteredExercises = registeredExercises.filter((ex: RegisteredExercise) => {
     const matchesSearch = ex.name.toLowerCase().includes(searchQuery.toLowerCase().trim());
     const matchesCategory =
       selectedCategoryFilter === 'todos' ||
-      (ex.category_id && ex.category_id.toLowerCase().includes(selectedCategoryFilter.toLowerCase()));
+      (ex.category_id && ex.category_id.toLowerCase().trim() === selectedCategoryFilter.toLowerCase().trim());
     return matchesSearch && matchesCategory;
   });
 
@@ -499,12 +545,10 @@ export default function CreateWorkoutPlanScreen() {
           </TouchableOpacity>
 
           <View className="flex-1">
-            {/* Título da tela em Outfit ExtraBold */}
             <Text className="text-xl font-outfit-extrabold text-[#1b1b1d] dark:text-white" numberOfLines={1}>
               {planId ? 'Editar Plano de Treino' : 'Criar Plano de Treino'}
             </Text>
             {studentName && (
-              /* Nome do Aluno em DM Sans Bold */
               <Text className="text-xs font-sans-bold text-[#59C83A]" numberOfLines={1}>
                 Para: {studentName}
               </Text>
@@ -512,7 +556,6 @@ export default function CreateWorkoutPlanScreen() {
           </View>
         </View>
 
-        {/* Botão de Ação do Cabeçalho com DM Sans Bold */}
         <TouchableOpacity
           onPress={handleSavePlanThrottled}
           disabled={saving}
@@ -531,9 +574,9 @@ export default function CreateWorkoutPlanScreen() {
         </TouchableOpacity>
       </MotiView>
 
-      {/* FORMULÁRIO COM PADDING BOTTOM PARA ROLAGEM CONFORTÁVEL */}
+      {/* FORMULÁRIO */}
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
-        {/* 2. INFORMAÇÕES DO PLANO ANIMADAS */}
+        {/* INFORMAÇÕES DO PLANO */}
         <MotiView
           from={{ opacity: 0, translateY: 10 }}
           animate={{ opacity: 1, translateY: 0 }}
@@ -545,7 +588,6 @@ export default function CreateWorkoutPlanScreen() {
           }}
           className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl border border-[#e2dfe1] dark:border-zinc-800 mb-5"
         >
-          {/* Rótulo de Campo em DM Sans Bold */}
           <Text className="text-xs font-sans-bold text-[#1b1b1d] dark:text-white mb-1.5">
             Nome do Plano *
           </Text>
@@ -578,11 +620,10 @@ export default function CreateWorkoutPlanScreen() {
                 <TouchableOpacity
                   key={item}
                   onPress={() => setObjective(item)}
-                  className={`px-3.5 py-2 rounded-xl mr-2 border ${
-                    active
+                  className={`px-3.5 py-2 rounded-xl mr-2 border ${active
                       ? 'bg-[#59C83A] border-[#59C83A]'
                       : 'bg-white dark:bg-zinc-950 border-[#e2dfe1] dark:border-zinc-800'
-                  }`}
+                    }`}
                 >
                   <Text className={`text-xs font-sans-bold ${active ? 'text-white' : 'text-[#414755] dark:text-zinc-400'}`}>
                     {item}
@@ -602,11 +643,10 @@ export default function CreateWorkoutPlanScreen() {
                 <TouchableOpacity
                   key={day}
                   onPress={() => toggleDay(day)}
-                  className={`px-3 py-1.5 rounded-lg border ${
-                    isSelected
+                  className={`px-3 py-1.5 rounded-lg border ${isSelected
                       ? 'bg-[#59C83A]/20 border-[#59C83A]'
                       : 'bg-white dark:bg-zinc-950 border-[#e2dfe1] dark:border-zinc-800'
-                  }`}
+                    }`}
                 >
                   <Text className={`text-xs font-sans-bold ${isSelected ? 'text-[#59C83A]' : 'text-[#71717a]'}`}>
                     {day}
@@ -617,7 +657,7 @@ export default function CreateWorkoutPlanScreen() {
           </View>
         </MotiView>
 
-        {/* 3. BOTÃO PARA ABRIR O MODAL DE SELEÇÃO */}
+        {/* BOTÃO PARA ABRIR O MODAL DE SELEÇÃO */}
         <MotiView
           from={{ opacity: 0, translateY: 10 }}
           animate={{ opacity: 1, translateY: 0 }}
@@ -635,14 +675,13 @@ export default function CreateWorkoutPlanScreen() {
             activeOpacity={0.8}
           >
             <Plus size={20} color="#FFFFFF" weight="bold" />
-            {/* Texto com Outfit Bold */}
             <Text className="text-white font-sans-bold text-sm ml-2">
               Selecionar Exercícios da Biblioteca ({selectedExercises.length})
             </Text>
           </TouchableOpacity>
         </MotiView>
 
-        {/* 4. TÍTULO E LISTA DOS EXERCÍCIOS ADICIONADOS AO PLANO */}
+        {/* LISTA DOS EXERCÍCIOS ADICIONADOS AO PLANO */}
         <MotiView
           from={{ opacity: 0, translateY: 10 }}
           animate={{ opacity: 1, translateY: 0 }}
@@ -653,7 +692,6 @@ export default function CreateWorkoutPlanScreen() {
             delay: 60,
           }}
         >
-          {/* Título da seção com Outfit ExtraBold */}
           <Text className="text-base font-outfit-extrabold text-[#1b1b1d] dark:text-white mb-3">
             Exercícios Selecionados ({selectedExercises.length})
           </Text>
@@ -690,7 +728,6 @@ export default function CreateWorkoutPlanScreen() {
               className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl border border-[#e2dfe1] dark:border-zinc-800 mb-3"
             >
               <View className="flex-row items-center justify-between mb-3">
-                {/* Nome do exercício com Outfit SemiBold */}
                 <Text className="text-sm font-outfit-semibold text-[#1b1b1d] dark:text-white flex-1 mr-2" numberOfLines={1}>
                   {index + 1}. {item.name}
                 </Text>
@@ -752,11 +789,9 @@ export default function CreateWorkoutPlanScreen() {
           <View className="bg-white dark:bg-zinc-900 rounded-t-3xl p-5 h-[85%] border-t border-[#e2dfe1] dark:border-zinc-800">
             <View className="flex-row items-center justify-between mb-3">
               <View>
-                {/* Título da Modal com Outfit ExtraBold */}
                 <Text className="text-lg font-outfit-extrabold text-[#1b1b1d] dark:text-white">
                   Biblioteca de Exercícios
                 </Text>
-                {/* Contador com DM Sans Bold */}
                 <Text className="text-xs font-sans-bold text-[#59C83A]">
                   {selectedExercises.length} selecionado(s)
                 </Text>
@@ -765,7 +800,6 @@ export default function CreateWorkoutPlanScreen() {
                 onPress={() => setIsModalVisible(false)}
                 className="bg-[#59C83A] px-4 py-2 rounded-xl"
               >
-                {/* Botão com DM Sans Bold */}
                 <Text className="text-white font-sans-bold text-xs">Concluir</Text>
               </TouchableOpacity>
             </View>
@@ -788,29 +822,27 @@ export default function CreateWorkoutPlanScreen() {
               ) : null}
             </View>
 
-            {/* FILTROS DE CATEGORIA */}
+            {/* 🟢 FILTROS DE CATEGORIA DINÂMICOS */}
             <View className="mb-4">
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={{ paddingVertical: 4, alignItems: 'center' }}
               >
-                {CATEGORY_FILTERS.map((cat) => {
+                {categoryOptions.map((cat) => {
                   const active = selectedCategoryFilter === cat.id;
                   return (
                     <TouchableOpacity
                       key={cat.id}
                       onPress={() => setSelectedCategoryFilter(cat.id)}
-                      className={`px-4 py-2 rounded-xl mr-2 border ${
-                        active
+                      className={`px-4 py-2 rounded-xl mr-2 border ${active
                           ? 'bg-[#59C83A] border-[#59C83A]'
                           : 'bg-[#f8f9fa] dark:bg-zinc-800 border-[#e2dfe1] dark:border-zinc-700'
-                      }`}
+                        }`}
                     >
                       <Text
-                        className={`text-xs font-sans-bold ${
-                          active ? 'text-white' : 'text-[#414755] dark:text-zinc-200'
-                        }`}
+                        className={`text-xs font-sans-bold ${active ? 'text-white' : 'text-[#414755] dark:text-zinc-200'
+                          }`}
                       >
                         {cat.label}
                       </Text>
@@ -844,11 +876,10 @@ export default function CreateWorkoutPlanScreen() {
                         stiffness: 150,
                         delay: index * 30,
                       }}
-                      className={`p-3.5 rounded-2xl border mb-2.5 overflow-hidden ${
-                        isAdded
+                      className={`p-3.5 rounded-2xl border mb-2.5 overflow-hidden ${isAdded
                           ? 'bg-[#59C83A]/10 border-[#59C83A]'
                           : 'bg-[#f8f9fa] dark:bg-zinc-950 border-[#e2dfe1] dark:border-zinc-800'
-                      }`}
+                        }`}
                     >
                       <TouchableOpacity
                         onPress={() => handleToggleExerciseFromLibrary(item)}
@@ -856,13 +887,11 @@ export default function CreateWorkoutPlanScreen() {
                         className="flex-row items-center justify-between"
                       >
                         <View className="flex-1 mr-2">
-                          {/* Nome com Outfit SemiBold */}
                           <Text className="text-sm font-outfit-semibold text-[#1b1b1d] dark:text-white" numberOfLines={1}>
                             {item.name}
                           </Text>
-                          {/* Detalhes em DM Sans Medium */}
                           <Text className="text-xs font-sans-medium text-[#71717a] dark:text-zinc-400 mt-0.5">
-                            Grupo: {item.category_id || 'Geral'} | Séries: {item.sets || 3}
+                            Grupo: {item.category_id ? formatCategoryLabel(item.category_id) : 'Geral'} | Séries: {item.sets || 3}
                           </Text>
                         </View>
 

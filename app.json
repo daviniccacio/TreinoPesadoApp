@@ -45,7 +45,10 @@
     },
     "plugins": [
       "expo-secure-store",
-      "expo-font"
+      "expo-font",
+      "expo-image",
+      "expo-router",
+      "expo-status-bar"
     ]
   }
 }
