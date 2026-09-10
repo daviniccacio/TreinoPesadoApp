@@ -1,12 +1,15 @@
+// ============================================================================
+// DOCUMENTAÇÃO: LAYOUT DO GRUPO PROTEGIDO (EXPO ROUTER)
+// ============================================================================
+// Identifica se o usuário logado é 'aluno' ou 'personal' e redireciona
+// automaticamente para o sub-grupo correspondente com tipagem segura.
+// ============================================================================
+
 import React, { useEffect, useState } from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 
-/**
- * Layout do Grupo Protegido (app)
- * Identifica o perfil (aluno ou personal) e direciona para a sub-rota correta.
- */
 export default function AppGroupLayout() {
   const [userRole, setUserRole] = useState<'aluno' | 'personal' | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -62,7 +65,9 @@ export default function AppGroupLayout() {
   useEffect(() => {
     if (loading || !userRole) return;
 
-    const currentSubGroup = segments[1];
+    // 🟢 CORREÇÃO DA TUPLA COM TYPE CASTING (as string[]):
+    // Converte o segmento estrito do Expo Router num array comum para permitir a leitura segura do índice 1
+    const currentSubGroup = segments.length > 1 ? (segments as string[])[1] : undefined;
 
     if (userRole === 'personal' && currentSubGroup !== '(personal)') {
       router.replace('/(app)/(personal)');

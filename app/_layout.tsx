@@ -9,7 +9,7 @@ if (SafeAreaProvider) {
 // 3. CSS Global
 import '../global.css';
 
-// 4. Importações do React, React Native, Expo Router, Supabase, TanStack Query e Fonts
+// 4. Importações do React, React Native, Expo Router, Supabase, TanStack Query
 import React, { useEffect, useState } from 'react';
 import { View, ActivityIndicator, useColorScheme } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
@@ -33,22 +33,17 @@ import { supabase } from '../lib/supabase';
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 1000 * 60 * 5, // 5 minutos sem refetch desnecessário
-      gcTime: 1000 * 60 * 30,    // 30 minutos em cache
+      staleTime: 1000 * 60 * 5,
+      gcTime: 1000 * 60 * 30,
       refetchOnWindowFocus: false,
     },
   },
 });
 
-/**
- * Layout Raiz do Aplicativo
- * Carrega as fontes de sistema, valida a autenticação no servidor e protege as rotas globais.
- */
 export default function RootLayout() {
   const [session, setSession] = useState<any>(null);
   const [isReady, setIsReady] = useState<boolean>(false);
 
-  // Carregamento das fontes do Google Fonts
   const [fontsLoaded, fontError] = useFonts({
     Outfit_700Bold,
     Outfit_800ExtraBold,
@@ -60,12 +55,11 @@ export default function RootLayout() {
   const segments = useSegments();
   const router = useRouter();
 
-  // Detecta o tema atual do dispositivo (light ou dark)
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
+  const backgroundColor = isDark ? '#09090b' : '#ffffff';
 
   useEffect(() => {
-    // Valida no servidor do Supabase se o usuário realmente existe no banco
     async function validateAuthOnServer() {
       try {
         const { data: { user }, error } = await supabase.auth.getUser();
@@ -87,7 +81,6 @@ export default function RootLayout() {
 
     validateAuthOnServer();
 
-    // Escuta alterações de login e logout em tempo real
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, currentSession) => {
         if (event === 'SIGNED_OUT' || !currentSession) {
@@ -104,7 +97,6 @@ export default function RootLayout() {
     };
   }, []);
 
-  // Controle e Proteção Global de Rotas
   useEffect(() => {
     if (!isReady || (!fontsLoaded && !fontError)) return;
 
@@ -122,32 +114,33 @@ export default function RootLayout() {
     }
   }, [session, isReady, fontsLoaded, fontError, segments]);
 
-  // Tela de carregamento exibida enquanto consulta a autenticação e carrega as fontes
   if (!isReady || (!fontsLoaded && !fontError)) {
     return (
-      <View className="flex-1 justify-center items-center bg-white dark:bg-zinc-950">
+      <View style={{ flex: 1, backgroundColor }} className="justify-center items-center">
         <ActivityIndicator size="large" color="#59C83A" />
       </View>
     );
   }
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <SafeAreaProvider>
-        <Stack
-          screenOptions={{
-            headerShown: false,
-            // Fixa a cor do container nativo da Stack para evitar a piscada branca durante a transição
-            contentStyle: {
-              backgroundColor: isDark ? '#09090b' : '#ffffff',
-            },
-          }}
-        >
-          <Stack.Screen name="index" />
-          <Stack.Screen name="(auth)" />
-          <Stack.Screen name="(app)" />
-        </Stack>
-      </SafeAreaProvider>
-    </QueryClientProvider>
+    <View style={{ flex: 1, backgroundColor }}>
+      <QueryClientProvider client={queryClient}>
+        <SafeAreaProvider style={{ flex: 1, backgroundColor }}>
+          <Stack
+            screenOptions={{
+              headerShown: false,
+              animation: 'fade', // Transição suave para evitar piscadas visuais
+              contentStyle: {
+                backgroundColor,
+              },
+            }}
+          >
+            <Stack.Screen name="index" options={{ style: { backgroundColor } } as any} />
+            <Stack.Screen name="(auth)" options={{ style: { backgroundColor } } as any} />
+            <Stack.Screen name="(app)" options={{ style: { backgroundColor } } as any} />
+          </Stack>
+        </SafeAreaProvider>
+      </QueryClientProvider>
+    </View>
   );
 }

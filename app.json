@@ -11,11 +11,12 @@
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#09090b"
     },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.daviniccacio.treinopesado",
+      "backgroundColor": "#09090b",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -27,7 +28,8 @@
         "foregroundImage": "./assets/logo-treino-pesado-icon.png",
         "backgroundColor": "#1b1b1d"
       },
-      "package": "com.daviniccacio.treinopesado"
+      "package": "com.daviniccacio.treinopesado",
+      "backgroundColor": "#09090b"
     },
     "web": {
       "favicon": "./assets/icon.png"

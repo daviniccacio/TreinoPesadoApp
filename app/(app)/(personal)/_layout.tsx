@@ -101,7 +101,7 @@ export default function PersonalLayout() {
             <AnimatedTabItem focused={focused}>
               <Users
                 size={size - 2}
-                color={color}
+                color={color as string}
                 weight={focused ? "fill" : "regular"}
               />
             </AnimatedTabItem>
@@ -118,7 +118,7 @@ export default function PersonalLayout() {
             <AnimatedTabItem focused={focused}>
               <Barbell
                 size={size - 2}
-                color={color}
+                color={color as string}
                 weight={focused ? "fill" : "regular"}
               />
             </AnimatedTabItem>
@@ -135,7 +135,7 @@ export default function PersonalLayout() {
             <AnimatedTabItem focused={focused}>
               <Books
                 size={size - 2}
-                color={color}
+                color={color as string}
                 weight={focused ? "fill" : "regular"}
               />
             </AnimatedTabItem>
@@ -152,7 +152,7 @@ export default function PersonalLayout() {
             <AnimatedTabItem focused={focused}>
               <CalendarCheck
                 size={size - 2}
-                color={color}
+                color={color as string}
                 weight={focused ? "fill" : "regular"}
               />
             </AnimatedTabItem>
@@ -169,7 +169,7 @@ export default function PersonalLayout() {
             <AnimatedTabItem focused={focused}>
               <User
                 size={size - 2}
-                color={color}
+                color={color as string}
                 weight={focused ? "fill" : "regular"}
               />
             </AnimatedTabItem>
@@ -178,7 +178,7 @@ export default function PersonalLayout() {
       />
 
       {/* ==================================================================== */}
-      {/* ROTAS OCULTAS DA NAVBAR (Telas acessadas por navegação interna)     */}
+      {/* ROTAS OCULTAS DA NAVBAR (Telas acessadas por navegação interna)    */}
       {/* ==================================================================== */}
       <Tabs.Screen name="create-workout" options={{ href: null }} />
       <Tabs.Screen name="student-detail" options={{ href: null }} />

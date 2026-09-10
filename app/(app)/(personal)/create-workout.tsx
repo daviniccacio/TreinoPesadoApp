@@ -274,11 +274,11 @@ export default function CreateWorkoutPlanScreen() {
       biceps: 'Bíceps',
       triceps: 'Tríceps',
       abdomen: 'Abdômen',
-      gluteo: 'Glúteo',
+      gluteo: 'Glúteos',
       ombros: 'Ombros',
       pernas: 'Pernas',
       costas: 'Costas',
-      peito: 'Peito',
+      peito: 'Peitoral',
       cardio: 'Cardio',
       alongamento: 'Alongamento',
     };

@@ -100,7 +100,7 @@ export default function StudentTabsLayout() {
             <AnimatedTabItem focused={focused}>
               <House
                 size={size - 2}
-                color={color}
+                color={color as string}
                 weight={focused ? "fill" : "regular"}
               />
             </AnimatedTabItem>
@@ -117,7 +117,7 @@ export default function StudentTabsLayout() {
             <AnimatedTabItem focused={focused}>
               <Barbell
                 size={size - 2}
-                color={color}
+                color={color as string}
                 weight={focused ? "fill" : "regular"}
               />
             </AnimatedTabItem>
@@ -134,7 +134,7 @@ export default function StudentTabsLayout() {
             <AnimatedTabItem focused={focused}>
               <ClockCounterClockwise
                 size={size - 2}
-                color={color}
+                color={color as string}
                 weight={focused ? "fill" : "regular"}
               />
             </AnimatedTabItem>
@@ -151,7 +151,7 @@ export default function StudentTabsLayout() {
             <AnimatedTabItem focused={focused}>
               <User
                 size={size - 2}
-                color={color}
+                color={color as string}
                 weight={focused ? "fill" : "regular"}
               />
             </AnimatedTabItem>
