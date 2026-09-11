@@ -36,6 +36,7 @@ import { MotiView } from "moti";
 import { supabase } from "../../../lib/supabase";
 import { useThrottledCallback } from "../../../lib/useThrottle";
 import { CustomModal } from "../../../components/CustomModal";
+import { sendNotificationToUser } from "../../../lib/notifications";
 
 // --- TIPAGENS DE DADOS ---
 interface ExerciseItem {
@@ -195,7 +196,7 @@ export default function ExecuteWorkoutScreen() {
     confirmText: "Entendi",
     cancelText: "Cancelar",
     showCancelButton: false,
-    onConfirm: () => {},
+    onConfirm: () => { },
   });
 
   // Referências dos intervalos
@@ -239,6 +240,7 @@ export default function ExecuteWorkoutScreen() {
   const exercises = workoutData?.exercises || [];
 
   // --- MUTAÇÃO PARA REGISTRAR TREINO CONCLUÍDO ---
+  // --- MUTAÇÃO PARA REGISTRAR TREINO CONCLUÍDO ---
   const finishWorkoutMutation = useMutation({
     mutationFn: async (duration: number) => {
       const {
@@ -247,6 +249,7 @@ export default function ExecuteWorkoutScreen() {
 
       if (!user) throw new Error("Usuário não autenticado.");
 
+      // 1. Grava o histórico do treino
       const { error } = await supabase.from("workout_logs").insert({
         student_id: user.id,
         workout_title: workoutName,
@@ -254,6 +257,27 @@ export default function ExecuteWorkoutScreen() {
       });
 
       if (error) throw new Error(error.message);
+
+      // 2. NOTIFICAÇÃO AUTOMÁTICA: Busca o perfil do aluno e quem é o seu personal
+      const { data: studentProfile } = await supabase
+        .from("profiles")
+        .select("name, personal_id")
+        .eq("id", user.id)
+        .single();
+
+      // Se o aluno tiver um personal vinculado, envia o alerta para o Personal
+      if (studentProfile?.personal_id) {
+        const studentName = studentProfile.name || "Seu aluno";
+
+        await sendNotificationToUser({
+          targetUserId: studentProfile.personal_id,
+          senderId: user.id,
+          title: "Treino Finalizado! 🏋️‍♂️",
+          message: `${studentName} acabou de concluir o treino "${workoutName}".`,
+          type: "WORKOUT_COMPLETED",
+        });
+      }
+
       return duration;
     },
     onSuccess: (finalTime) => {
@@ -691,20 +715,18 @@ export default function ExecuteWorkoutScreen() {
                 damping: 22,
                 stiffness: 150,
               }}
-              className={`p-4 rounded-2xl mb-4 border ${
-                isExerciseDone
+              className={`p-4 rounded-2xl mb-4 border ${isExerciseDone
                   ? "bg-zinc-100/70 dark:bg-zinc-900/40 border-dashed border-zinc-300 dark:border-zinc-800"
                   : "bg-[#f8f9fa] dark:bg-zinc-900 border-[#e2dfe1] dark:border-zinc-800"
-              }`}
+                }`}
             >
               <View className="flex-row items-center justify-between mb-2">
                 {/* 🟢 TÍTULO COM NUMERAÇÃO ORIGINAL PRESERVADA (originalIndex) */}
                 <Text
-                  className={`text-base font-outfit flex-1 mr-2 ${
-                    isExerciseDone
+                  className={`text-base font-outfit flex-1 mr-2 ${isExerciseDone
                       ? "text-[#71717a] dark:text-zinc-500 line-through"
                       : "text-[#1b1b1d] dark:text-white"
-                  }`}
+                    }`}
                 >
                   {originalIndex}. {exercise.name}
                 </Text>
@@ -731,11 +753,10 @@ export default function ExecuteWorkoutScreen() {
                     onPress={() =>
                       toggleExerciseCompletion(exercise.id, totalSetsCount)
                     }
-                    className={`px-2.5 py-1 rounded-lg flex-row items-center border ${
-                      isExerciseDone
+                    className={`px-2.5 py-1 rounded-lg flex-row items-center border ${isExerciseDone
                         ? "bg-[#59C83A] border-[#59C83A]"
                         : "bg-zinc-200 dark:bg-zinc-800 border-zinc-300 dark:border-zinc-700"
-                    }`}
+                      }`}
                   >
                     <CheckCircle
                       size={14}
@@ -743,17 +764,16 @@ export default function ExecuteWorkoutScreen() {
                         isExerciseDone
                           ? "#FFFFFF"
                           : isDark
-                          ? "#A1A1AA"
-                          : "#71717A"
+                            ? "#A1A1AA"
+                            : "#71717A"
                       }
                       weight="bold"
                     />
                     <Text
-                      className={`text-[11px] font-sans-bold ml-1 ${
-                        isExerciseDone
+                      className={`text-[11px] font-sans-bold ml-1 ${isExerciseDone
                           ? "text-white"
                           : "text-[#71717a] dark:text-zinc-400"
-                      }`}
+                        }`}
                     >
                       {isExerciseDone ? "Concluído" : "Finalizar"}
                     </Text>
@@ -784,19 +804,17 @@ export default function ExecuteWorkoutScreen() {
                           totalSetsCount
                         )
                       }
-                      className={`p-3 rounded-xl border flex-row items-center justify-between ${
-                        isDone
+                      className={`p-3 rounded-xl border flex-row items-center justify-between ${isDone
                           ? "bg-[#59C83A]/10 border-[#59C83A]"
                           : "bg-white dark:bg-zinc-950 border-[#e2dfe1] dark:border-zinc-800"
-                      }`}
+                        }`}
                     >
                       <View className="flex-row items-center">
                         <View
-                          className={`w-6 h-6 rounded-lg items-center justify-center mr-3 ${
-                            isDone
+                          className={`w-6 h-6 rounded-lg items-center justify-center mr-3 ${isDone
                               ? "bg-[#59C83A]"
                               : "bg-zinc-200 dark:bg-zinc-800"
-                          }`}
+                            }`}
                         >
                           {isDone ? (
                             <Check size={14} color="#FFFFFF" weight="bold" />
@@ -807,22 +825,20 @@ export default function ExecuteWorkoutScreen() {
                           )}
                         </View>
                         <Text
-                          className={`text-xs font-sans-bold ${
-                            isDone
+                          className={`text-xs font-sans-bold ${isDone
                               ? "text-[#59C83A] line-through"
                               : "text-[#1b1b1d] dark:text-white"
-                          }`}
+                            }`}
                         >
                           Série {setIndex + 1}
                         </Text>
                       </View>
 
                       <Text
-                        className={`text-xs font-sans-bold ${
-                          isDone
+                        className={`text-xs font-sans-bold ${isDone
                             ? "text-[#59C83A]"
                             : "text-[#71717a] dark:text-zinc-400"
-                        }`}
+                          }`}
                       >
                         {exercise.reps} reps
                       </Text>

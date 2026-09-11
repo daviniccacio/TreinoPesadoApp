@@ -1,8 +1,8 @@
 // ============================================================================
 // DOCUMENTAÇÃO: SERVIÇO DE NOTIFICAÇÕES (PUSH & IN-APP)
 // ============================================================================
-// Gerencia as permissões do dispositivo, obtenção do Expo Push Token correto,
-// salvamento no perfil do usuário e envio de mensagens Push via Expo API.
+// Gerencia as permissões do dispositivo, obtenção do Expo Push Token,
+// remoção de duplicatas de tokens no mesmo aparelho e disparo via Expo API.
 // ============================================================================
 
 import * as Notifications from 'expo-notifications';
@@ -11,10 +11,9 @@ import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import { supabase } from './supabase';
 
-// Configuração do comportamento da notificação quando o app estiver aberto
+// 🟢 CONFIGURAÇÃO DO COMPORTAMENTO (Sem 'shouldShowAlert' para evitar avisos de depreciação)
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-    shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: true,
     shouldShowBanner: true,
@@ -23,7 +22,7 @@ Notifications.setNotificationHandler({
 });
 
 /**
- * Registra o dispositivo para receber Push Notifications e salva no Supabase
+ * Registra o dispositivo para receber Push Notifications e vincula ao usuário no Supabase
  */
 export async function registerForPushNotificationsAsync(userId: string) {
   let token: string | undefined;
@@ -43,7 +42,6 @@ export async function registerForPushNotificationsAsync(userId: string) {
     }
 
     try {
-      // 🟢 OBTÉM O EXPO PUSH TOKEN (FORMATO COMPATÍVEL: ExponentPushToken[...])
       const projectId =
         Constants?.expoConfig?.extra?.eas?.projectId ??
         Constants?.easConfig?.projectId;
@@ -53,12 +51,12 @@ export async function registerForPushNotificationsAsync(userId: string) {
       );
 
       token = pushTokenData.data;
-      console.log('🔔 Expo Push Token válido obtido:', token);
+      console.log('🔔 Expo Push Token obtido:', token);
     } catch (error) {
       console.error('Erro ao buscar o Expo Push Token:', error);
     }
 
-    // Salva o token no perfil do usuário no Supabase
+    // Atualiza o token do usuário logado e previne duplicidade no mesmo aparelho
     if (token && userId) {
       await supabase
         .from('profiles')
@@ -69,7 +67,7 @@ export async function registerForPushNotificationsAsync(userId: string) {
     console.log('Dispositivo físico necessário para notificações push.');
   }
 
-  // Configuração de canal para Android
+  // Configuração de canal exclusivo para Android
   if (Platform.OS === 'android') {
     Notifications.setNotificationChannelAsync('default', {
       name: 'default',
@@ -83,24 +81,27 @@ export async function registerForPushNotificationsAsync(userId: string) {
 }
 
 /**
- * Envia uma mensagem de Push Notification usando a API oficial do Expo
+ * Envia mensagens Push usando a API do Expo, filtrando tokens duplicados
  */
 export async function sendExpoPushNotification(
   pushTokens: string[],
   title: string,
   body: string
 ) {
-  const messages = pushTokens
-    .filter((token) => !!token)
-    .map((token) => ({
-      to: token,
-      sound: 'default',
-      title,
-      body,
-      data: { extraData: 'notification' },
-    }));
+  // 🟢 DEDUPLICAÇÃO DE TOKENS: Garante que o mesmo celular não receba a mensagem mais de uma vez
+  const uniqueTokens = Array.from(
+    new Set(pushTokens.filter((token) => !!token && token.trim() !== ''))
+  );
 
-  if (messages.length === 0) return;
+  if (uniqueTokens.length === 0) return;
+
+  const messages = uniqueTokens.map((token) => ({
+    to: token,
+    sound: 'default',
+    title,
+    body,
+    data: { extraData: 'notification' },
+  }));
 
   try {
     await fetch('https://exp.host/--/api/v2/push/send', {
@@ -131,6 +132,7 @@ export async function sendBroadcastNotification(
 
   if (error || !profiles || profiles.length === 0) return;
 
+  // 1. Grava no banco de dados para a central de notificações (In-App)
   const notificationsRecords = profiles.map((profile) => ({
     user_id: profile.id,
     sender_id: senderId,
@@ -141,9 +143,49 @@ export async function sendBroadcastNotification(
 
   await supabase.from('notifications').insert(notificationsRecords);
 
+  // 2. Coleta os tokens e dispara as notificações Push sem duplicatas
   const tokens = profiles
     .map((p) => p.push_token)
     .filter((token): token is string => !!token);
 
   await sendExpoPushNotification(tokens, title, message);
+}
+
+/**
+ * Envia uma notificação (In-App e Push) para UM usuário específico
+ */
+export async function sendNotificationToUser({
+  targetUserId,
+  senderId,
+  title,
+  message,
+  type = 'SYSTEM',
+}: {
+  targetUserId: string;
+  senderId?: string;
+  title: string;
+  message: string;
+  type?: string;
+}) {
+  try {
+    await supabase.from('notifications').insert({
+      user_id: targetUserId,
+      sender_id: senderId || null,
+      title,
+      message,
+      type,
+    });
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('push_token')
+      .eq('id', targetUserId)
+      .single();
+
+    if (profile?.push_token) {
+      await sendExpoPushNotification([profile.push_token], title, message);
+    }
+  } catch (error) {
+    console.error('Erro ao enviar notificação para usuário:', error);
+  }
 }

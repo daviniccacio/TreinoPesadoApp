@@ -2,7 +2,7 @@
 // DOCUMENTAÇÃO: TELA DE PERFIL PROFISSIONAL (PERSONAL TRAINER)
 // ============================================================================
 // Exibe dados cadastrais, código de acesso exclusivo para alunos, estatísticas
-// de trabalho, seletores de tema de aparência e ações de segurança da conta.
+// de trabalho, seletores de tema de aparência, envio de comunicados e logout.
 // ============================================================================
 
 import React, { useState } from 'react';
@@ -34,6 +34,7 @@ import { useQuery } from '@tanstack/react-query';
 import { MotiView } from 'moti';
 import { supabase } from '../../../lib/supabase';
 import { CustomModal } from '../../../components/CustomModal';
+import { SendNotificationModal } from '../../../components/SendNotificationModal';
 
 // --- TIPAGENS DE DADOS ---
 interface PersonalProfileData {
@@ -104,11 +105,13 @@ export default function PersonalProfileScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const systemColorScheme = useColorScheme();
-  const isDark = systemColorScheme === 'dark';
 
   const [themeMode, setThemeMode] = useState<'light' | 'dark' | 'system'>('system');
 
-  // --- ESTADO DO MODAL PERSONALIZADO REUTILIZÁVEL ---
+  // 🟢 ESTADO PARA EXIBIÇÃO DO MODAL DE ENVIAR COMUNICADOS
+  const [modalVisible, setModalVisible] = useState(false);
+
+  // --- ESTADO DO MODAL PERSONALIZADO REUTILIZÁVEL DE ALERTA ---
   const [modalConfig, setModalConfig] = useState<{
     visible: boolean;
     title: string;
@@ -126,7 +129,7 @@ export default function PersonalProfileScreen() {
     confirmText: 'Entendi',
     cancelText: 'Cancelar',
     showCancelButton: false,
-    onConfirm: () => {},
+    onConfirm: () => { },
   });
 
   function showAlertModal({
@@ -159,8 +162,6 @@ export default function PersonalProfileScreen() {
     queryFn: fetchPersonalProfileData,
   });
 
-  // 🟢 CORREÇÃO TS2345: Usa 'null as any' para ignorar a restrição estrita de tipo do TS
-  // garantindo o resete correto para a preferência do sistema operacional no runtime
   function handleThemeChange(mode: 'light' | 'dark' | 'system') {
     setThemeMode(mode);
     if (mode === 'system') {
@@ -380,18 +381,16 @@ export default function PersonalProfileScreen() {
           <View className="bg-[#f8f9fa] dark:bg-zinc-900 rounded-2xl p-2 mb-6 border border-[#e2dfe1] dark:border-zinc-800 flex-row">
             <TouchableOpacity
               onPress={() => handleThemeChange('light')}
-              className={`flex-1 py-3 rounded-xl flex-row items-center justify-center gap-1.5 ${
-                themeMode === 'light'
+              className={`flex-1 py-3 rounded-xl flex-row items-center justify-center gap-1.5 ${themeMode === 'light'
                   ? 'bg-white dark:bg-zinc-800 border border-[#e2dfe1] dark:border-zinc-700'
                   : 'bg-transparent'
-              }`}
+                }`}
             >
               <Sun size={16} color={themeMode === 'light' ? '#59C83A' : '#9ca3af'} />
               <Text
                 style={themeMode === 'light' ? { color: '#59C83A' } : undefined}
-                className={`font-sans-bold text-xs ${
-                  themeMode !== 'light' ? 'text-[#414755] dark:text-zinc-300' : ''
-                }`}
+                className={`font-sans-bold text-xs ${themeMode !== 'light' ? 'text-[#414755] dark:text-zinc-300' : ''
+                  }`}
               >
                 Claro
               </Text>
@@ -399,18 +398,16 @@ export default function PersonalProfileScreen() {
 
             <TouchableOpacity
               onPress={() => handleThemeChange('dark')}
-              className={`flex-1 py-3 rounded-xl flex-row items-center justify-center gap-1.5 ${
-                themeMode === 'dark'
+              className={`flex-1 py-3 rounded-xl flex-row items-center justify-center gap-1.5 ${themeMode === 'dark'
                   ? 'bg-white dark:bg-zinc-800 border border-[#e2dfe1] dark:border-zinc-700'
                   : 'bg-transparent'
-              }`}
+                }`}
             >
               <Moon size={16} color={themeMode === 'dark' ? '#59C83A' : '#9ca3af'} />
               <Text
                 style={themeMode === 'dark' ? { color: '#59C83A' } : undefined}
-                className={`font-sans-bold text-xs ${
-                  themeMode !== 'dark' ? 'text-[#414755] dark:text-zinc-300' : ''
-                }`}
+                className={`font-sans-bold text-xs ${themeMode !== 'dark' ? 'text-[#414755] dark:text-zinc-300' : ''
+                  }`}
               >
                 Escuro
               </Text>
@@ -418,18 +415,16 @@ export default function PersonalProfileScreen() {
 
             <TouchableOpacity
               onPress={() => handleThemeChange('system')}
-              className={`flex-1 py-3 rounded-xl flex-row items-center justify-center gap-1.5 ${
-                themeMode === 'system'
+              className={`flex-1 py-3 rounded-xl flex-row items-center justify-center gap-1.5 ${themeMode === 'system'
                   ? 'bg-white dark:bg-zinc-800 border border-[#e2dfe1] dark:border-zinc-700'
                   : 'bg-transparent'
-              }`}
+                }`}
             >
               <Desktop size={16} color={themeMode === 'system' ? '#59C83A' : '#9ca3af'} />
               <Text
                 style={themeMode === 'system' ? { color: '#59C83A' } : undefined}
-                className={`font-sans-bold text-xs ${
-                  themeMode !== 'system' ? 'text-[#414755] dark:text-zinc-300' : ''
-                }`}
+                className={`font-sans-bold text-xs ${themeMode !== 'system' ? 'text-[#414755] dark:text-zinc-300' : ''
+                  }`}
               >
                 Sistema
               </Text>
@@ -453,24 +448,19 @@ export default function PersonalProfileScreen() {
           </Text>
 
           <View className="bg-[#f8f9fa] dark:bg-zinc-900 rounded-2xl overflow-hidden mb-6 border border-[#e2dfe1] dark:border-zinc-800">
+            {/* 🟢 BOTÃO CORRIGIDO: Agora chama setModalVisible(true) */}
             <TouchableOpacity
-              onPress={() =>
-                showAlertModal({
-                  title: 'Notificações',
-                  message: 'Lembretes em desenvolvimento.',
-                  type: 'info',
-                })
-              }
+              onPress={() => setModalVisible(true)}
               className="flex-row items-center justify-between p-4 border-b border-[#e2dfe1] dark:border-zinc-800"
               activeOpacity={0.7}
             >
               <View className="flex-row items-center gap-3">
-                <Bell size={20} color={isDark ? '#ffffff' : '#1b1b1d'} />
+                <Bell size={20} color={systemColorScheme === 'dark' ? '#ffffff' : '#1b1b1d'} />
                 <Text className="font-outfit text-[#1b1b1d] dark:text-white">
                   Notificações e Lembretes
                 </Text>
               </View>
-              <CaretRight size={18} color={isDark ? '#a1a1aa' : '#414755'} />
+              <CaretRight size={18} color={systemColorScheme === 'dark' ? '#a1a1aa' : '#414755'} />
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -485,12 +475,12 @@ export default function PersonalProfileScreen() {
               activeOpacity={0.7}
             >
               <View className="flex-row items-center gap-3">
-                <Shield size={20} color={isDark ? '#ffffff' : '#1b1b1d'} />
+                <Shield size={20} color={systemColorScheme === 'dark' ? '#ffffff' : '#1b1b1d'} />
                 <Text className="font-outfit text-[#1b1b1d] dark:text-white">
                   Privacidade e Dados
                 </Text>
               </View>
-              <CaretRight size={18} color={isDark ? '#a1a1aa' : '#414755'} />
+              <CaretRight size={18} color={systemColorScheme === 'dark' ? '#a1a1aa' : '#414755'} />
             </TouchableOpacity>
           </View>
         </MotiView>
@@ -519,7 +509,13 @@ export default function PersonalProfileScreen() {
         </MotiView>
       </ScrollView>
 
-      {/* COMPONENTE DO MODAL PERSONALIZADO REUTILIZÁVEL */}
+      {/* 🟢 COMPONENTE DO MODAL DE ENVIAR NOTIFICAÇÕES */}
+      <SendNotificationModal
+        visible={modalVisible}
+        onClose={() => setModalVisible(false)}
+      />
+
+      {/* COMPONENTE DO MODAL PERSONALIZADO REUTILIZÁVEL DE ALERTA */}
       <CustomModal
         visible={modalConfig.visible}
         title={modalConfig.title}
