@@ -2,8 +2,8 @@
 // DOCUMENTAÇÃO: TELA DE PERFIL DO ALUNO (ÁREA DO ALUNO)
 // ============================================================================
 // Gerencia as informações do perfil do atleta, estatísticas acumuladas de treino,
-// vínculo com Personal Trainer (com suporte a KeyboardAvoidingView no modal),
-// preferência de tema visual e encerramento da sessão.
+// vínculo com Personal Trainer, preferência de tema visual, indicador de
+// notificações não lidas e encerramento da sessão.
 // ============================================================================
 
 import React, { useState } from 'react';
@@ -44,6 +44,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { MotiView } from 'moti';
 import { supabase } from '../../../../lib/supabase';
 import { CustomModal } from '../../../../components/CustomModal';
+import { UserNotificationModal } from '../../../../components/UserNotificationModal';
 
 // --- TIPAGEM DE DADOS ---
 interface StudentProfileData {
@@ -183,6 +184,7 @@ export default function StudentProfileScreen() {
 
   const [themeMode, setThemeMode] = useState<'light' | 'dark' | 'system'>('system');
   const [isLinkModalOpen, setIsLinkModalOpen] = useState<boolean>(false);
+  const [isNotificationModalOpen, setIsNotificationModalOpen] = useState<boolean>(false);
   const [inviteCodeInput, setInviteCodeInput] = useState<string>('');
 
   // ESTADO DO MODAL PERSONALIZADO
@@ -230,10 +232,33 @@ export default function StudentProfileScreen() {
     });
   }
 
+  // --- CONSULTA DADOS DO PERFIL ---
   const { data: profile, isLoading } = useQuery({
     queryKey: ['student-profile-data'],
     queryFn: fetchStudentProfileData,
     refetchOnMount: 'always',
+  });
+
+  // 🟢 CONSULTA PARA DETECTAR SE EXISTEM NOTIFICAÇÕES NÃO LIDAS
+  const { data: hasUnreadNotifications = false } = useQuery({
+    queryKey: ['user-unread-notifications-status'],
+    queryFn: async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) return false;
+
+      const { count, error } = await supabase
+        .from('notifications')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .eq('read', false);
+
+      if (error) return false;
+
+      return (count || 0) > 0;
+    },
   });
 
   const linkMutation = useMutation({
@@ -262,7 +287,6 @@ export default function StudentProfileScreen() {
     },
   });
 
-  // 🟢 CORREÇÃO TS2345: Cast 'null as any' para contornar a validação estrita do TypeScript
   function handleThemeChange(mode: 'light' | 'dark' | 'system') {
     setThemeMode(mode);
     if (mode === 'system') {
@@ -516,7 +540,7 @@ export default function StudentProfileScreen() {
           </View>
         </MotiView>
 
-        {/* 6. CONFIGURAÇÕES (NOTIFICAÇÕES E PRIVACIDADE) */}
+        {/* 6. CONFIGURAÇÕES (NOTIFICAÇÕES COM INDICADOR DINÂMICO VERDE) */}
         <MotiView
           from={{ opacity: 0, translateY: 12 }}
           animate={{ opacity: 1, translateY: 0 }}
@@ -532,25 +556,53 @@ export default function StudentProfileScreen() {
           </Text>
 
           <View className="bg-[#f8f9fa] dark:bg-zinc-900 rounded-2xl overflow-hidden mb-6 border border-[#e2dfe1] dark:border-zinc-800">
+            {/* 🟢 BOTAO DE NOTIFICAÇÃO COM COR VERDE E BOLINHA DINÂMICA */}
             <TouchableOpacity
-              onPress={() =>
-                showAlertModal({
-                  title: 'Notificações',
-                  message: 'Recurso em desenvolvimento.',
-                  type: 'info',
-                  showCancelButton: false,
-                })
-              }
+              onPress={() => setIsNotificationModalOpen(true)}
               className="flex-row items-center justify-between p-4 border-b border-[#e2dfe1] dark:border-zinc-800"
               activeOpacity={0.7}
             >
               <View className="flex-row items-center gap-3">
-                <Bell size={20} color={isDark ? '#ffffff' : '#1b1b1d'} />
-                <Text className="font-outfit text-[#1b1b1d] dark:text-white">
-                  Notificações
-                </Text>
+                <Bell
+                  size={20}
+                  color={
+                    hasUnreadNotifications
+                      ? '#59C83A'
+                      : isDark
+                      ? '#ffffff'
+                      : '#1b1b1d'
+                  }
+                  weight={hasUnreadNotifications ? 'bold' : 'regular'}
+                />
+                
+                <View className="flex-row items-center">
+                  <Text
+                    className={`font-outfit ${
+                      hasUnreadNotifications
+                        ? 'text-[#59C83A] font-bold'
+                        : 'text-[#1b1b1d] dark:text-white'
+                    }`}
+                  >
+                    Notificações
+                  </Text>
+
+                  {/* BOLINHA VERDE SE HOUVER MENSAGEM NÃO LIDA */}
+                  {hasUnreadNotifications && (
+                    <View className="w-2.5 h-2.5 rounded-full bg-[#59C83A] ml-2" />
+                  )}
+                </View>
               </View>
-              <CaretRight size={18} color={isDark ? '#a1a1aa' : '#414755'} />
+
+              <CaretRight
+                size={18}
+                color={
+                  hasUnreadNotifications
+                    ? '#59C83A'
+                    : isDark
+                    ? '#a1a1aa'
+                    : '#414755'
+                }
+              />
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -600,7 +652,7 @@ export default function StudentProfileScreen() {
         </MotiView>
       </ScrollView>
 
-      {/* 8. MODAL CÓDIGO PERSONAL (COM SUPORTE A AJUSTE DE TECLADO) */}
+      {/* 8. MODAL CÓDIGO PERSONAL */}
       <Modal visible={isLinkModalOpen} animationType="slide" transparent>
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
           <View className="flex-1 bg-black/60 justify-end">
@@ -669,7 +721,13 @@ export default function StudentProfileScreen() {
         </TouchableWithoutFeedback>
       </Modal>
 
-      {/* 9. COMPONENTE DO MODAL PERSONALIZADO */}
+      {/* 🟢 9. MODAL DE ÚLTIMAS 3 NOTIFICAÇÕES DO ALUNO */}
+      <UserNotificationModal
+        visible={isNotificationModalOpen}
+        onClose={() => setIsNotificationModalOpen(false)}
+      />
+
+      {/* 10. COMPONENTE DO MODAL PERSONALIZADO */}
       <CustomModal
         visible={modalConfig.visible}
         title={modalConfig.title}
