@@ -24,13 +24,13 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // 🟢 5. IMPORTAÇÃO UNIFICADA DO EXPO ROUTER (SDK 56+)
 // No SDK 56+, ThemeProvider, DarkTheme e DefaultTheme devem vir diretamente de 'expo-router'
-import { 
-  Stack, 
-  useRouter, 
-  useSegments, 
-  ThemeProvider, 
-  DarkTheme, 
-  DefaultTheme 
+import {
+  Stack,
+  useRouter,
+  useSegments,
+  ThemeProvider,
+  DarkTheme,
+  DefaultTheme
 } from 'expo-router';
 
 // 6. Assistente SystemUI para alterar a cor da janela nativa do OS
@@ -47,6 +47,7 @@ import {
   DMSans_500Medium,
   DMSans_700Bold,
 } from '@expo-google-fonts/dm-sans';
+import { registerForPushNotificationsAsync } from '../lib/notifications';
 
 import { supabase } from '../lib/supabase';
 
@@ -142,6 +143,12 @@ export default function RootLayout() {
       authListener.subscription.unsubscribe();
     };
   }, []);
+
+  useEffect(() => {
+      if (session?.user?.id) {
+        registerForPushNotificationsAsync(session.user.id);
+      }
+    }, [session]);
 
   // Proteção Global de Rotas
   useEffect(() => {
