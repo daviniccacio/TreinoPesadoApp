@@ -238,7 +238,7 @@ export default function PersonalAttendanceScreen() {
         <View className="flex-1 justify-center items-center">
           <ActivityIndicator size="large" color="#59C83A" />
           <Text className="text-xs text-[#71717a] dark:text-zinc-400 mt-3 font-sans-medium">
-            Carregando assiduidade dos alunos...
+            Carregando histórico dos alunos...
           </Text>
         </View>
       ) : (
@@ -291,7 +291,7 @@ export default function PersonalAttendanceScreen() {
                 <View className="flex-row items-center justify-between mb-1.5">
                   {/* Nome do Aluno com Outfit SemiBold */}
                   <Text
-                    className="text-base font-outfit-semibold text-[#1b1b1d] dark:text-white flex-1 mr-2"
+                    className="text-base font-outfit text-[#1b1b1d] dark:text-white flex-1 mr-2"
                     numberOfLines={1}
                   >
                     {item.profiles?.full_name || 'Aluno Não Identificado'}

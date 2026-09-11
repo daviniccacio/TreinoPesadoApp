@@ -728,7 +728,7 @@ export default function CreateWorkoutPlanScreen() {
               className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl border border-[#e2dfe1] dark:border-zinc-800 mb-3"
             >
               <View className="flex-row items-center justify-between mb-3">
-                <Text className="text-sm font-outfit-semibold text-[#1b1b1d] dark:text-white flex-1 mr-2" numberOfLines={1}>
+                <Text className="text-sm font-outfit text-[#1b1b1d] dark:text-white flex-1 mr-2" numberOfLines={1}>
                   {index + 1}. {item.name}
                 </Text>
 
@@ -887,7 +887,7 @@ export default function CreateWorkoutPlanScreen() {
                         className="flex-row items-center justify-between"
                       >
                         <View className="flex-1 mr-2">
-                          <Text className="text-sm font-outfit-semibold text-[#1b1b1d] dark:text-white" numberOfLines={1}>
+                          <Text className="text-sm font-outfit text-[#1b1b1d] dark:text-white" numberOfLines={1}>
                             {item.name}
                           </Text>
                           <Text className="text-xs font-sans-medium text-[#71717a] dark:text-zinc-400 mt-0.5">

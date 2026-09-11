@@ -157,7 +157,7 @@ export function SendNotificationModal({
                     <View className="mr-2">
                       <Megaphone size={20} color="#59C83A" />
                     </View>
-                    <Text className="text-base font-outfit-bold text-[#1b1b1d] dark:text-white">
+                    <Text className="text-base font-outfit text-[#1b1b1d] dark:text-white">
                       Nova Notificação
                     </Text>
                   </View>
@@ -321,7 +321,7 @@ export function SendNotificationModal({
                       </View>
                       <Text className="text-xs font-sans-bold text-white">
                         {sendType === 'BROADCAST'
-                          ? 'Disparar para Todos'
+                          ? 'Enviar para Todos'
                           : 'Enviar para o Aluno'}
                       </Text>
                     </>

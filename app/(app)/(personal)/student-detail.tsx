@@ -387,7 +387,7 @@ export default function StudentDetailScreen() {
               </View>
               <View className="flex-1">
                 {/* Nome no cartão em Outfit Bold */}
-                <Text className="text-lg font-outfit-bold text-[#1b1b1d] dark:text-white">
+                <Text className="text-lg font-outfit text-[#1b1b1d] dark:text-white">
                   {studentName}
                 </Text>
                 {/* Status em DM Sans Bold */}
@@ -479,7 +479,7 @@ export default function StudentDetailScreen() {
             delay: 60,
           }}
         >
-          <Text className="text-sm font-outfit-bold text-[#1b1b1d] dark:text-white mb-3">
+          <Text className="text-sm font-outfit text-[#1b1b1d] dark:text-white mb-3">
             Prescrever Treino
           </Text>
 
@@ -496,7 +496,7 @@ export default function StudentDetailScreen() {
           >
             <PlusCircle size={24} color="#FFFFFF" weight="bold" />
             <View className="ml-3 flex-1">
-              <Text className="text-white font-outfit-bold text-base">
+              <Text className="text-white font-outfit text-base">
                 Criar Treino do Zero
               </Text>
               <Text className="text-white/80 text-xs font-sans-medium">
@@ -532,7 +532,7 @@ export default function StudentDetailScreen() {
           >
             <Books size={24} color="#59C83A" weight="bold" />
             <View className="ml-3 flex-1">
-              <Text className="text-[#1b1b1d] dark:text-white font-outfit-bold text-base">
+              <Text className="text-[#1b1b1d] dark:text-white font-outfit text-base">
                 Usar Modelo da Biblioteca
               </Text>
               <Text className="text-[#71717a] dark:text-zinc-400 text-xs font-sans-medium">
@@ -553,7 +553,7 @@ export default function StudentDetailScreen() {
             delay: 100,
           }}
         >
-          <Text className="text-sm font-outfit-bold text-[#1b1b1d] dark:text-white mb-3">
+          <Text className="text-sm font-outfit text-[#1b1b1d] dark:text-white mb-3">
             Planos de Treino do Aluno ({workoutPlans.length})
           </Text>
         </MotiView>
@@ -570,7 +570,7 @@ export default function StudentDetailScreen() {
             className="bg-[#f8f9fa] dark:bg-zinc-900 p-6 rounded-2xl border border-dashed border-[#e2dfe1] dark:border-zinc-800 items-center justify-center"
           >
             <Barbell size={32} color={isDark ? '#71717a' : '#a1a1aa'} />
-            <Text className="text-xs font-outfit-bold text-[#1b1b1d] dark:text-white mt-2 text-center">
+            <Text className="text-xs font-outfit text-[#1b1b1d] dark:text-white mt-2 text-center">
               Nenhum plano de treino atribuído
             </Text>
             <Text className="text-[11px] font-sans-medium text-[#71717a] dark:text-zinc-400 text-center mt-1">

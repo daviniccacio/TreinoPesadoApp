@@ -1,5 +1,8 @@
 // ============================================================================
-// TELA DE GESTÃO DE ALUNOS (PERSONAL TRAINER) - COM TIPOGRAFIA CUSTOMIZADA
+// TELA DE GESTÃO DE ALUNOS (PERSONAL TRAINER)
+// ============================================================================
+// Busca e exibe a lista de alunos vinculados ao Personal Trainer autenticado
+// com suporte a busca por nome e animações de interface.
 // ============================================================================
 
 import React, { useState } from 'react';
@@ -36,6 +39,7 @@ async function fetchMyStudents(): Promise<Student[]> {
 
   if (!user) return [];
 
+  // 🟢 CORREÇÃO: Seleciona apenas as colunas existentes na tabela 'profiles' ('id', 'full_name', 'role')
   const { data, error } = await supabase
     .from('profiles')
     .select('id, full_name, role')
@@ -105,17 +109,14 @@ export default function PersonalStudentsScreen() {
         className="flex-row items-center justify-between mb-5"
       >
         <View className="flex-1 mr-2">
-          {/* Título com a fonte Outfit ExtraBold */}
           <Text className="text-2xl font-outfit-extrabold text-[#1b1b1d] dark:text-white">
             Gestão de Alunos
           </Text>
-          {/* Subtítulo com a fonte DM Sans */}
           <Text className="text-xs font-sans-medium text-[#71717a] dark:text-zinc-400 mt-0.5">
             Seus alunos vinculados
           </Text>
         </View>
 
-        {/* Contador com DM Sans Bold */}
         <View className="bg-[#59C83A]/10 border border-[#59C83A]/30 px-3 py-1.5 rounded-full flex-row items-center">
           <Sparkle size={14} color="#59C83A" weight="bold" />
           <Text className="text-xs font-sans-bold text-[#59C83A] ml-1.5">
@@ -187,12 +188,12 @@ export default function PersonalStudentsScreen() {
           </Text>
         </MotiView>
       ) : (
-        /* 4. LISTA DE ALUNOS COM ENTRADA ESCALONADA (STAGGERED) */
+        /* 4. LISTA DE ALUNOS COM RENDERIZAÇÃO ANIMADA */
         <FlatList
           data={filteredStudents}
           keyExtractor={(item) => item.id}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: 120 }} // 🟢 Espaço de sobra para a Navbar Flutuante
+          contentContainerStyle={{ paddingBottom: 120 }}
           refreshControl={
             <RefreshControl
               refreshing={isRefetching}
@@ -223,7 +224,6 @@ export default function PersonalStudentsScreen() {
                 className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl mb-3 border border-[#e2dfe1] dark:border-zinc-800 flex-row items-center justify-between"
               >
                 <View className="flex-row items-center flex-1 mr-2">
-                  {/* Avatar com iniciais em Outfit ExtraBold */}
                   <View className="w-12 h-12 rounded-2xl bg-[#59C83A]/10 items-center justify-center border border-[#59C83A]/30 mr-3.5">
                     <Text className="text-lg font-outfit-extrabold color-[#59C83A]">
                       {getInitials(item.full_name)}
@@ -231,9 +231,8 @@ export default function PersonalStudentsScreen() {
                   </View>
 
                   <View className="flex-1">
-                    {/* Nome do Aluno em Outfit SemiBold */}
                     <Text
-                      className="text-base font-outfit-semibold text-[#1b1b1d] dark:text-white"
+                      className="text-base font-outfit text-[#1b1b1d] dark:text-white"
                       numberOfLines={1}
                     >
                       {item.full_name}
