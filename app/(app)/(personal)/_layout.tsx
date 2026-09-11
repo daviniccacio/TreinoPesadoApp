@@ -55,7 +55,8 @@ export default function PersonalLayout() {
         headerShown: false,
         animation: "fade",
 
-        // 🟢 COR EXATA DO BACKGROUND (Sincronizado com dark:bg-zinc-950)
+        // 🟢 PROPRIEDADE CORRETA DO EXPO ROUTER / REACT NAVIGATION 7:
+        // 'sceneStyle' substitui 'sceneContainerStyle' e resolve o erro TS2353
         sceneStyle: {
           backgroundColor: isDark ? "#09090b" : "#f8f9fa",
         },
@@ -84,7 +85,7 @@ export default function PersonalLayout() {
           paddingTop: 6,
         },
 
-        // 🟢 TIPOGRAFIA DA NAVBAR: Usa a fonte DM Sans Bold carregada no app/_layout.tsx
+        // 🟢 TIPOGRAFIA DA NAVBAR: Usa a fonte DM Sans Bold
         tabBarLabelStyle: {
           fontFamily: "DMSans_700Bold",
           fontSize: 10,

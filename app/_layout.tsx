@@ -1,21 +1,42 @@
-// 1. Importamos o SafeAreaProvider
+// ============================================================================
+// DOCUMENTAÇÃO: ROOT LAYOUT (COMPATÍVEL COM EXPO SDK 56+)
+// ============================================================================
+// Gerencia a autenticação com Supabase, fontes customizadas, cache do TanStack Query
+// e aplica o ThemeProvider oficial re-exportado pelo Expo Router para evitar
+// o erro de incompatibilidade com @react-navigation/native.
+// ============================================================================
+
+// 1. Importação do SafeAreaProvider para gestão de áreas seguras
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-// 2. Correção de displayName para NativeWind
+// 2. Correção de displayName para compatibilidade com NativeWind
 if (SafeAreaProvider) {
   (SafeAreaProvider as any).displayName = 'SafeAreaProvider';
 }
 
-// 3. CSS Global
+// 3. Estilos globais do Tailwind / NativeWind
 import '../global.css';
 
-// 4. Importações do React, React Native, Expo Router, Supabase, TanStack Query
+// 4. Importações do React e React Native
 import React, { useEffect, useState } from 'react';
 import { View, ActivityIndicator, useColorScheme } from 'react-native';
-import { Stack, useRouter, useSegments } from 'expo-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
-// 5. Importação das fontes Outfit e DM Sans
+// 🟢 5. IMPORTAÇÃO UNIFICADA DO EXPO ROUTER (SDK 56+)
+// No SDK 56+, ThemeProvider, DarkTheme e DefaultTheme devem vir diretamente de 'expo-router'
+import { 
+  Stack, 
+  useRouter, 
+  useSegments, 
+  ThemeProvider, 
+  DarkTheme, 
+  DefaultTheme 
+} from 'expo-router';
+
+// 6. Assistente SystemUI para alterar a cor da janela nativa do OS
+import * as SystemUI from 'expo-system-ui';
+
+// 7. Importação das fontes Google Fonts (Outfit e DM Sans)
 import {
   useFonts,
   Outfit_700Bold,
@@ -29,7 +50,7 @@ import {
 
 import { supabase } from '../lib/supabase';
 
-// 6. Configuração da instância do TanStack Query
+// 8. Configuração da instância global do TanStack Query
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -39,6 +60,25 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+// 🟢 9. DEFINIÇÃO DOS TEMAS RE-EXPORTADOS PELO EXPO ROUTER
+const CustomDarkTheme = {
+  ...DarkTheme,
+  colors: {
+    ...DarkTheme.colors,
+    background: '#09090b',
+    card: '#09090b',
+  },
+};
+
+const CustomLightTheme = {
+  ...DefaultTheme,
+  colors: {
+    ...DefaultTheme.colors,
+    background: '#ffffff',
+    card: '#ffffff',
+  },
+};
 
 export default function RootLayout() {
   const [session, setSession] = useState<any>(null);
@@ -59,6 +99,12 @@ export default function RootLayout() {
   const isDark = colorScheme === 'dark';
   const backgroundColor = isDark ? '#09090b' : '#ffffff';
 
+  // Atualização da cor da janela nativa do sistema operacional
+  useEffect(() => {
+    SystemUI.setBackgroundColorAsync(backgroundColor);
+  }, [isDark, backgroundColor]);
+
+  // Validação de sessão no Supabase
   useEffect(() => {
     async function validateAuthOnServer() {
       try {
@@ -97,6 +143,7 @@ export default function RootLayout() {
     };
   }, []);
 
+  // Proteção Global de Rotas
   useEffect(() => {
     if (!isReady || (!fontsLoaded && !fontError)) return;
 
@@ -126,19 +173,22 @@ export default function RootLayout() {
     <View style={{ flex: 1, backgroundColor }}>
       <QueryClientProvider client={queryClient}>
         <SafeAreaProvider style={{ flex: 1, backgroundColor }}>
-          <Stack
-            screenOptions={{
-              headerShown: false,
-              animation: 'fade', // Transição suave para evitar piscadas visuais
-              contentStyle: {
-                backgroundColor,
-              },
-            }}
-          >
-            <Stack.Screen name="index" options={{ style: { backgroundColor } } as any} />
-            <Stack.Screen name="(auth)" options={{ style: { backgroundColor } } as any} />
-            <Stack.Screen name="(app)" options={{ style: { backgroundColor } } as any} />
-          </Stack>
+          {/* ThemeProvider importado diretamente de 'expo-router' */}
+          <ThemeProvider value={isDark ? CustomDarkTheme : CustomLightTheme}>
+            <Stack
+              screenOptions={{
+                headerShown: false,
+                animation: 'fade',
+                contentStyle: {
+                  backgroundColor,
+                },
+              }}
+            >
+              <Stack.Screen name="index" options={{ style: { backgroundColor } } as any} />
+              <Stack.Screen name="(auth)" options={{ style: { backgroundColor } } as any} />
+              <Stack.Screen name="(app)" options={{ style: { backgroundColor } } as any} />
+            </Stack>
+          </ThemeProvider>
         </SafeAreaProvider>
       </QueryClientProvider>
     </View>

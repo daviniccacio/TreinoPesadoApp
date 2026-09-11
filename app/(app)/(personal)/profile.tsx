@@ -223,7 +223,7 @@ export default function PersonalProfileScreen() {
       >
         {/* Título com Outfit ExtraBold */}
         <Text className="text-xl font-outfit-extrabold text-[#1b1b1d] dark:text-white">
-          Perfil Profissional
+          Meu Perfil
         </Text>
       </MotiView>
 
