@@ -152,7 +152,7 @@ export default function ExerciseDetailScreen() {
             </View>
           </MotiView>
 
-          {/* GIF DEMONSTRATIVO ANIMADO */}
+          {/* GIF DEMONSTRATIVO ANIMADO (FUNDO BRANCO FIXO) */}
           <MotiView
             from={{ opacity: 0, scale: 0.96, translateY: 10 }}
             animate={{ opacity: 1, scale: 1, translateY: 0 }}
@@ -162,13 +162,13 @@ export default function ExerciseDetailScreen() {
               stiffness: 150,
               delay: 60,
             }}
-            className="w-full h-72 bg-[#f8f9fa] dark:bg-zinc-900 rounded-3xl overflow-hidden mb-6 items-center justify-center p-2 border border-[#e2dfe1] dark:border-zinc-800 relative"
+            className="w-full h-72 bg-white dark:bg-white rounded-3xl overflow-hidden mb-6 items-center justify-center p-2 border border-[#e2dfe1] dark:border-zinc-800 relative"
           >
             {isGifLoading && (
-              <View className="absolute inset-0 justify-center items-center bg-[#f8f9fa] dark:bg-zinc-900 z-10">
+              <View className="absolute inset-0 justify-center items-center bg-white dark:bg-white z-10">
                 <ActivityIndicator size="large" color="#59C83A" />
                 {/* Texto de Carregamento em DM Sans Medium */}
-                <Text className="text-xs font-sans-medium text-[#71717a] dark:text-zinc-400 mt-2">
+                <Text className="text-xs font-sans-medium text-[#71717a] mt-2">
                   Carregando via internet...
                 </Text>
               </View>
