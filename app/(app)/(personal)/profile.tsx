@@ -159,10 +159,12 @@ export default function PersonalProfileScreen() {
     queryFn: fetchPersonalProfileData,
   });
 
+  // 🟢 CORREÇÃO TS2345: Usa 'null as any' para ignorar a restrição estrita de tipo do TS
+  // garantindo o resete correto para a preferência do sistema operacional no runtime
   function handleThemeChange(mode: 'light' | 'dark' | 'system') {
     setThemeMode(mode);
     if (mode === 'system') {
-      Appearance.setColorScheme(null);
+      Appearance.setColorScheme(null as any);
     } else {
       Appearance.setColorScheme(mode);
     }
@@ -221,7 +223,6 @@ export default function PersonalProfileScreen() {
         }}
         className="px-5 py-4 border-b border-[#f0edef] dark:border-zinc-800 flex-row justify-between items-center"
       >
-        {/* Título com Outfit ExtraBold */}
         <Text className="text-xl font-outfit-extrabold text-[#1b1b1d] dark:text-white">
           Meu Perfil
         </Text>
@@ -233,7 +234,7 @@ export default function PersonalProfileScreen() {
         contentContainerStyle={{
           paddingHorizontal: 20,
           paddingTop: 24,
-          paddingBottom: 120, // Garante que as últimas opções fiquem acima da navegação
+          paddingBottom: 120,
         }}
         showsVerticalScrollIndicator={false}
       >
@@ -255,11 +256,9 @@ export default function PersonalProfileScreen() {
           >
             <User size={48} color="#ffffff" weight="bold" />
           </View>
-          {/* Nome do Personal em Outfit ExtraBold */}
           <Text className="text-2xl font-outfit-extrabold text-[#1b1b1d] dark:text-white">
             {fullName}
           </Text>
-          {/* E-mail em DM Sans Medium */}
           <Text className="text-sm font-sans-medium text-[#414755] dark:text-zinc-400 mt-1">
             {email}
           </Text>
@@ -282,7 +281,6 @@ export default function PersonalProfileScreen() {
               <Key size={22} color="#59C83A" weight="bold" />
             </View>
             <View className="flex-1">
-              {/* Rótulo com DM Sans Bold */}
               <Text className="text-xs font-sans-bold text-[#59C83A]">
                 Seu Código de Acesso para Alunos
               </Text>
@@ -290,7 +288,6 @@ export default function PersonalProfileScreen() {
               {isLoading ? (
                 <ActivityIndicator size="small" color="#59C83A" className="self-start mt-1" />
               ) : (
-                /* Código de convite com Outfit ExtraBold */
                 <Text className="text-xl font-outfit-extrabold text-[#1b1b1d] dark:text-white mt-0.5 tracking-wider">
                   {inviteCode}
                 </Text>
@@ -309,7 +306,6 @@ export default function PersonalProfileScreen() {
             className="bg-[#59C83A] px-3.5 py-2 rounded-xl"
             activeOpacity={0.8}
           >
-            {/* Texto em DM Sans Bold */}
             <Text className="text-xs font-sans-bold text-white">Copiar</Text>
           </TouchableOpacity>
         </MotiView>
@@ -325,7 +321,6 @@ export default function PersonalProfileScreen() {
             delay: 60,
           }}
         >
-          {/* Título da Seção com Outfit Bold */}
           <Text className="text-lg font-outfit text-[#1b1b1d] dark:text-white mb-3">
             Visão Geral do Trabalho
           </Text>
@@ -336,35 +331,29 @@ export default function PersonalProfileScreen() {
             </View>
           ) : (
             <View className="flex-row justify-between gap-3 mb-6">
-              {/* Cartão 1: Alunos Vinculados */}
               <TouchableOpacity
                 onPress={() => router.push('/(personal)')}
                 className="flex-1 bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl items-center border border-[#e2dfe1] dark:border-zinc-800"
                 activeOpacity={0.8}
               >
                 <Users size={28} color="#59C83A" weight="bold" />
-                {/* Métricas numéricas em Outfit ExtraBold */}
                 <Text className="text-2xl font-outfit-extrabold text-[#1b1b1d] dark:text-white mt-1">
                   {linkedStudentsCount}
                 </Text>
-                {/* Rótulo em DM Sans Medium */}
                 <Text className="text-xs font-sans-medium text-[#414755] dark:text-zinc-400 mt-1 text-center">
                   Alunos Vinculados
                 </Text>
               </TouchableOpacity>
 
-              {/* Cartão 2: Modelos na Biblioteca */}
               <TouchableOpacity
                 onPress={() => router.push('/(personal)/routines')}
                 className="flex-1 bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl items-center border border-[#e2dfe1] dark:border-zinc-800"
                 activeOpacity={0.8}
               >
                 <Books size={28} color="#59C83A" weight="bold" />
-                {/* Métricas numéricas em Outfit ExtraBold */}
                 <Text className="text-2xl font-outfit-extrabold text-[#1b1b1d] dark:text-white mt-1">
                   {libraryCount}
                 </Text>
-                {/* Rótulo em DM Sans Medium */}
                 <Text className="text-xs font-sans-medium text-[#414755] dark:text-zinc-400 mt-1 text-center">
                   Modelos Salvos
                 </Text>
@@ -384,7 +373,6 @@ export default function PersonalProfileScreen() {
             delay: 80,
           }}
         >
-          {/* Título da Seção com Outfit Bold */}
           <Text className="text-lg font-outfit text-[#1b1b1d] dark:text-white mb-3">
             Aparência do Aplicativo
           </Text>
@@ -460,7 +448,6 @@ export default function PersonalProfileScreen() {
             delay: 100,
           }}
         >
-          {/* Título da Seção com Outfit Bold */}
           <Text className="text-lg font-outfit text-[#1b1b1d] dark:text-white mb-3">
             Opções da Conta
           </Text>
@@ -479,8 +466,7 @@ export default function PersonalProfileScreen() {
             >
               <View className="flex-row items-center gap-3">
                 <Bell size={20} color={isDark ? '#ffffff' : '#1b1b1d'} />
-                {/* Item de lista com Outfit SemiBold */}
-                <Text className="font-outfit-semibold text-[#1b1b1d] dark:text-white">
+                <Text className="font-outfit text-[#1b1b1d] dark:text-white">
                   Notificações e Lembretes
                 </Text>
               </View>
@@ -500,8 +486,7 @@ export default function PersonalProfileScreen() {
             >
               <View className="flex-row items-center gap-3">
                 <Shield size={20} color={isDark ? '#ffffff' : '#1b1b1d'} />
-                {/* Item de lista com Outfit SemiBold */}
-                <Text className="font-outfit-semibold text-[#1b1b1d] dark:text-white">
+                <Text className="font-outfit text-[#1b1b1d] dark:text-white">
                   Privacidade e Dados
                 </Text>
               </View>
@@ -527,7 +512,6 @@ export default function PersonalProfileScreen() {
             activeOpacity={0.8}
           >
             <SignOut size={20} color="#e11d48" />
-            {/* Texto de Ação em DM Sans Bold */}
             <Text className="text-[#e11d48] font-sans-bold text-base ml-2">
               Sair da Conta
             </Text>

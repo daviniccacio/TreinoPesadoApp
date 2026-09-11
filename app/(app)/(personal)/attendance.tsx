@@ -211,7 +211,7 @@ export default function PersonalAttendanceScreen() {
         </MotiView>
 
         {/* Título da Seção em Outfit Bold */}
-        <Text className="text-sm font-outfit-bold text-[#1b1b1d] dark:text-white mb-1">
+        <Text className="text-sm font-outfit text-[#1b1b1d] dark:text-white mb-1">
           Últimos Treinos Finalizados ({logs.length})
         </Text>
       </View>
