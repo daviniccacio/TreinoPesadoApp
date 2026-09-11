@@ -2,7 +2,8 @@
 // DOCUMENTAÇÃO: TELA DE EXECUÇÃO DE TREINO (ÁREA DO ALUNO)
 // ============================================================================
 // Gerencia a execução em tempo real do treino (cronômetro geral, checklist de
-// séries concluídas, timer automático de descanso e exibição de GIFs explicativos).
+// séries concluídas, conclusão de exercícios em fila com numeração original
+// preservada e timer de descanso).
 // ============================================================================
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
@@ -158,8 +159,11 @@ export default function ExecuteWorkoutScreen() {
   const [elapsedSeconds, setElapsedSeconds] = useState<number>(0);
   const [isTimerPaused, setIsTimerPaused] = useState<boolean>(true);
 
-  // --- CONTROLE DE SÉRIES CONCLUÍDAS ---
+  // --- CONTROLE DE SÉRIES E EXERCÍCIOS CONCLUÍDOS ---
   const [completedSets, setCompletedSets] = useState<Set<string>>(new Set());
+  const [completedExercises, setCompletedExercises] = useState<Set<string>>(
+    new Set()
+  );
 
   // --- CRONÔMETRO DE DESCANSO ---
   const [isResting, setIsResting] = useState<boolean>(false);
@@ -169,7 +173,9 @@ export default function ExecuteWorkoutScreen() {
   // --- MODAL DE DEMONSTRAÇÃO DO GIF ---
   const [demoModalVisible, setDemoModalVisible] = useState<boolean>(false);
   const [loadingDemo, setLoadingDemo] = useState<boolean>(false);
-  const [demoExercise, setDemoExercise] = useState<DemoExerciseData | null>(null);
+  const [demoExercise, setDemoExercise] = useState<DemoExerciseData | null>(
+    null
+  );
 
   // --- ESTADO DO MODAL PERSONALIZADO DE ALERTA ---
   const [modalConfig, setModalConfig] = useState<{
@@ -259,7 +265,9 @@ export default function ExecuteWorkoutScreen() {
 
       showAlertModal({
         title: "Treino Concluído! 🎉",
-        message: `Parabéns! Você completou o "${workoutName}" em ${formatTime(finalTime)}.`,
+        message: `Parabéns! Você completou o "${workoutName}" em ${formatTime(
+          finalTime
+        )}.`,
         type: "success",
         confirmText: "Voltar",
         showCancelButton: false,
@@ -296,6 +304,7 @@ export default function ExecuteWorkoutScreen() {
     setElapsedSeconds(0);
     setIsTimerPaused(true);
     setCompletedSets(new Set());
+    setCompletedExercises(new Set());
     setIsResting(false);
     setRestSecondsLeft(DEFAULT_REST_TIME);
   }, []);
@@ -375,7 +384,8 @@ export default function ExecuteWorkoutScreen() {
 
     showAlertModal({
       title: "Sair do Treino",
-      message: "Deseja cancelar o treino em andamento? O tempo e progresso atual não serão salvos.",
+      message:
+        "Deseja cancelar o treino em andamento? O tempo e progresso atual não serão salvos.",
       type: "danger",
       confirmText: "Sair sem Salvar",
       cancelText: "Continuar Treinando",
@@ -387,7 +397,10 @@ export default function ExecuteWorkoutScreen() {
     });
   }
 
-  async function handleOpenExerciseDemo(exerciseId: string, fallbackName: string) {
+  async function handleOpenExerciseDemo(
+    exerciseId: string,
+    fallbackName: string
+  ) {
     try {
       setDemoModalVisible(true);
       setLoadingDemo(true);
@@ -418,18 +431,65 @@ export default function ExecuteWorkoutScreen() {
     }
   }
 
-  function toggleSetCompletion(exerciseIndex: number, setIndex: number) {
-    const key = `${exerciseIndex}-${setIndex}`;
-    const nextCompleted = new Set(completedSets);
+  // MARCAR / DESMARCAR SÉRIE INDIVIDUAL (COM CHECAGEM AUTOMÁTICA DO EXERCÍCIO)
+  function toggleSetCompletion(
+    exerciseId: string,
+    setIndex: number,
+    totalSetsCount: number
+  ) {
+    const key = `${exerciseId}-${setIndex}`;
+    const nextCompletedSets = new Set(completedSets);
+    const nextCompletedExercises = new Set(completedExercises);
 
-    if (nextCompleted.has(key)) {
-      nextCompleted.delete(key);
+    if (nextCompletedSets.has(key)) {
+      nextCompletedSets.delete(key);
+      nextCompletedExercises.delete(exerciseId);
     } else {
-      nextCompleted.add(key);
+      nextCompletedSets.add(key);
       startRestTimer(DEFAULT_REST_TIME);
+
+      // Verifica se todas as séries deste exercício foram concluídas
+      let allDone = true;
+      for (let i = 0; i < totalSetsCount; i++) {
+        if (i !== setIndex && !nextCompletedSets.has(`${exerciseId}-${i}`)) {
+          allDone = false;
+          break;
+        }
+      }
+
+      if (allDone) {
+        nextCompletedExercises.add(exerciseId);
+      }
     }
 
-    setCompletedSets(nextCompleted);
+    setCompletedSets(nextCompletedSets);
+    setCompletedExercises(nextCompletedExercises);
+  }
+
+  // MARCAR / DESMARCAR EXERCÍCIO COMPLETO (FINALIZAR EXERCÍCIO)
+  function toggleExerciseCompletion(
+    exerciseId: string,
+    totalSetsCount: number
+  ) {
+    const nextCompletedExercises = new Set(completedExercises);
+    const nextCompletedSets = new Set(completedSets);
+
+    const isCurrentlyDone = nextCompletedExercises.has(exerciseId);
+
+    if (isCurrentlyDone) {
+      nextCompletedExercises.delete(exerciseId);
+      for (let i = 0; i < totalSetsCount; i++) {
+        nextCompletedSets.delete(`${exerciseId}-${i}`);
+      }
+    } else {
+      nextCompletedExercises.add(exerciseId);
+      for (let i = 0; i < totalSetsCount; i++) {
+        nextCompletedSets.add(`${exerciseId}-${i}`);
+      }
+    }
+
+    setCompletedExercises(nextCompletedExercises);
+    setCompletedSets(nextCompletedSets);
   }
 
   function startRestTimer(seconds: number) {
@@ -462,13 +522,20 @@ export default function ExecuteWorkoutScreen() {
     finishWorkoutMutation.mutate(elapsedSeconds);
   }
 
+  // ORDENAÇÃO DE FILA: Exercícios pendentes no topo, concluídos descem ao final
+  const sortedExercises = [...exercises].sort((a, b) => {
+    const aDone = completedExercises.has(a.id);
+    const bDone = completedExercises.has(b.id);
+    if (aDone === bDone) return 0;
+    return aDone ? 1 : -1;
+  });
+
   const safeTopPadding = Math.max(insets?.top || 0, 16);
 
   if (isLoading) {
     return (
       <View className="flex-1 bg-white dark:bg-zinc-950 justify-center items-center">
         <ActivityIndicator size="large" color="#59C83A" />
-        {/* Mensagem em DM Sans Medium */}
         <Text className="text-xs font-sans-medium text-[#71717a] dark:text-zinc-400 mt-2">
           Iniciando sessão de treino...
         </Text>
@@ -478,7 +545,7 @@ export default function ExecuteWorkoutScreen() {
 
   return (
     <View
-      className="flex-1 bg-white dark:bg-zinc-950 px-5"
+      className="flex-1 bg-[#ffffff] dark:bg-[#09090b] px-5"
       style={{ paddingTop: safeTopPadding + 10 }}
     >
       {/* 1. CABEÇALHO ANIMADO */}
@@ -499,7 +566,6 @@ export default function ExecuteWorkoutScreen() {
           <X size={20} color={isDark ? "#ffffff" : "#1b1b1d"} />
         </TouchableOpacity>
 
-        {/* Título do Treino em Outfit Bold */}
         <Text
           className="text-base font-outfit text-[#1b1b1d] dark:text-white flex-1 mx-3 text-center"
           numberOfLines={1}
@@ -517,7 +583,6 @@ export default function ExecuteWorkoutScreen() {
           ) : (
             <>
               <CheckCircle size={18} color="#FFFFFF" weight="bold" />
-              {/* Texto em DM Sans Bold */}
               <Text className="text-white font-sans-bold ml-1 text-xs">
                 Finalizar
               </Text>
@@ -538,7 +603,6 @@ export default function ExecuteWorkoutScreen() {
         }}
         className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl mb-4 border border-[#e2dfe1] dark:border-zinc-800 items-center justify-center"
       >
-        {/* Status em DM Sans Bold */}
         <Text className="text-[10px] font-sans-bold text-[#59C83A] uppercase tracking-wider mb-1">
           {elapsedSeconds === 0 && isTimerPaused
             ? "Pronto para Iniciar"
@@ -553,13 +617,11 @@ export default function ExecuteWorkoutScreen() {
             color={isTimerPaused ? "#EAB308" : "#59C83A"}
             weight="bold"
           />
-          {/* Mostrador Digital em Outfit ExtraBold */}
           <Text className="text-3xl font-outfit-extrabold text-[#1b1b1d] dark:text-white ml-2">
             {formatTime(elapsedSeconds)}
           </Text>
         </View>
 
-        {/* CONTROLES DO CRONÔMETRO */}
         <View className="flex-row items-center gap-3 mt-3">
           <TouchableOpacity
             onPress={() => setIsTimerPaused((prev) => !prev)}
@@ -568,7 +630,6 @@ export default function ExecuteWorkoutScreen() {
             {isTimerPaused ? (
               <>
                 <Play size={16} color="#FFFFFF" weight="bold" />
-                {/* Botão em DM Sans Bold */}
                 <Text className="text-white font-sans-bold text-xs ml-1.5">
                   {elapsedSeconds === 0 ? "Iniciar" : "Continuar"}
                 </Text>
@@ -576,7 +637,6 @@ export default function ExecuteWorkoutScreen() {
             ) : (
               <>
                 <Pause size={16} color="#FFFFFF" weight="bold" />
-                {/* Botão em DM Sans Bold */}
                 <Text className="text-white font-sans-bold text-xs ml-1.5">
                   Pausar
                 </Text>
@@ -596,7 +656,6 @@ export default function ExecuteWorkoutScreen() {
               color={isDark ? "#ffffff" : "#1b1b1d"}
               weight="bold"
             />
-            {/* Botão Zerar em DM Sans Bold */}
             <Text className="text-[#1b1b1d] dark:text-white font-sans-bold text-xs ml-1.5">
               Zerar
             </Text>
@@ -604,50 +663,105 @@ export default function ExecuteWorkoutScreen() {
         </View>
       </MotiView>
 
-      {/* 3. LISTA DE EXERCÍCIOS ANIMADA */}
+      {/* 3. LISTA DE EXERCÍCIOS ANIMADA (COM PRESERVAÇÃO DA ORDEM ORIGINAL) */}
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 100 }}
       >
-        {exercises.map((exercise, exIndex) => {
+        {sortedExercises.map((exercise) => {
           const totalSetsCount = parseInt(exercise.sets) || 3;
           const setsArray = Array.from({ length: totalSetsCount });
+          const isExerciseDone = completedExercises.has(exercise.id);
+
+          // 🟢 BUSCA A POSIÇÃO ORIGINAL NA FICHA DE TREINO
+          const originalIndex =
+            exercises.findIndex((e) => e.id === exercise.id) + 1;
 
           return (
             <MotiView
-              key={exercise.id || exIndex}
+              key={exercise.id}
               from={{ opacity: 0, translateY: 14, scale: 0.97 }}
-              animate={{ opacity: 1, translateY: 0, scale: 1 }}
+              animate={{
+                opacity: isExerciseDone ? 0.5 : 1,
+                scale: 1,
+                translateY: 0,
+              }}
               transition={{
                 type: "spring",
                 damping: 22,
                 stiffness: 150,
-                delay: exIndex * 40,
               }}
-              className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl mb-4 border border-[#e2dfe1] dark:border-zinc-800"
+              className={`p-4 rounded-2xl mb-4 border ${
+                isExerciseDone
+                  ? "bg-zinc-100/70 dark:bg-zinc-900/40 border-dashed border-zinc-300 dark:border-zinc-800"
+                  : "bg-[#f8f9fa] dark:bg-zinc-900 border-[#e2dfe1] dark:border-zinc-800"
+              }`}
             >
               <View className="flex-row items-center justify-between mb-2">
-                {/* Nome do Exercício em Outfit Bold */}
-                <Text className="text-base font-outfit text-[#1b1b1d] dark:text-white flex-1 mr-2">
-                  {exIndex + 1}. {exercise.name}
+                {/* 🟢 TÍTULO COM NUMERAÇÃO ORIGINAL PRESERVADA (originalIndex) */}
+                <Text
+                  className={`text-base font-outfit flex-1 mr-2 ${
+                    isExerciseDone
+                      ? "text-[#71717a] dark:text-zinc-500 line-through"
+                      : "text-[#1b1b1d] dark:text-white"
+                  }`}
+                >
+                  {originalIndex}. {exercise.name}
                 </Text>
 
-                <TouchableOpacity
-                  onPress={() =>
-                    handleOpenExerciseDemo(exercise.exercise_id, exercise.name)
-                  }
-                  className="bg-[#59C83A]/10 px-2.5 py-1 rounded-lg flex-row items-center border border-[#59C83A]/30"
-                >
-                  <PlayCircle size={14} color="#59C83A" weight="bold" />
-                  {/* Botão Ver GIF em DM Sans Bold */}
-                  <Text className="text-[11px] font-sans-bold text-[#59C83A] ml-1">
-                    Ver GIF
-                  </Text>
-                </TouchableOpacity>
+                <View className="flex-row items-center gap-2">
+                  {/* BOTÃO VER GIF */}
+                  <TouchableOpacity
+                    onPress={() =>
+                      handleOpenExerciseDemo(
+                        exercise.exercise_id,
+                        exercise.name
+                      )
+                    }
+                    className="bg-[#59C83A]/10 px-2.5 py-1 rounded-lg flex-row items-center border border-[#59C83A]/30"
+                  >
+                    <PlayCircle size={14} color="#59C83A" weight="bold" />
+                    <Text className="text-[11px] font-sans-bold text-[#59C83A] ml-1">
+                      Ver GIF
+                    </Text>
+                  </TouchableOpacity>
+
+                  {/* BOTÃO DE CHECKIN DO EXERCÍCIO COMPLETO */}
+                  <TouchableOpacity
+                    onPress={() =>
+                      toggleExerciseCompletion(exercise.id, totalSetsCount)
+                    }
+                    className={`px-2.5 py-1 rounded-lg flex-row items-center border ${
+                      isExerciseDone
+                        ? "bg-[#59C83A] border-[#59C83A]"
+                        : "bg-zinc-200 dark:bg-zinc-800 border-zinc-300 dark:border-zinc-700"
+                    }`}
+                  >
+                    <CheckCircle
+                      size={14}
+                      color={
+                        isExerciseDone
+                          ? "#FFFFFF"
+                          : isDark
+                          ? "#A1A1AA"
+                          : "#71717A"
+                      }
+                      weight="bold"
+                    />
+                    <Text
+                      className={`text-[11px] font-sans-bold ml-1 ${
+                        isExerciseDone
+                          ? "text-white"
+                          : "text-[#71717a] dark:text-zinc-400"
+                      }`}
+                    >
+                      {isExerciseDone ? "Concluído" : "Finalizar"}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
               </View>
 
               {exercise.notes ? (
-                /* Observações em DM Sans Medium */
                 <Text className="text-xs text-[#71717a] dark:text-zinc-400 mb-3 font-sans-medium">
                   💬 {exercise.notes}
                 </Text>
@@ -656,14 +770,20 @@ export default function ExecuteWorkoutScreen() {
               {/* CHECKLIST DE SÉRIES */}
               <View className="gap-2 mt-1">
                 {setsArray.map((_, setIndex) => {
-                  const setKey = `${exIndex}-${setIndex}`;
+                  const setKey = `${exercise.id}-${setIndex}`;
                   const isDone = completedSets.has(setKey);
 
                   return (
                     <TouchableOpacity
                       key={setIndex}
                       activeOpacity={0.8}
-                      onPress={() => toggleSetCompletion(exIndex, setIndex)}
+                      onPress={() =>
+                        toggleSetCompletion(
+                          exercise.id,
+                          setIndex,
+                          totalSetsCount
+                        )
+                      }
                       className={`p-3 rounded-xl border flex-row items-center justify-between ${
                         isDone
                           ? "bg-[#59C83A]/10 border-[#59C83A]"
@@ -681,13 +801,11 @@ export default function ExecuteWorkoutScreen() {
                           {isDone ? (
                             <Check size={14} color="#FFFFFF" weight="bold" />
                           ) : (
-                            /* Número da Série em DM Sans Bold */
                             <Text className="text-xs font-sans-bold text-[#71717a] dark:text-zinc-400">
                               {setIndex + 1}
                             </Text>
                           )}
                         </View>
-                        {/* Rótulo da Série em DM Sans Bold */}
                         <Text
                           className={`text-xs font-sans-bold ${
                             isDone
@@ -699,7 +817,6 @@ export default function ExecuteWorkoutScreen() {
                         </Text>
                       </View>
 
-                      {/* Repetições em DM Sans Bold */}
                       <Text
                         className={`text-xs font-sans-bold ${
                           isDone
@@ -723,7 +840,6 @@ export default function ExecuteWorkoutScreen() {
         <View className="flex-1 bg-black/70 justify-end">
           <View className="bg-white dark:bg-zinc-900 rounded-t-3xl p-5 h-[75%] border-t border-[#e2dfe1] dark:border-zinc-800">
             <View className="flex-row items-center justify-between mb-3 border-b border-[#e2dfe1] dark:border-zinc-800 pb-3">
-              {/* Título do Exercício em Outfit Bold */}
               <Text
                 className="text-base font-outfit text-[#1b1b1d] dark:text-white flex-1 mr-2"
                 numberOfLines={1}
@@ -762,18 +878,19 @@ export default function ExecuteWorkoutScreen() {
                   </View>
                 ) : (
                   <View className="w-full h-44 rounded-2xl bg-white dark:bg-white items-center justify-center mb-4 border border-dashed border-zinc-300 dark:border-zinc-700">
-                    <Barbell size={36} color={isDark ? "#71717a" : "#a1a1aa"} />
+                    <Barbell
+                      size={36}
+                      color={isDark ? "#71717a" : "#a1a1aa"}
+                    />
                     <Text className="text-xs font-sans-bold text-[#71717a] dark:text-zinc-400 mt-2">
                       GIF demonstrativo não cadastrado no banco
                     </Text>
                   </View>
                 )}
 
-                {/* Subtítulo do Modal em Outfit Bold */}
                 <Text className="text-xs font-outfit text-[#1b1b1d] dark:text-white mb-1">
                   Postura e Execução:
                 </Text>
-                {/* Texto Explicativo em DM Sans Medium */}
                 <Text className="text-xs font-sans-medium text-[#71717a] dark:text-zinc-400 leading-5 mb-4">
                   {demoExercise?.description ||
                     "Execute o movimento de forma controlada, mantendo a postura firme e respeitando a cadência recomendada pelo seu personal trainer."}
@@ -785,7 +902,6 @@ export default function ExecuteWorkoutScreen() {
               onPress={() => setDemoModalVisible(false)}
               className="bg-[#59C83A] py-3 rounded-xl items-center mt-2"
             >
-              {/* Botão em DM Sans Bold */}
               <Text className="text-xs font-sans-bold text-white">
                 Voltar para o Treino
               </Text>
@@ -802,11 +918,9 @@ export default function ExecuteWorkoutScreen() {
               <Timer size={28} color="#59C83A" weight="bold" />
             </View>
 
-            {/* Rótulo de Descanso em DM Sans Bold */}
             <Text className="text-sm font-sans-bold text-[#71717a] dark:text-zinc-400">
               Tempo de Descanso
             </Text>
-            {/* Contagem em Outfit ExtraBold */}
             <Text className="text-5xl font-outfit-extrabold text-[#1b1b1d] dark:text-white my-2">
               {formatTime(restSecondsLeft)}
             </Text>
@@ -816,7 +930,6 @@ export default function ExecuteWorkoutScreen() {
                 onPress={() => addRestTime(30)}
                 className="flex-1 bg-zinc-100 dark:bg-zinc-800 py-3 rounded-xl items-center border border-zinc-200 dark:border-zinc-700"
               >
-                {/* Botão +30s em DM Sans Bold */}
                 <Text className="text-xs font-sans-bold text-[#1b1b1d] dark:text-white">
                   +30 Segundos
                 </Text>
@@ -826,7 +939,6 @@ export default function ExecuteWorkoutScreen() {
                 onPress={skipRest}
                 className="flex-1 bg-[#59C83A] py-3 rounded-xl items-center"
               >
-                {/* Botão Pular em DM Sans Bold */}
                 <Text className="text-xs font-sans-bold text-white">
                   Pular Descanso
                 </Text>
