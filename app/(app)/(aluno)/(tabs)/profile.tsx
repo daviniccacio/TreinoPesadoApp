@@ -2,7 +2,8 @@
 // DOCUMENTAÇÃO: TELA DE PERFIL DO ALUNO (ÁREA DO ALUNO)
 // ============================================================================
 // Gerencia as informações do perfil do atleta, estatísticas acumuladas de treino,
-// vínculo com Personal Trainer, preferência de tema visual e encerramento da sessão.
+// vínculo com Personal Trainer (com suporte a KeyboardAvoidingView no modal),
+// preferência de tema visual e encerramento da sessão.
 // ============================================================================
 
 import React, { useState } from 'react';
@@ -16,6 +17,10 @@ import {
   TextInput,
   useColorScheme,
   Appearance,
+  KeyboardAvoidingView,
+  Platform,
+  TouchableWithoutFeedback,
+  Keyboard,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -257,10 +262,11 @@ export default function StudentProfileScreen() {
     },
   });
 
+  // 🟢 CORREÇÃO TS2345: Cast 'null as any' para contornar a validação estrita do TypeScript
   function handleThemeChange(mode: 'light' | 'dark' | 'system') {
     setThemeMode(mode);
     if (mode === 'system') {
-      Appearance.setColorScheme(null);
+      Appearance.setColorScheme(null as any);
     } else {
       Appearance.setColorScheme(mode);
     }
@@ -306,7 +312,6 @@ export default function StudentProfileScreen() {
         }}
         className="py-4 border-b border-[#f0edef] dark:border-zinc-800 flex-row justify-between items-center"
       >
-        {/* Título Principal em Outfit ExtraBold */}
         <Text className="text-xl font-outfit-extrabold text-[#1b1b1d] dark:text-white">
           Meu Perfil
         </Text>
@@ -315,7 +320,7 @@ export default function StudentProfileScreen() {
       <ScrollView
         className="flex-1 pt-6"
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 120 }} // Espaço livre para a Navbar Flutuante
+        contentContainerStyle={{ paddingBottom: 120 }}
       >
         {/* 2. CARTÃO DO ALUNO */}
         <MotiView
@@ -340,16 +345,13 @@ export default function StudentProfileScreen() {
             <ActivityIndicator size="small" color="#59C83A" className="my-2" />
           ) : (
             <>
-              {/* Nome do Aluno em Outfit ExtraBold */}
               <Text className="text-2xl font-outfit-extrabold text-[#1b1b1d] dark:text-white text-center">
                 {profile?.fullName}
               </Text>
-              {/* E-mail em DM Sans Medium */}
               <Text className="text-sm font-sans-medium text-[#414755] dark:text-zinc-400 mt-0.5">
                 {profile?.email}
               </Text>
 
-              {/* Tag de Identificação do Personal em DM Sans Bold */}
               <View className="mt-2 bg-[#59C83A]/10 border border-[#59C83A]/30 px-3 py-1 rounded-full flex-row items-center">
                 <Text className="text-xs font-sans-bold text-[#59C83A]">
                   {profile?.personalName
@@ -372,7 +374,6 @@ export default function StudentProfileScreen() {
             delay: 60,
           }}
         >
-          {/* Título da Seção em Outfit Bold */}
           <Text className="text-lg font-outfit text-[#1b1b1d] dark:text-white mb-3">
             Instrutor
           </Text>
@@ -388,11 +389,9 @@ export default function StudentProfileScreen() {
                   <UserPlus size={20} color="#59C83A" weight="bold" />
                 </View>
                 <View>
-                  {/* Título da Opção em Outfit SemiBold */}
                   <Text className="font-outfit text-[#1b1b1d] dark:text-white text-sm">
                     Conectar com meu Personal
                   </Text>
-                  {/* Descrição em DM Sans Medium */}
                   <Text className="text-xs font-sans-medium text-[#71717a] dark:text-zinc-400">
                     {profile?.personalName
                       ? 'Trocar ou redefinir seu instrutor'
@@ -421,11 +420,9 @@ export default function StudentProfileScreen() {
             <View className="w-10 h-10 rounded-xl bg-[#59C83A]/10 items-center justify-center mb-2 border border-[#59C83A]/30">
               <Barbell size={22} color="#59C83A" weight="bold" />
             </View>
-            {/* Rótulo em DM Sans Bold */}
             <Text className="text-xs font-sans-bold text-[#71717a] dark:text-zinc-400">
               Treinos Realizados
             </Text>
-            {/* Métrica em Outfit ExtraBold */}
             <Text className="text-xl font-outfit-extrabold text-[#1b1b1d] dark:text-white mt-0.5">
               {profile?.totalWorkoutsCompleted || 0}
             </Text>
@@ -435,11 +432,9 @@ export default function StudentProfileScreen() {
             <View className="w-10 h-10 rounded-xl bg-[#59C83A]/10 items-center justify-center mb-2 border border-[#59C83A]/30">
               <Timer size={22} color="#59C83A" weight="bold" />
             </View>
-            {/* Rótulo em DM Sans Bold */}
             <Text className="text-xs font-sans-bold text-[#71717a] dark:text-zinc-400">
               Tempo de Treino
             </Text>
-            {/* Métrica em Outfit ExtraBold */}
             <Text className="text-xl font-outfit-extrabold text-[#1b1b1d] dark:text-white mt-0.5">
               {formatWorkoutTime(profile?.totalWorkoutMinutes || 0)}
             </Text>
@@ -457,7 +452,6 @@ export default function StudentProfileScreen() {
             delay: 120,
           }}
         >
-          {/* Título da Seção em Outfit Bold */}
           <Text className="text-lg font-outfit text-[#1b1b1d] dark:text-white mb-3">
             Aparência
           </Text>
@@ -472,7 +466,6 @@ export default function StudentProfileScreen() {
               }`}
             >
               <Sun size={16} color={themeMode === 'light' ? '#59C83A' : '#9ca3af'} />
-              {/* Opção em DM Sans Bold */}
               <Text
                 style={themeMode === 'light' ? { color: '#59C83A' } : undefined}
                 className={`font-sans-bold text-xs ${
@@ -492,7 +485,6 @@ export default function StudentProfileScreen() {
               }`}
             >
               <Moon size={16} color={themeMode === 'dark' ? '#59C83A' : '#9ca3af'} />
-              {/* Opção em DM Sans Bold */}
               <Text
                 style={themeMode === 'dark' ? { color: '#59C83A' } : undefined}
                 className={`font-sans-bold text-xs ${
@@ -512,7 +504,6 @@ export default function StudentProfileScreen() {
               }`}
             >
               <Desktop size={16} color={themeMode === 'system' ? '#59C83A' : '#9ca3af'} />
-              {/* Opção em DM Sans Bold */}
               <Text
                 style={themeMode === 'system' ? { color: '#59C83A' } : undefined}
                 className={`font-sans-bold text-xs ${
@@ -536,7 +527,6 @@ export default function StudentProfileScreen() {
             delay: 150,
           }}
         >
-          {/* Título da Seção em Outfit Bold */}
           <Text className="text-lg font-outfit text-[#1b1b1d] dark:text-white mb-3">
             Configurações
           </Text>
@@ -556,7 +546,6 @@ export default function StudentProfileScreen() {
             >
               <View className="flex-row items-center gap-3">
                 <Bell size={20} color={isDark ? '#ffffff' : '#1b1b1d'} />
-                {/* Título da opção em Outfit SemiBold */}
                 <Text className="font-outfit text-[#1b1b1d] dark:text-white">
                   Notificações
                 </Text>
@@ -578,7 +567,6 @@ export default function StudentProfileScreen() {
             >
               <View className="flex-row items-center gap-3">
                 <Shield size={20} color={isDark ? '#ffffff' : '#1b1b1d'} />
-                {/* Título da opção em Outfit SemiBold */}
                 <Text className="font-outfit text-[#1b1b1d] dark:text-white">
                   Privacidade
                 </Text>
@@ -605,7 +593,6 @@ export default function StudentProfileScreen() {
             activeOpacity={0.8}
           >
             <SignOut size={20} color="#e11d48" />
-            {/* Texto em DM Sans Bold */}
             <Text className="text-[#e11d48] font-sans-bold text-base ml-2">
               Sair da Conta
             </Text>
@@ -613,65 +600,73 @@ export default function StudentProfileScreen() {
         </MotiView>
       </ScrollView>
 
-      {/* 8. MODAL CÓDIGO PERSONAL */}
+      {/* 8. MODAL CÓDIGO PERSONAL (COM SUPORTE A AJUSTE DE TECLADO) */}
       <Modal visible={isLinkModalOpen} animationType="slide" transparent>
-        <View className="flex-1 bg-black/60 justify-end">
-          <View className="bg-white dark:bg-zinc-900 rounded-t-3xl p-6 border-t border-[#e2dfe1] dark:border-zinc-800">
-            <View className="flex-row items-center justify-between mb-4 pb-3 border-b border-[#e2dfe1] dark:border-zinc-800">
-              <View className="flex-row items-center gap-2">
-                <View className="w-9 h-9 rounded-xl bg-[#59C83A]/10 items-center justify-center border border-[#59C83A]/30">
-                  <Key size={20} color="#59C83A" weight="bold" />
-                </View>
-                {/* Título do Modal em Outfit ExtraBold */}
-                <Text className="text-lg font-outfit-extrabold text-[#1b1b1d] dark:text-white">
-                  Código do Personal
-                </Text>
-              </View>
-
-              <TouchableOpacity
-                onPress={() => setIsLinkModalOpen(false)}
-                className="w-8 h-8 rounded-full bg-zinc-100 dark:bg-zinc-800 items-center justify-center"
-              >
-                <X size={18} color={isDark ? '#ffffff' : '#1b1b1d'} />
-              </TouchableOpacity>
-            </View>
-
-            {/* Texto Explicativo em DM Sans Medium */}
-            <Text className="text-xs font-sans-medium text-[#71717a] dark:text-zinc-400 mb-4 leading-5">
-              Peça o código exclusivo de convite ao seu Personal Trainer para permitir a prescrição de suas fichas.
-            </Text>
-
-            {/* Campo de Entrada em Outfit ExtraBold */}
-            <TextInput
-              className="bg-[#f8f9fa] dark:bg-zinc-950 border border-[#e2dfe1] dark:border-zinc-800 rounded-2xl px-4 py-3.5 text-lg font-outfit-extrabold text-[#1b1b1d] dark:text-white tracking-widest uppercase mb-5 text-center"
-              placeholder="PERS-XXXX"
-              placeholderTextColor={isDark ? '#71717a' : '#a09da1'}
-              value={inviteCodeInput}
-              onChangeText={setInviteCodeInput}
-              autoCapitalize="characters"
-              autoCorrect={false}
-            />
-
-            <TouchableOpacity
-              onPress={() => linkMutation.mutate(inviteCodeInput)}
-              disabled={linkMutation.isPending}
-              className="bg-[#59C83A] py-4 rounded-2xl items-center flex-row justify-center mb-2"
-              activeOpacity={0.8}
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <View className="flex-1 bg-black/60 justify-end">
+            <KeyboardAvoidingView
+              behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+              className="w-full"
             >
-              {linkMutation.isPending ? (
-                <ActivityIndicator color="#FFFFFF" size="small" />
-              ) : (
-                <>
-                  <CheckCircle size={20} color="#FFFFFF" weight="bold" />
-                  {/* Texto do Botão em DM Sans Bold */}
-                  <Text className="text-white font-sans-bold text-base ml-2">
-                    Confirmar Vínculo
+              <View className="bg-white dark:bg-zinc-900 rounded-t-3xl p-6 border-t border-[#e2dfe1] dark:border-zinc-800">
+                <ScrollView
+                  showsVerticalScrollIndicator={false}
+                  keyboardShouldPersistTaps="handled"
+                >
+                  <View className="flex-row items-center justify-between mb-4 pb-3 border-b border-[#e2dfe1] dark:border-zinc-800">
+                    <View className="flex-row items-center gap-2">
+                      <View className="w-9 h-9 rounded-xl bg-[#59C83A]/10 items-center justify-center border border-[#59C83A]/30">
+                        <Key size={20} color="#59C83A" weight="bold" />
+                      </View>
+                      <Text className="text-lg font-outfit-extrabold text-[#1b1b1d] dark:text-white">
+                        Código do Personal
+                      </Text>
+                    </View>
+
+                    <TouchableOpacity
+                      onPress={() => setIsLinkModalOpen(false)}
+                      className="w-8 h-8 rounded-full bg-zinc-100 dark:bg-zinc-800 items-center justify-center"
+                    >
+                      <X size={18} color={isDark ? '#ffffff' : '#1b1b1d'} />
+                    </TouchableOpacity>
+                  </View>
+
+                  <Text className="text-xs font-sans-medium text-[#71717a] dark:text-zinc-400 mb-4 leading-5">
+                    Peça o código exclusivo de convite ao seu Personal Trainer para permitir a prescrição de suas fichas.
                   </Text>
-                </>
-              )}
-            </TouchableOpacity>
+
+                  <TextInput
+                    className="bg-[#f8f9fa] dark:bg-zinc-950 border border-[#e2dfe1] dark:border-zinc-800 rounded-2xl px-4 py-3.5 text-lg font-outfit-extrabold text-[#1b1b1d] dark:text-white tracking-widest uppercase mb-5 text-center"
+                    placeholder="PERS-XXXX"
+                    placeholderTextColor={isDark ? '#71717a' : '#a09da1'}
+                    value={inviteCodeInput}
+                    onChangeText={setInviteCodeInput}
+                    autoCapitalize="characters"
+                    autoCorrect={false}
+                  />
+
+                  <TouchableOpacity
+                    onPress={() => linkMutation.mutate(inviteCodeInput)}
+                    disabled={linkMutation.isPending}
+                    className="bg-[#59C83A] py-4 rounded-2xl items-center flex-row justify-center mb-2"
+                    activeOpacity={0.8}
+                  >
+                    {linkMutation.isPending ? (
+                      <ActivityIndicator color="#FFFFFF" size="small" />
+                    ) : (
+                      <>
+                        <CheckCircle size={20} color="#FFFFFF" weight="bold" />
+                        <Text className="text-white font-sans-bold text-base ml-2">
+                          Confirmar Vínculo
+                        </Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                </ScrollView>
+              </View>
+            </KeyboardAvoidingView>
           </View>
-        </View>
+        </TouchableWithoutFeedback>
       </Modal>
 
       {/* 9. COMPONENTE DO MODAL PERSONALIZADO */}
