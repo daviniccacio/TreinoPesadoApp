@@ -1,9 +1,9 @@
 // ============================================================================
-// DOCUMENTAÇÃO: ROOT LAYOUT (COMPATÍVEL COM EXPO SDK 56+)
+// DOCUMENTAÇÃO: ROOT LAYOUT COM ROTEAMENTO POR ROLE E SEGURANÇA (SDK 56+)
 // ============================================================================
-// Gerencia a autenticação com Supabase, fontes customizadas, cache do TanStack Query
-// e aplica o ThemeProvider oficial re-exportado pelo Expo Router para evitar
-// o erro de incompatibilidade com @react-navigation/native.
+// Gerencia a autenticação com Supabase, fontes customizadas, cache do TanStack Query,
+// verificação de bloqueio (is_blocked) e redirecionamento dinâmico baseado na role
+// (admin, personal, aluno).
 // ============================================================================
 
 // 1. Importação do SafeAreaProvider para gestão de áreas seguras
@@ -19,18 +19,17 @@ import '../global.css';
 
 // 4. Importações do React e React Native
 import React, { useEffect, useState } from 'react';
-import { View, ActivityIndicator, useColorScheme } from 'react-native';
+import { View, ActivityIndicator, useColorScheme, Alert } from 'react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
-// 🟢 5. IMPORTAÇÃO UNIFICADA DO EXPO ROUTER (SDK 56+)
-// No SDK 56+, ThemeProvider, DarkTheme e DefaultTheme devem vir diretamente de 'expo-router'
+// 5. Importações do Expo Router
 import {
   Stack,
   useRouter,
   useSegments,
   ThemeProvider,
   DarkTheme,
-  DefaultTheme
+  DefaultTheme,
 } from 'expo-router';
 
 // 6. Assistente SystemUI para alterar a cor da janela nativa do OS
@@ -47,8 +46,8 @@ import {
   DMSans_500Medium,
   DMSans_700Bold,
 } from '@expo-google-fonts/dm-sans';
-import { registerForPushNotificationsAsync } from '../lib/notifications';
 
+import { registerForPushNotificationsAsync } from '../lib/notifications';
 import { supabase } from '../lib/supabase';
 
 // 8. Configuração da instância global do TanStack Query
@@ -62,7 +61,7 @@ const queryClient = new QueryClient({
   },
 });
 
-// 🟢 9. DEFINIÇÃO DOS TEMAS RE-EXPORTADOS PELO EXPO ROUTER
+// 9. DEFINIÇÃO DOS TEMAS RE-EXPORTADOS PELO EXPO ROUTER
 const CustomDarkTheme = {
   ...DarkTheme,
   colors: {
@@ -105,17 +104,22 @@ export default function RootLayout() {
     SystemUI.setBackgroundColorAsync(backgroundColor);
   }, [isDark, backgroundColor]);
 
-  // Validação de sessão no Supabase
+  // Validação inicial da sessão no Supabase
   useEffect(() => {
     async function validateAuthOnServer() {
       try {
-        const { data: { user }, error } = await supabase.auth.getUser();
+        const {
+          data: { user },
+          error,
+        } = await supabase.auth.getUser();
 
         if (error || !user) {
           await supabase.auth.signOut();
           setSession(null);
         } else {
-          const { data: { session: validSession } } = await supabase.auth.getSession();
+          const {
+            data: { session: validSession },
+          } = await supabase.auth.getSession();
           setSession(validSession);
         }
       } catch (err) {
@@ -144,28 +148,77 @@ export default function RootLayout() {
     };
   }, []);
 
+  // Registro de Push Notifications para o usuário logado
   useEffect(() => {
-      if (session?.user?.id) {
-        registerForPushNotificationsAsync(session.user.id);
-      }
-    }, [session]);
+    if (session?.user?.id) {
+      registerForPushNotificationsAsync(session.user.id);
+    }
+  }, [session]);
 
-  // Proteção Global de Rotas
+  // PROTEÇÃO GLOBAL DE ROTAS E DIRECIONAMENTO POR ROLE
   useEffect(() => {
     if (!isReady || (!fontsLoaded && !fontError)) return;
 
-    const inAppGroup = segments[0] === '(app)';
-    const inAuthGroup = segments[0] === '(auth)';
+    async function handleNavigation() {
+      // 🟢 CORREÇÃO TS2493: Cast de segments para string[] evita o erro de tupla do TypeScript
+      const routeSegments = segments as string[];
+      const rootGroup = routeSegments[0]; // '(app)' ou '(auth)'
+      const subGroup = routeSegments[1];  // '(admin)', '(personal)', '(aluno)'
 
-    if (session) {
-      if (!inAppGroup) {
-        router.replace('/(app)');
+      // 1. CASO NÃO HAJA SESSÃO ATIVA
+      if (!session) {
+        if (rootGroup !== '(auth)') {
+          router.replace('/(auth)/login');
+        }
+        return;
       }
-    } else {
-      if (!inAuthGroup) {
-        router.replace('/(auth)/login');
+
+      // 2. CONSULTA PERFIL, ROLE E STATUS DE BLOQUEIO NO SUPABASE
+      try {
+        const { data: profile, error } = await supabase
+          .from('profiles')
+          .select('role, is_blocked')
+          .eq('id', session.user.id)
+          .single();
+
+        if (error || !profile) {
+          console.error('Erro ao verificar perfil do usuário:', error?.message);
+          return;
+        }
+
+        // 3. SE O USUÁRIO ESTIVER BLOQUEADO
+        if (profile.is_blocked) {
+          await supabase.auth.signOut();
+          setSession(null);
+          Alert.alert(
+            'Acesso Suspenso',
+            'Sua conta foi bloqueada pelo administrador do sistema.'
+          );
+          router.replace('/(auth)/login');
+          return;
+        }
+
+        // 4. DIRECIONAMENTO COM BASE NA ROLE
+        if (profile.role === 'admin') {
+          if (rootGroup !== '(app)' || subGroup !== '(admin)') {
+            router.replace('/(app)/(admin)' as any);
+          }
+        } else if (profile.role === 'personal') {
+          if (rootGroup !== '(app)' || subGroup !== '(personal)') {
+            router.replace('/(app)/(personal)' as any);
+          }
+        } else {
+          // Padrão: Aluno
+          if (rootGroup !== '(app)' || subGroup !== '(aluno)') {
+            router.replace('/(app)/(aluno)' as any);
+          }
+        }
+      } catch (err) {
+        console.error('Erro ao processar redirecionamento por perfil:', err);
       }
     }
+
+    handleNavigation();
   }, [session, isReady, fontsLoaded, fontError, segments]);
 
   if (!isReady || (!fontsLoaded && !fontError)) {
@@ -180,7 +233,6 @@ export default function RootLayout() {
     <View style={{ flex: 1, backgroundColor }}>
       <QueryClientProvider client={queryClient}>
         <SafeAreaProvider style={{ flex: 1, backgroundColor }}>
-          {/* ThemeProvider importado diretamente de 'expo-router' */}
           <ThemeProvider value={isDark ? CustomDarkTheme : CustomLightTheme}>
             <Stack
               screenOptions={{
