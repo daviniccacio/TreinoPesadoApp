@@ -1,8 +1,8 @@
 // ============================================================================
 // DOCUMENTAÇÃO: PAINEL DE GESTÃO ADMINISTRATIVA (ADMIN DASHBOARD)
 // ============================================================================
-// Lista todos os alunos/usuários do aplicativo, exibe estatísticas gerais e
-// permite ao Administrador alterar o status de acesso (Ativo/Bloqueado).
+// Lista todos os usuários, exibe estatísticas gerais e permite ao Administrador
+// alterar o status de acesso (Ativo/Bloqueado) com layout responsivo.
 // ============================================================================
 
 import React, { useState } from 'react';
@@ -17,11 +17,12 @@ import {
   useColorScheme,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+// 🟢 CORREÇÃO: Importado 'UserMinus' no lugar de 'UserX' para evitar 'undefined.displayName'
 import {
   MagnifyingGlass,
   Users,
   ShieldCheck,
-  User,
+  UserMinus,
   UserCheck,
   SignOut,
   X,
@@ -181,7 +182,8 @@ export default function AdminDashboardScreen() {
         </View>
 
         <View className="flex-1 bg-[#f8f9fa] dark:bg-zinc-900 p-3.5 rounded-2xl border border-[#e2dfe1] dark:border-zinc-800 items-center">
-          <User size={20} color="#ef4444" />
+          {/* 🟢 SUBSTUITUÍDO UserX POR UserMinus */}
+          <UserMinus size={20} color="#ef4444" />
           <Text className="text-lg font-outfit-extrabold text-[#1b1b1d] dark:text-white mt-1">
             {blockedUsers}
           </Text>
@@ -228,17 +230,21 @@ export default function AdminDashboardScreen() {
           }
           renderItem={({ item }) => (
             <View
-              className={`p-4 rounded-2xl mb-3 border flex-row items-center justify-between ${
+              className={`p-4 rounded-2xl mb-3 border flex-row items-center justify-between gap-3 ${
                 item.is_blocked
                   ? 'bg-red-500/10 border-red-500/30'
                   : 'bg-[#f8f9fa] dark:bg-zinc-900 border-[#e2dfe1] dark:border-zinc-800'
               }`}
             >
-              <View className="flex-1 mr-2">
-                <View className="flex-row items-center gap-2 mb-0.5">
-                  <Text className="text-sm font-outfit-bold text-[#1b1b1d] dark:text-white">
+              <View className="flex-1 min-w-0 mr-1">
+                <View className="flex-row flex-wrap items-center gap-1.5 mb-1">
+                  <Text
+                    className="text-sm font-outfit-bold text-[#1b1b1d] dark:text-white shrink"
+                    numberOfLines={1}
+                  >
                     {item.full_name}
                   </Text>
+                  
                   <View
                     className={`px-2 py-0.5 rounded-full ${
                       item.role === 'admin'
@@ -255,15 +261,21 @@ export default function AdminDashboardScreen() {
                 </View>
 
                 <Text className="text-[11px] font-sans-medium text-[#71717a] dark:text-zinc-400">
-                  Status: {item.is_blocked ? '🔴 Bloqueado' : '🟢 Ativo'}
+                  Status:{' '}
+                  <Text
+                    className={`font-sans-bold ${
+                      item.is_blocked ? 'text-red-500' : 'text-emerald-500'
+                    }`}
+                  >
+                    {item.is_blocked ? 'Bloqueado' : 'Ativo'}
+                  </Text>
                 </Text>
               </View>
 
-              {/* Botão de Ação: Bloquear / Desbloquear */}
               {item.role !== 'admin' && (
                 <TouchableOpacity
                   onPress={() => setSelectedUser(item)}
-                  className={`px-3 py-2 rounded-xl flex-row items-center gap-1.5 ${
+                  className={`px-3 py-2 rounded-xl flex-row items-center gap-1.5 shrink-0 ${
                     item.is_blocked ? 'bg-emerald-600' : 'bg-red-500'
                   }`}
                 >
@@ -278,7 +290,7 @@ export default function AdminDashboardScreen() {
         />
       )}
 
-      {/* 5. MODAL DE CONFIRMAÇÃO DE ALTERAÇÃO DE DE STATUS */}
+      {/* 5. MODAL DE CONFIRMAÇÃO DE ALTERAÇÃO DE STATUS */}
       {selectedUser && (
         <CustomModal
           visible={!!selectedUser}
