@@ -320,7 +320,7 @@ export default function RegisterScreen() {
                   resizeMode="contain"
                 />
               </View>
-              <Text className="font-dmsans-bold text-[11px] uppercase tracking-[2px] text-zinc-400">
+              <Text className="font-sans-bold text-[11px] uppercase tracking-[2px] text-zinc-400">
                 Treino Pesado · Academia
               </Text>
             </View>
@@ -341,7 +341,7 @@ export default function RegisterScreen() {
                 >
                   sua jornada.
                 </Text>
-                <Text className="font-dmsans-medium text-sm text-zinc-400">
+                <Text className="font-sans-medium text-sm text-zinc-400">
                   Crie sua conta em menos de 1 minuto.
                 </Text>
               </MotiView>
@@ -361,7 +361,7 @@ export default function RegisterScreen() {
             style={{ paddingBottom: safeBottomPadding }}
           >
             {/* Seleção de Tipo de Conta */}
-            <Text className="font-dmsans-bold text-xs uppercase tracking-wider text-[#71717a] dark:text-zinc-400 mb-2 ml-1">
+            <Text className="font-sans-bold text-xs uppercase tracking-wider text-[#71717a] dark:text-zinc-400 mb-2 ml-1">
               Tipo de conta
             </Text>
             <View className="flex-row gap-3 mb-5">
@@ -379,7 +379,7 @@ export default function RegisterScreen() {
                   weight={role === "aluno" ? "bold" : "regular"}
                 />
                 <Text
-                  className={`font-dmsans-bold text-xs ml-2 ${
+                  className={`font-sans-bold text-xs ml-2 ${
                     role === "aluno"
                       ? "text-[#59C83A]"
                       : "text-[#71717a] dark:text-zinc-400"
@@ -403,7 +403,7 @@ export default function RegisterScreen() {
                   weight={role === "personal" ? "bold" : "regular"}
                 />
                 <Text
-                  className={`font-dmsans-bold text-xs ml-2 ${
+                  className={`font-sans-bold text-xs ml-2 ${
                     role === "personal"
                       ? "text-[#59C83A]"
                       : "text-[#71717a] dark:text-zinc-400"
@@ -416,7 +416,7 @@ export default function RegisterScreen() {
 
             {/* Campo Nome */}
             <View className="mb-3">
-              <Text className="font-dmsans-bold text-xs uppercase tracking-wider text-[#71717a] dark:text-zinc-400 mb-2 ml-1">
+              <Text className="font-sans-bold text-xs uppercase tracking-wider text-[#71717a] dark:text-zinc-400 mb-2 ml-1">
                 Nome completo
               </Text>
               <View className="flex-row items-center bg-[#f8f9fa] dark:bg-zinc-900 rounded-2xl pl-2 pr-4 py-2 border border-[#e2dfe1] dark:border-zinc-800">
@@ -427,7 +427,7 @@ export default function RegisterScreen() {
                   <User size={18} color={BRAND_GREEN} weight="bold" />
                 </View>
                 <TextInput
-                  className="font-dmsans-medium flex-1 text-[#1b1b1d] dark:text-white text-base"
+                  className="font-sans-medium flex-1 text-[#1b1b1d] dark:text-white text-base"
                   placeholder="Seu nome"
                   placeholderTextColor={isDark ? '#71717a' : '#a09da1'}
                   value={name}
@@ -438,7 +438,7 @@ export default function RegisterScreen() {
 
             {/* Campo E-mail */}
             <View className="mb-3">
-              <Text className="font-dmsans-bold text-xs uppercase tracking-wider text-[#71717a] dark:text-zinc-400 mb-2 ml-1">
+              <Text className="font-sans-bold text-xs uppercase tracking-wider text-[#71717a] dark:text-zinc-400 mb-2 ml-1">
                 E-mail
               </Text>
               <View className="flex-row items-center bg-[#f8f9fa] dark:bg-zinc-900 rounded-2xl pl-2 pr-4 py-2 border border-[#e2dfe1] dark:border-zinc-800">
@@ -449,7 +449,7 @@ export default function RegisterScreen() {
                   <EnvelopeSimple size={18} color={BRAND_GREEN} weight="bold" />
                 </View>
                 <TextInput
-                  className="font-dmsans-medium flex-1 text-[#1b1b1d] dark:text-white text-base"
+                  className="font-sans-medium flex-1 text-[#1b1b1d] dark:text-white text-base"
                   placeholder="seu.email@exemplo.com"
                   placeholderTextColor={isDark ? '#71717a' : '#a09da1'}
                   value={email}
@@ -462,7 +462,7 @@ export default function RegisterScreen() {
 
             {/* Campo Senha */}
             <View className="mb-1">
-              <Text className="font-dmsans-bold text-xs uppercase tracking-wider text-[#71717a] dark:text-zinc-400 mb-2 ml-1">
+              <Text className="font-sans-bold text-xs uppercase tracking-wider text-[#71717a] dark:text-zinc-400 mb-2 ml-1">
                 Senha
               </Text>
               <View className="flex-row items-center bg-[#f8f9fa] dark:bg-zinc-900 rounded-2xl pl-2 pr-4 py-2 border border-[#e2dfe1] dark:border-zinc-800">
@@ -473,7 +473,7 @@ export default function RegisterScreen() {
                   <LockSimple size={18} color={BRAND_GREEN} weight="bold" />
                 </View>
                 <TextInput
-                  className="font-dmsans-medium flex-1 text-[#1b1b1d] dark:text-white text-base"
+                  className="font-sans-medium flex-1 text-[#1b1b1d] dark:text-white text-base"
                   placeholder="Sua senha"
                   placeholderTextColor={isDark ? '#71717a' : '#a09da1'}
                   value={password}
@@ -489,7 +489,7 @@ export default function RegisterScreen() {
                 </TouchableOpacity>
               </View>
             </View>
-            <Text className="font-dmsans text-[11px] text-[#71717a] dark:text-zinc-500 ml-1 mb-6">
+            <Text className="font-sans text-[11px] text-[#71717a] dark:text-zinc-500 ml-1 mb-6">
               Mín. 8 caracteres, 1 maiúscula, 1 número e 1 caractere especial.
             </Text>
 
@@ -525,9 +525,9 @@ export default function RegisterScreen() {
               onPress={() => router.replace("/(auth)/login")}
               className="items-center py-4 mt-2"
             >
-              <Text className="font-dmsans text-sm text-[#71717a] dark:text-zinc-400">
+              <Text className="font-sans text-sm text-[#71717a] dark:text-zinc-400">
                 Já possui uma conta?{" "}
-                <Text style={{ color: BRAND_GREEN }} className="font-dmsans-bold">
+                <Text style={{ color: BRAND_GREEN }} className="font-sans-bold">
                   Faça Login
                 </Text>
               </Text>

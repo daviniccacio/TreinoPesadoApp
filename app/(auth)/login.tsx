@@ -1,3 +1,11 @@
+// ============================================================================
+// DOCUMENTAÇÃO: TELA DE LOGIN COM MODAL DE RECUPERAÇÃO RESPONSIVO AO TECLADO
+// ============================================================================
+// Tela de autenticação com validação de credenciais, animação de marca Moti,
+// suporte ao modo escuro/claro e Modal de redefinição de senha totalmente
+// ajustado para não ser coberto pelo teclado virtual no Android e iOS.
+// ============================================================================
+
 import React, { useState } from 'react';
 import {
   View,
@@ -11,6 +19,8 @@ import {
   useColorScheme,
   Image,
   Modal,
+  TouchableWithoutFeedback,
+  Keyboard,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -30,10 +40,10 @@ import { useThrottledCallback } from '../../lib/useThrottle';
 import { CustomModal } from '../../components/CustomModal';
 
 const BRAND_GREEN = '#59C83A';
-const BRAND_GREEN_DEEP = '#2F7A16'; // tom mais escuro, usado na sombra interna do disco
+const BRAND_GREEN_DEEP = '#2F7A16';
 const HERO_BG = '#0F1F0A';
 
-/** Anel de pulso animado — mais fino e mais lento que a v1, pra ficar sutil, não "chamativo". */
+/** Anel de pulso animado para a marca */
 function PulseRing({ delay = 0, size = 96 }: { delay?: number; size?: number }) {
   return (
     <MotiView
@@ -52,15 +62,10 @@ function PulseRing({ delay = 0, size = 96 }: { delay?: number; size?: number }) 
   );
 }
 
-/**
- * Selo/badge premium do hero: disco com profundidade (brilho + sombra simulados
- * via Views sobrepostas, sem precisar de lib de gradiente) + glow permanente
- * atrás, para não depender só da animação de pulso pra parecer "intencional".
- */
+/** Selo de energia da marca */
 function EnergyBadge() {
   return (
     <View className="items-center justify-center" style={{ width: 100, height: 100 }}>
-      {/* Glow permanente — auréola constante atrás do disco */}
       <View
         style={{
           position: 'absolute',
@@ -85,7 +90,6 @@ function EnergyBadge() {
       <PulseRing size={72} delay={0} />
       <PulseRing size={72} delay={1400} />
 
-      {/* Disco principal */}
       <View
         style={{
           width: 60,
@@ -104,7 +108,6 @@ function EnergyBadge() {
           elevation: 6,
         }}
       >
-        {/* Sombra interna, dá profundidade na base do disco */}
         <View
           style={{
             position: 'absolute',
@@ -116,7 +119,6 @@ function EnergyBadge() {
             opacity: 0.55,
           }}
         />
-        {/* Brilho especular, canto superior esquerdo — simula reflexo de vidro/metal */}
         <View
           style={{
             position: 'absolute',
@@ -328,10 +330,7 @@ export default function LoginScreen() {
           showsVerticalScrollIndicator={false}
           bounces={false}
         >
-          {/* ============================================================ */}
-          {/* HERO EDITORIAL — tipografia grande + ícone com pulso animado  */}
-          {/* Corte assimétrico embaixo (em vez do arredondado padrão)     */}
-          {/* ============================================================ */}
+          {/* HERO EDITORIAL */}
           <View
             style={{
               backgroundColor: HERO_BG,
@@ -341,7 +340,6 @@ export default function LoginScreen() {
             }}
             className="pb-10 px-6 overflow-hidden"
           >
-            {/* Faixa diagonal de marca — dá sensação de movimento/velocidade */}
             <View
               style={{
                 position: 'absolute',
@@ -355,7 +353,6 @@ export default function LoginScreen() {
               }}
             />
 
-            {/* Selo de marca — pequeno, discreto, canto superior esquerdo */}
             <View className="flex-row items-center mb-8">
               <View className="w-8 h-8 rounded-full bg-white items-center justify-center overflow-hidden mr-2">
                 <Image
@@ -369,7 +366,6 @@ export default function LoginScreen() {
               </Text>
             </View>
 
-            {/* Headline + ícone com pulso, em composição assimétrica */}
             <View className="flex-row items-center justify-between">
               <MotiView
                 from={{ opacity: 0, translateY: -10 }}
@@ -395,9 +391,7 @@ export default function LoginScreen() {
             </View>
           </View>
 
-          {/* ============================================================ */}
-          {/* FORMULÁRIO                                                    */}
-          {/* ============================================================ */}
+          {/* FORMULÁRIO */}
           <MotiView
             from={{ opacity: 0, translateY: 12 }}
             animate={{ opacity: 1, translateY: 0 }}
@@ -515,55 +509,72 @@ export default function LoginScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* MODAL DE REDEFINIÇÃO DE SENHA */}
-      <Modal visible={modalVisible} transparent animationType="slide">
-        <View className="flex-1 bg-black/60 justify-end">
-          <View className="bg-white dark:bg-zinc-900 rounded-t-3xl p-6 border-t border-[#e2dfe1] dark:border-zinc-800">
-            <View className="flex-row items-center justify-between mb-4">
-              <Text className="font-outfit text-lg text-[#1b1b1d] dark:text-white">
-                Redefinir Senha
-              </Text>
-              <TouchableOpacity
-                onPress={() => setModalVisible(false)}
-                className="w-8 h-8 rounded-full bg-zinc-100 dark:bg-zinc-800 items-center justify-center"
-              >
-                <X size={18} color={isDark ? '#ffffff' : '#1b1b1d'} />
-              </TouchableOpacity>
+      {/* 🟢 MODAL DE REDEFINIÇÃO DE SENHA AJUSTADO PARA O TECLADO */}
+      <Modal
+        visible={modalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={{ flex: 1 }}
+        >
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+            <View className="flex-1 bg-black/60 justify-end">
+              <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
+                <View
+                  className="bg-white dark:bg-zinc-900 rounded-3xl p-6 border-t border-[#e2dfe1] dark:border-zinc-800"
+                  style={{ paddingBottom: Math.max(safeBottomPadding + 10, 24) }}
+                >
+                  <View className="flex-row items-center justify-between mb-4">
+                    <Text className="font-outfit text-lg text-[#1b1b1d] dark:text-white">
+                      Redefinir Senha
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => setModalVisible(false)}
+                      className="w-8 h-8 rounded-full bg-zinc-100 dark:bg-zinc-800 items-center justify-center"
+                    >
+                      <X size={18} color={isDark ? '#ffffff' : '#1b1b1d'} />
+                    </TouchableOpacity>
+                  </View>
+
+                  <Text className="font-sans-medium text-xs text-[#71717a] dark:text-zinc-400 mb-4 leading-5">
+                    Digite o seu e-mail cadastrado. Enviaremos um link seguro para você criar uma nova senha.
+                  </Text>
+
+                  <View className="flex-row items-center bg-[#f8f9fa] dark:bg-zinc-950 rounded-2xl px-4 py-3.5 border border-[#e2dfe1] dark:border-zinc-800 mb-5">
+                    <EnvelopeSimple size={20} color={isDark ? BRAND_GREEN : '#414755'} />
+                    <TextInput
+                      className="font-sans-medium flex-1 ml-3 text-[#1b1b1d] dark:text-white text-base"
+                      placeholder="seu.email@exemplo.com"
+                      placeholderTextColor={isDark ? '#71717a' : '#a09da1'}
+                      value={resetEmail}
+                      onChangeText={setResetEmail}
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                    />
+                  </View>
+
+                  <TouchableOpacity
+                    onPress={handleResetPasswordThrottled}
+                    disabled={resetLoading}
+                    style={{ backgroundColor: BRAND_GREEN }}
+                    className="py-3.5 rounded-2xl items-center shadow-md mb-2"
+                  >
+                    {resetLoading ? (
+                      <ActivityIndicator color="#ffffff" />
+                    ) : (
+                      <Text className="font-outfit text-white text-base">
+                        Enviar E-mail de Recuperação
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </TouchableWithoutFeedback>
             </View>
-
-            <Text className="font-sans-medium text-xs text-[#71717a] dark:text-zinc-400 mb-4 leading-5">
-              Digite o seu e-mail cadastrado. Enviaremos um link seguro para você criar uma nova senha.
-            </Text>
-
-            <View className="flex-row items-center bg-[#f8f9fa] dark:bg-zinc-950 rounded-2xl px-4 py-3.5 border border-[#e2dfe1] dark:border-zinc-800 mb-5">
-              <EnvelopeSimple size={20} color={isDark ? BRAND_GREEN : '#414755'} />
-              <TextInput
-                className="font-sans-medium flex-1 ml-3 text-[#1b1b1d] dark:text-white text-base"
-                placeholder="seu.email@exemplo.com"
-                placeholderTextColor={isDark ? '#71717a' : '#a09da1'}
-                value={resetEmail}
-                onChangeText={setResetEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-              />
-            </View>
-
-            <TouchableOpacity
-              onPress={handleResetPasswordThrottled}
-              disabled={resetLoading}
-              style={{ backgroundColor: BRAND_GREEN }}
-              className="py-3.5 rounded-2xl items-center shadow-md mb-2"
-            >
-              {resetLoading ? (
-                <ActivityIndicator color="#ffffff" />
-              ) : (
-                <Text className="font-outfit text-white text-base">
-                  Enviar E-mail de Recuperação
-                </Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
+          </TouchableWithoutFeedback>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* MODAL DE ALERTA PERSONALIZADO */}
