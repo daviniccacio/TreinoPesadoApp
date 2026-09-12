@@ -2,7 +2,7 @@
 // DOCUMENTAÇÃO: TELA DE FREQUÊNCIA DE TREINOS (PERSONAL TRAINER)
 // ============================================================================
 // Apresenta o histórico de assiduidade e métricas semanais dos alunos
-// vinculados ao Personal com tipografia padronizada e MotiView animations.
+// vinculados ao Personal com busca segura em duas etapas e MotiView animations.
 // ============================================================================
 
 import React, { useMemo } from 'react';
@@ -36,14 +36,14 @@ interface AttendanceLog {
   duration_seconds?: number;
   profiles: {
     full_name: string;
-    personal_id?: string;
   } | null;
 }
 
 /**
- * Busca o histórico de frequência dos alunos vinculados ao Personal logado
+ * Busca com segurança o histórico de frequência dos alunos vinculados ao Personal logado
  */
 async function fetchAttendanceLogs(): Promise<AttendanceLog[]> {
+  // 1. Obter o usuário autenticado atual
   const {
     data: { user },
     error: authError,
@@ -53,6 +53,26 @@ async function fetchAttendanceLogs(): Promise<AttendanceLog[]> {
     return [];
   }
 
+  // 🟢 2. ETAPA 1: Buscar os IDs de todos os alunos vinculados a este Personal Trainer
+  const { data: linkedStudents, error: studentsError } = await supabase
+    .from('profiles')
+    .select('id')
+    .eq('personal_id', user.id);
+
+  if (studentsError) {
+    console.error('Erro ao buscar alunos vinculados:', studentsError.message);
+    throw new Error('Não foi possível identificar seus alunos vinculados.');
+  }
+
+  // Se não houver alunos vinculados ao Personal, retorna lista vazia imediatamente
+  if (!linkedStudents || linkedStudents.length === 0) {
+    return [];
+  }
+
+  // Extrai apenas os IDs dos alunos em um array de strings
+  const studentIds = linkedStudents.map((student) => student.id);
+
+  // 🟢 3. ETAPA 2: Buscar os logs de treinos FILTRANDO estritamente pelos IDs dos meus alunos
   const { data, error } = await supabase
     .from('workout_logs')
     .select(
@@ -62,13 +82,12 @@ async function fetchAttendanceLogs(): Promise<AttendanceLog[]> {
       student_id,
       workout_title,
       duration_seconds,
-      profiles!inner (
-        full_name,
-        personal_id
+      profiles (
+        full_name
       )
     `
     )
-    .eq('profiles.personal_id', user.id)
+    .in('student_id', studentIds)
     .order('created_at', { ascending: false });
 
   if (error) {
@@ -149,7 +168,7 @@ export default function PersonalAttendanceScreen() {
   function renderHeader() {
     return (
       <View className="mb-4">
-        {/* TITULO ANIMADO */}
+        {/* TÍTULO ANIMADO */}
         <MotiView
           from={{ opacity: 0, translateY: -12 }}
           animate={{ opacity: 1, translateY: 0 }}
@@ -159,11 +178,9 @@ export default function PersonalAttendanceScreen() {
             stiffness: 160,
           }}
         >
-          {/* Título com Outfit ExtraBold */}
           <Text className="text-2xl font-outfit-extrabold text-[#1b1b1d] dark:text-white">
             Frequência de Treinos
           </Text>
-          {/* Subtítulo com DM Sans Medium */}
           <Text className="text-xs font-sans-medium text-[#71717a] dark:text-zinc-400 mt-0.5 mb-5">
             Acompanhamento em tempo real da assiduidade dos seus alunos
           </Text>
@@ -185,11 +202,9 @@ export default function PersonalAttendanceScreen() {
             <View className="w-8 h-8 rounded-xl bg-[#59C83A]/10 items-center justify-center mb-2 border border-[#59C83A]/30">
               <UserCheck size={18} color="#59C83A" weight="bold" />
             </View>
-            {/* Número em Outfit ExtraBold */}
             <Text className="text-2xl font-outfit-extrabold text-[#1b1b1d] dark:text-white">
               {weeklyStats.activeStudentsCount}
             </Text>
-            {/* Rótulo em DM Sans Bold */}
             <Text className="text-[11px] font-sans-bold text-[#71717a] dark:text-zinc-400 mt-0.5">
               Alunos Ativos (Semana)
             </Text>
@@ -199,18 +214,16 @@ export default function PersonalAttendanceScreen() {
             <View className="w-8 h-8 rounded-xl bg-[#59C83A]/10 items-center justify-center mb-2 border border-[#59C83A]/30">
               <TrendUp size={18} color="#59C83A" weight="bold" />
             </View>
-            {/* Número em Outfit ExtraBold */}
             <Text className="text-2xl font-outfit-extrabold text-[#1b1b1d] dark:text-white">
               {weeklyStats.workoutsThisWeekCount}
             </Text>
-            {/* Rótulo em DM Sans Bold */}
             <Text className="text-[11px] font-sans-bold text-[#71717a] dark:text-zinc-400 mt-0.5">
               Treinos nesta Semana
             </Text>
           </View>
         </MotiView>
 
-        {/* Título da Seção em Outfit Bold */}
+        {/* TÍTULO DA SEÇÃO */}
         <Text className="text-sm font-outfit text-[#1b1b1d] dark:text-white mb-1">
           Últimos Treinos Finalizados ({logs.length})
         </Text>
@@ -247,7 +260,7 @@ export default function PersonalAttendanceScreen() {
           keyExtractor={(item) => item.id}
           showsVerticalScrollIndicator={false}
           ListHeaderComponent={renderHeader}
-          contentContainerStyle={{ paddingBottom: 120 }} // 🟢 Espaço suficiente para a Navbar Flutuante
+          contentContainerStyle={{ paddingBottom: 120 }}
           refreshControl={
             <RefreshControl
               refreshing={isRefetching}
@@ -289,7 +302,6 @@ export default function PersonalAttendanceScreen() {
             >
               <View className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl mb-3 border border-[#e2dfe1] dark:border-zinc-800">
                 <View className="flex-row items-center justify-between mb-1.5">
-                  {/* Nome do Aluno com Outfit SemiBold */}
                   <Text
                     className="text-base font-outfit text-[#1b1b1d] dark:text-white flex-1 mr-2"
                     numberOfLines={1}
@@ -297,7 +309,6 @@ export default function PersonalAttendanceScreen() {
                     {item.profiles?.full_name || 'Aluno Não Identificado'}
                   </Text>
 
-                  {/* Badge de Status com DM Sans Bold */}
                   <View className="bg-[#59C83A]/10 border border-[#59C83A]/30 px-2.5 py-0.5 rounded-full flex-row items-center">
                     <CheckCircle size={12} color="#59C83A" weight="bold" />
                     <Text className="text-[10px] font-sans-bold text-[#59C83A] ml-1">
@@ -306,13 +317,11 @@ export default function PersonalAttendanceScreen() {
                   </View>
                 </View>
 
-                {/* Nome do Treino com DM Sans Bold */}
                 <Text className="text-xs text-[#59C83A] font-sans-bold mb-2">
                   {item.workout_title || 'Treino Finalizado'}
                 </Text>
 
                 <View className="flex-row items-center justify-between pt-2 border-t border-[#e2dfe1] dark:border-zinc-800/80">
-                  {/* Data em DM Sans Medium */}
                   <Text className="text-[11px] font-sans-medium text-[#71717a] dark:text-zinc-400">
                     {formatDate(item.created_at)}
                   </Text>
@@ -320,7 +329,6 @@ export default function PersonalAttendanceScreen() {
                   {item.duration_seconds ? (
                     <View className="flex-row items-center bg-white dark:bg-zinc-950 px-2 py-0.5 rounded-md border border-[#e2dfe1] dark:border-zinc-800">
                       <Clock size={11} color="#59C83A" weight="bold" />
-                      {/* Duração em DM Sans Bold */}
                       <Text className="text-[10px] font-sans-bold text-[#1b1b1d] dark:text-white ml-1">
                         {formatDuration(item.duration_seconds)}
                       </Text>

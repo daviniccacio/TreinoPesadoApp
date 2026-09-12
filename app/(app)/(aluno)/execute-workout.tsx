@@ -37,7 +37,6 @@ import { supabase } from "../../../lib/supabase";
 import { useThrottledCallback } from "../../../lib/useThrottle";
 import { CustomModal } from "../../../components/CustomModal";
 import { sendNotificationToUser } from "../../../lib/notifications";
-
 // --- TIPAGENS DE DADOS ---
 interface ExerciseItem {
   id: string;

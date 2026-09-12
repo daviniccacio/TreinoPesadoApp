@@ -2,8 +2,8 @@
 // DOCUMENTAÇÃO: ROOT LAYOUT COM ROTEAMENTO POR ROLE E SEGURANÇA (SDK 56+)
 // ============================================================================
 // Gerencia a autenticação com Supabase, fontes customizadas, cache do TanStack Query,
-// verificação de bloqueio (is_blocked) e redirecionamento dinâmico baseado na role
-// (admin, personal, aluno).
+// verificação de bloqueio (is_blocked), suporte à redefinição de senha e
+// redirecionamento dinâmico baseado na role (admin, personal, aluno).
 // ============================================================================
 
 // 1. Importação do SafeAreaProvider para gestão de áreas seguras
@@ -134,6 +134,14 @@ export default function RootLayout() {
 
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, currentSession) => {
+        // 🟢 CAPTURA O EVENTO DE RECUPERAÇÃO DE SENHA E REDIRECIONA PARA A TELA DE RESET
+        if (event === 'PASSWORD_RECOVERY') {
+          setSession(currentSession);
+          setIsReady(true);
+          router.replace('/(auth)/reset-password' as any);
+          return;
+        }
+
         if (event === 'SIGNED_OUT' || !currentSession) {
           setSession(null);
         } else {
@@ -160,10 +168,14 @@ export default function RootLayout() {
     if (!isReady || (!fontsLoaded && !fontError)) return;
 
     async function handleNavigation() {
-      // 🟢 CORREÇÃO TS2493: Cast de segments para string[] evita o erro de tupla do TypeScript
       const routeSegments = segments as string[];
       const rootGroup = routeSegments[0]; // '(app)' ou '(auth)'
       const subGroup = routeSegments[1];  // '(admin)', '(personal)', '(aluno)'
+
+      // 🟢 CORREÇÃO CRÍTICA: Se a rota atual for 'reset-password', não executa os redirecionamentos automáticos
+      if (routeSegments.includes('reset-password')) {
+        return;
+      }
 
       // 1. CASO NÃO HAJA SESSÃO ATIVA
       if (!session) {
