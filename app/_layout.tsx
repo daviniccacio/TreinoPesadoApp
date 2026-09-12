@@ -105,6 +105,13 @@ export default function RootLayout() {
   }, [isDark, backgroundColor]);
 
   // Validação inicial da sessão no Supabase
+  // ============================================================================
+  // DOCUMENTAÇÃO: ATUALIZAÇÃO DO OUVINTE DE AUTENTICAÇÃO COM LIMPEZA DE CACHE
+  // ============================================================================
+  // Adiciona a instrução 'queryClient.clear()' para apagar os dados em memória
+  // da conta anterior sempre que houver mudança de sessão/login.
+  // ============================================================================
+
   useEffect(() => {
     async function validateAuthOnServer() {
       try {
@@ -115,6 +122,7 @@ export default function RootLayout() {
 
         if (error || !user) {
           await supabase.auth.signOut();
+          queryClient.clear(); // 🟢 Limpa o cache caso o usuário não seja válido
           setSession(null);
         } else {
           const {
@@ -124,6 +132,7 @@ export default function RootLayout() {
         }
       } catch (err) {
         console.error('Erro ao validar autenticação:', err);
+        queryClient.clear();
         setSession(null);
       } finally {
         setIsReady(true);
@@ -134,7 +143,9 @@ export default function RootLayout() {
 
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, currentSession) => {
-        // 🟢 CAPTURA O EVENTO DE RECUPERAÇÃO DE SENHA E REDIRECIONA PARA A TELA DE RESET
+        // 🟢 LIMPEZA CRÍTICA: Esvazia todo o cache do TanStack Query a cada troca de estado de auth
+        queryClient.clear();
+
         if (event === 'PASSWORD_RECOVERY') {
           setSession(currentSession);
           setIsReady(true);
