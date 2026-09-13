@@ -1,9 +1,8 @@
 // ============================================================================
-// DOCUMENTAÇÃO: TELA DE LOGIN COM MODAL DE RECUPERAÇÃO RESPONSIVO AO TECLADO
+// DOCUMENTAÇÃO: TELA DE LOGIN COM TRANSIÇÃO SEGURA DE MODAIS (SDK 56+)
 // ============================================================================
-// Tela de autenticação com validação de credenciais, animação de marca Moti,
-// suporte ao modo escuro/claro e Modal de redefinição de senha totalmente
-// ajustado para não ser coberto pelo teclado virtual no Android e iOS.
+// Garante o fechamento sequencial dos modais para evitar sobreposição invisível
+// e realiza a validação de permissão de Administrador antes do envio de e-mail.
 // ============================================================================
 
 import React, { useState } from 'react';
@@ -260,54 +259,91 @@ export default function LoginScreen() {
     }
   }
 
+  // 🟢 FUNÇÃO DE RECUPERAÇÃO DE SENHA COM FECHAMENTO SEQUENCIAL GARANTIDO
   async function handleResetPassword() {
-    if (!resetEmail.trim()) {
-      showAlertModal({
-        title: 'Atenção',
-        message: 'Informe o seu e-mail para receber o link de redefinição.',
-        type: 'info',
-      });
+    const cleanEmail = resetEmail.trim().toLowerCase();
+
+    if (!cleanEmail) {
+      setModalVisible(false);
+      setTimeout(() => {
+        showAlertModal({
+          title: 'Atenção',
+          message: 'Informe o seu e-mail para receber o link de redefinição.',
+          type: 'info',
+        });
+      }, 350);
       return;
     }
 
     try {
       setResetLoading(true);
 
-      const { error } = await supabase.auth.resetPasswordForEmail(resetEmail.trim(), {
+      // 1. Consulta o perfil do usuário pelo e-mail
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('email', cleanEmail)
+        .maybeSingle();
+
+      // 🟢 2. Se for ADMIN, fecha o modal de digitação e abre o alerta de bloqueio
+      if (profile?.role === 'admin') {
+        setModalVisible(false);
+        setResetLoading(false);
+
+        setTimeout(() => {
+          showAlertModal({
+            title: 'Acesso Restrito 🛡️',
+            message:
+              'Contas de Administrador não possuem permissão para redefinir a senha através deste formulário. Entre em contato com a equipe de suporte.',
+            type: 'danger',
+          });
+        }, 350);
+        return;
+      }
+
+      // 3. Caso seja Aluno ou Personal, envia a solicitação de redefinição
+      const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
         redirectTo: 'seuapp://reset-password',
       });
 
-      if (error) {
-        if (error.status === 429 || error.message.toLowerCase().includes('rate limit')) {
-          showAlertModal({
-            title: 'Limite de Envios Excedido! ⏳',
-            message: 'Você solicitou a redefinição de senha muitas vezes. Por favor, aguarde alguns minutos.',
-            type: 'danger',
-          });
-          return;
-        }
+      // 🟢 Fecha SEMPRE o modal de digitação antes de chamar o alerta de resultado
+      setModalVisible(false);
+      setResetLoading(false);
 
+      setTimeout(() => {
+        if (error) {
+          if (error.status === 429 || error.message.toLowerCase().includes('rate limit')) {
+            showAlertModal({
+              title: 'Limite de Envios Excedido! ⏳',
+              message: 'Você solicitou a redefinição de senha muitas vezes. Por favor, aguarde alguns minutos.',
+              type: 'danger',
+            });
+          } else {
+            showAlertModal({
+              title: 'Erro no Envio',
+              message: error.message || 'Não foi possível enviar o e-mail de recuperação.',
+              type: 'danger',
+            });
+          }
+        } else {
+          showAlertModal({
+            title: 'E-mail Enviado! 📩',
+            message: 'Enviamos um link de redefinição para o seu e-mail. Verifique sua caixa de entrada e spam.',
+            type: 'success',
+          });
+        }
+      }, 350);
+    } catch (err) {
+      setModalVisible(false);
+      setResetLoading(false);
+
+      setTimeout(() => {
         showAlertModal({
-          title: 'Erro no Envio',
-          message: error.message || 'Não foi possível enviar o e-mail de recuperação.',
+          title: 'Falha na Solicitação',
+          message: 'Ocorreu uma falha ao solicitar a redefinição de senha.',
           type: 'danger',
         });
-      } else {
-        setModalVisible(false);
-        showAlertModal({
-          title: 'E-mail Enviado! 📩',
-          message: 'Enviamos um link de redefinição para o seu e-mail. Verifique sua caixa de entrada e spam.',
-          type: 'success',
-        });
-      }
-    } catch (err) {
-      showAlertModal({
-        title: 'Falha na Solicitação',
-        message: 'Ocorreu uma falha ao solicitar a redefinição de senha.',
-        type: 'danger',
-      });
-    } finally {
-      setResetLoading(false);
+      }, 350);
     }
   }
 
@@ -509,7 +545,7 @@ export default function LoginScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* 🟢 MODAL DE REDEFINIÇÃO DE SENHA AJUSTADO PARA O TECLADO */}
+      {/* MODAL DE REDEFINIÇÃO DE SENHA */}
       <Modal
         visible={modalVisible}
         transparent
@@ -524,7 +560,7 @@ export default function LoginScreen() {
             <View className="flex-1 bg-black/60 justify-end">
               <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
                 <View
-                  className="bg-white dark:bg-zinc-900 rounded-3xl p-6 border-t border-[#e2dfe1] dark:border-zinc-800"
+                  className="bg-white dark:bg-zinc-900 rounded-t-3xl p-6 border-t border-[#e2dfe1] dark:border-zinc-800"
                   style={{ paddingBottom: Math.max(safeBottomPadding + 10, 24) }}
                 >
                   <View className="flex-row items-center justify-between mb-4">
