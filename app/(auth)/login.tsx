@@ -1,8 +1,9 @@
 // ============================================================================
-// DOCUMENTAÇÃO: TELA DE LOGIN COM TRANSIÇÃO SEGURA DE MODAIS (SDK 56+)
+// DOCUMENTAÇÃO: TELA DE LOGIN INTEGRADA AO TEMA GLOBAL PERSISTENTE (SDK 56+)
 // ============================================================================
-// Garante o fechamento sequencial dos modais para evitar sobreposição invisível
-// e realiza a validação de permissão de Administrador antes do envio de e-mail.
+// Tela de autenticação atualizada para utilizar o hook useTheme(), garantindo
+// que a preferência de tema (Claro/Escuro) definida pelo usuário persista
+// entre trocas de telas, login e logout.
 // ============================================================================
 
 import React, { useState } from 'react';
@@ -15,7 +16,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  useColorScheme,
   Image,
   Modal,
   TouchableWithoutFeedback,
@@ -38,9 +38,18 @@ import { supabase } from '../../lib/supabase';
 import { useThrottledCallback } from '../../lib/useThrottle';
 import { CustomModal } from '../../components/CustomModal';
 
+// 🟢 IMPORTAÇÃO DO HOOK DE TEMA GLOBAL
+import { useTheme } from '../../context/ThemeContext';
+
 const BRAND_GREEN = '#59C83A';
 const BRAND_GREEN_DEEP = '#2F7A16';
 const HERO_BG = '#0F1F0A';
+
+/** Valida se a string possui um formato de e-mail válido */
+function isValidEmail(email: string): boolean {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+}
 
 /** Anel de pulso animado para a marca */
 function PulseRing({ delay = 0, size = 96 }: { delay?: number; size?: number }) {
@@ -140,8 +149,9 @@ function EnergyBadge() {
 export default function LoginScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+
+  // 🟢 SUBSCRITO AO TEMA GLOBAL DO APLICATIVO
+  const { isDark } = useTheme();
 
   // ESTADOS DE LOGIN
   const [email, setEmail] = useState<string>('');
@@ -208,7 +218,9 @@ export default function LoginScreen() {
   }
 
   async function handleLogin() {
-    if (!email.trim() || !password.trim()) {
+    const cleanEmail = email.trim().toLowerCase();
+
+    if (!cleanEmail || !password.trim()) {
       showAlertModal({
         title: 'Campos Obrigatórios',
         message: 'Por favor, preencha o e-mail e a senha.',
@@ -217,11 +229,20 @@ export default function LoginScreen() {
       return;
     }
 
+    if (!isValidEmail(cleanEmail)) {
+      showAlertModal({
+        title: 'E-mail Inválido ⚠️',
+        message: 'Por favor, digite um e-mail no formato correto (exemplo: usuario@dominio.com).',
+        type: 'danger',
+      });
+      return;
+    }
+
     setLoading(true);
 
     try {
       const { error } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
+        email: cleanEmail,
         password: password,
       });
 
@@ -243,7 +264,7 @@ export default function LoginScreen() {
           cancelText: 'Tentar novamente',
           showCancelButton: true,
           onConfirm: () => {
-            setResetEmail(email.trim());
+            setResetEmail(cleanEmail);
             setModalVisible(true);
           },
         });
@@ -259,7 +280,6 @@ export default function LoginScreen() {
     }
   }
 
-  // 🟢 FUNÇÃO DE RECUPERAÇÃO DE SENHA COM FECHAMENTO SEQUENCIAL GARANTIDO
   async function handleResetPassword() {
     const cleanEmail = resetEmail.trim().toLowerCase();
 
@@ -275,17 +295,27 @@ export default function LoginScreen() {
       return;
     }
 
+    if (!isValidEmail(cleanEmail)) {
+      setModalVisible(false);
+      setTimeout(() => {
+        showAlertModal({
+          title: 'E-mail Inválido ⚠️',
+          message: 'O e-mail digitado não possui uma estrutura válida (ex: nome@dominio.com).',
+          type: 'danger',
+        });
+      }, 350);
+      return;
+    }
+
     try {
       setResetLoading(true);
 
-      // 1. Consulta o perfil do usuário pelo e-mail
       const { data: profile } = await supabase
         .from('profiles')
         .select('role')
         .eq('email', cleanEmail)
         .maybeSingle();
 
-      // 🟢 2. Se for ADMIN, fecha o modal de digitação e abre o alerta de bloqueio
       if (profile?.role === 'admin') {
         setModalVisible(false);
         setResetLoading(false);
@@ -294,28 +324,35 @@ export default function LoginScreen() {
           showAlertModal({
             title: 'Acesso Restrito 🛡️',
             message:
-              'Contas de Administrador não possuem permissão para redefinir a senha através deste formulário. Entre em contato com a equipe de suporte.',
+              'Contas de Administrador não possuem permissão para redefinir a senha através deste formulário. Entre em contato com o suporte.',
             type: 'danger',
           });
         }, 350);
         return;
       }
 
-      // 3. Caso seja Aluno ou Personal, envia a solicitação de redefinição
       const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
         redirectTo: 'seuapp://reset-password',
       });
 
-      // 🟢 Fecha SEMPRE o modal de digitação antes de chamar o alerta de resultado
       setModalVisible(false);
       setResetLoading(false);
 
       setTimeout(() => {
         if (error) {
-          if (error.status === 429 || error.message.toLowerCase().includes('rate limit')) {
+          const isInvalid = error.message.toLowerCase().includes('invalid');
+          const isRateLimit = error.status === 429 || error.message.toLowerCase().includes('rate limit');
+
+          if (isRateLimit) {
             showAlertModal({
               title: 'Limite de Envios Excedido! ⏳',
-              message: 'Você solicitou a redefinição de senha muitas vezes. Por favor, aguarde alguns minutos.',
+              message: 'Você solicitou a redefinição de senha muitas vezes. Aguarde alguns minutos.',
+              type: 'danger',
+            });
+          } else if (isInvalid) {
+            showAlertModal({
+              title: 'E-mail Não Encontrado ⚠️',
+              message: 'Este e-mail não está cadastrado ou o endereço digitado é inválido.',
               type: 'danger',
             });
           } else {
@@ -354,7 +391,7 @@ export default function LoginScreen() {
   const safeBottomPadding = Math.max(insets?.bottom || 0, 16);
 
   return (
-    <View className="flex-1 bg-white dark:bg-zinc-950">
+    <View className={`flex-1 ${isDark ? 'bg-zinc-950' : 'bg-white'}`}>
       <StatusBar style="light" />
 
       <KeyboardAvoidingView
@@ -437,18 +474,34 @@ export default function LoginScreen() {
           >
             {/* Campo E-mail */}
             <View className="mb-3">
-              <Text className="font-sans-bold text-xs uppercase tracking-wider text-[#71717a] dark:text-zinc-400 mb-2 ml-1">
+              <Text
+                className={`font-sans-bold text-xs uppercase tracking-wider mb-2 ml-1 ${
+                  isDark ? 'text-zinc-400' : 'text-[#71717a]'
+                }`}
+              >
                 E-mail
               </Text>
-              <View className="flex-row items-center bg-[#f8f9fa] dark:bg-zinc-900 rounded-2xl pl-2 pr-4 py-2 border border-[#e2dfe1] dark:border-zinc-800">
+              <View
+                className={`flex-row items-center rounded-2xl pl-2 pr-4 py-2 border ${
+                  isDark
+                    ? 'bg-zinc-900 border-zinc-800'
+                    : 'bg-[#f8f9fa] border-[#e2dfe1]'
+                }`}
+              >
                 <View
                   className="w-9 h-9 rounded-full items-center justify-center mr-3"
-                  style={{ backgroundColor: isDark ? 'rgba(89,200,58,0.15)' : 'rgba(89,200,58,0.1)' }}
+                  style={{
+                    backgroundColor: isDark
+                      ? 'rgba(89,200,58,0.15)'
+                      : 'rgba(89,200,58,0.1)',
+                  }}
                 >
                   <EnvelopeSimple size={18} color={BRAND_GREEN} weight="bold" />
                 </View>
                 <TextInput
-                  className="font-sans-medium flex-1 text-[#1b1b1d] dark:text-white text-base"
+                  className={`font-sans-medium flex-1 text-base ${
+                    isDark ? 'text-white' : 'text-[#1b1b1d]'
+                  }`}
                   placeholder="seu.email@exemplo.com"
                   placeholderTextColor={isDark ? '#71717a' : '#a09da1'}
                   value={email}
@@ -461,18 +514,34 @@ export default function LoginScreen() {
 
             {/* Campo Senha */}
             <View className="mb-1">
-              <Text className="font-sans-bold text-xs uppercase tracking-wider text-[#71717a] dark:text-zinc-400 mb-2 ml-1">
+              <Text
+                className={`font-sans-bold text-xs uppercase tracking-wider mb-2 ml-1 ${
+                  isDark ? 'text-zinc-400' : 'text-[#71717a]'
+                }`}
+              >
                 Senha
               </Text>
-              <View className="flex-row items-center bg-[#f8f9fa] dark:bg-zinc-900 rounded-2xl pl-2 pr-4 py-2 border border-[#e2dfe1] dark:border-zinc-800">
+              <View
+                className={`flex-row items-center rounded-2xl pl-2 pr-4 py-2 border ${
+                  isDark
+                    ? 'bg-zinc-900 border-zinc-800'
+                    : 'bg-[#f8f9fa] border-[#e2dfe1]'
+                }`}
+              >
                 <View
                   className="w-9 h-9 rounded-full items-center justify-center mr-3"
-                  style={{ backgroundColor: isDark ? 'rgba(89,200,58,0.15)' : 'rgba(89,200,58,0.1)' }}
+                  style={{
+                    backgroundColor: isDark
+                      ? 'rgba(89,200,58,0.15)'
+                      : 'rgba(89,200,58,0.1)',
+                  }}
                 >
                   <LockSimple size={18} color={BRAND_GREEN} weight="bold" />
                 </View>
                 <TextInput
-                  className="font-sans-medium flex-1 text-[#1b1b1d] dark:text-white text-base"
+                  className={`font-sans-medium flex-1 text-base ${
+                    isDark ? 'text-white' : 'text-[#1b1b1d]'
+                  }`}
                   placeholder="Sua senha secreta"
                   placeholderTextColor={isDark ? '#71717a' : '#a09da1'}
                   value={password}
@@ -534,7 +603,11 @@ export default function LoginScreen() {
               onPress={() => router.push('/(auth)/register')}
               className="items-center py-4 mt-2"
             >
-              <Text className="font-sans text-sm text-[#71717a] dark:text-zinc-400">
+              <Text
+                className={`font-sans text-sm ${
+                  isDark ? 'text-zinc-400' : 'text-[#71717a]'
+                }`}
+              >
                 Não tem uma conta?{' '}
                 <Text style={{ color: BRAND_GREEN }} className="font-sans-bold">
                   Cadastre-se
@@ -560,29 +633,51 @@ export default function LoginScreen() {
             <View className="flex-1 bg-black/60 justify-end">
               <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
                 <View
-                  className="bg-white dark:bg-zinc-900 rounded-t-3xl p-6 border-t border-[#e2dfe1] dark:border-zinc-800"
+                  className={`rounded-t-3xl p-6 border-t ${
+                    isDark
+                      ? 'bg-zinc-900 border-zinc-800'
+                      : 'bg-white border-[#e2dfe1]'
+                  }`}
                   style={{ paddingBottom: Math.max(safeBottomPadding + 10, 24) }}
                 >
                   <View className="flex-row items-center justify-between mb-4">
-                    <Text className="font-outfit text-lg text-[#1b1b1d] dark:text-white">
+                    <Text
+                      className={`font-outfit text-lg ${
+                        isDark ? 'text-white' : 'text-[#1b1b1d]'
+                      }`}
+                    >
                       Redefinir Senha
                     </Text>
                     <TouchableOpacity
                       onPress={() => setModalVisible(false)}
-                      className="w-8 h-8 rounded-full bg-zinc-100 dark:bg-zinc-800 items-center justify-center"
+                      className={`w-8 h-8 rounded-full items-center justify-center ${
+                        isDark ? 'bg-zinc-800' : 'bg-zinc-100'
+                      }`}
                     >
                       <X size={18} color={isDark ? '#ffffff' : '#1b1b1d'} />
                     </TouchableOpacity>
                   </View>
 
-                  <Text className="font-sans-medium text-xs text-[#71717a] dark:text-zinc-400 mb-4 leading-5">
+                  <Text
+                    className={`font-sans-medium text-xs mb-4 leading-5 ${
+                      isDark ? 'text-zinc-400' : 'text-[#71717a]'
+                    }`}
+                  >
                     Digite o seu e-mail cadastrado. Enviaremos um link seguro para você criar uma nova senha.
                   </Text>
 
-                  <View className="flex-row items-center bg-[#f8f9fa] dark:bg-zinc-950 rounded-2xl px-4 py-3.5 border border-[#e2dfe1] dark:border-zinc-800 mb-5">
+                  <View
+                    className={`flex-row items-center rounded-2xl px-4 py-3.5 border mb-5 ${
+                      isDark
+                        ? 'bg-zinc-950 border-zinc-800'
+                        : 'bg-[#f8f9fa] border-[#e2dfe1]'
+                    }`}
+                  >
                     <EnvelopeSimple size={20} color={isDark ? BRAND_GREEN : '#414755'} />
                     <TextInput
-                      className="font-sans-medium flex-1 ml-3 text-[#1b1b1d] dark:text-white text-base"
+                      className={`font-sans-medium flex-1 ml-3 text-base ${
+                        isDark ? 'text-white' : 'text-[#1b1b1d]'
+                      }`}
                       placeholder="seu.email@exemplo.com"
                       placeholderTextColor={isDark ? '#71717a' : '#a09da1'}
                       value={resetEmail}
@@ -613,9 +708,10 @@ export default function LoginScreen() {
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* MODAL DE ALERTA PERSONALIZADO */}
+      {/* MODAL DE ALERTA PERSONALIZADO (PASSA ISDARK PARA SUCESSO DE TEMA) */}
       <CustomModal
         visible={modalConfig.visible}
+        isDark={isDark}
         title={modalConfig.title}
         message={modalConfig.message}
         type={modalConfig.type}

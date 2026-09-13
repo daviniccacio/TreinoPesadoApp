@@ -1,5 +1,5 @@
 // ============================================================================
-// DOCUMENTAÇÃO: SERVIÇO DE NOTIFICAÇÕES (IMPORTAÇÃO DINÂMICA SEGURA)
+// DOCUMENTAÇÃO: SERVIÇO DE NOTIFICAÇÕES (COM FILTRO PARA ADMIN)
 // ============================================================================
 
 import * as Device from 'expo-device';
@@ -7,8 +7,6 @@ import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { Platform } from 'react-native';
 import { supabase } from './supabase';
 
-// 🟢 CORREÇÃO DEFINITIVA: Carregamento dinâmico. 
-// O app não vai "capotar" ao ler o arquivo no Expo Go.
 let Notifications: any = null;
 const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 
@@ -26,18 +24,14 @@ try {
     });
   }
 } catch (error) {
-  console.warn('[Notifications] Módulo não carregado (Ambiente Limitado).');
+  console.warn('[Notifications] Módulo não carregado em ambiente simulado.');
 }
 
 /**
  * Registra o dispositivo para receber Push Notifications
  */
 export async function registerForPushNotificationsAsync(userId: string) {
-  if (isExpoGo || !Notifications) {
-    console.log('[Push Notifications] Execução no Expo Go. Push nativo ignorado.');
-    return undefined;
-  }
-
+  if (isExpoGo || !Notifications) return undefined;
   if (!Device.isDevice) return undefined;
 
   try {
@@ -79,7 +73,7 @@ export async function registerForPushNotificationsAsync(userId: string) {
 
     return token;
   } catch (error) {
-    console.warn('[Push Notifications] Erro ao registrar:', error);
+    console.warn('[Push Notifications] Erro ao registrar token:', error);
     return undefined;
   }
 }
@@ -87,10 +81,16 @@ export async function registerForPushNotificationsAsync(userId: string) {
 /**
  * Envia notificações Push via API do Expo
  */
-export async function sendExpoPushNotification(pushTokens: string[], title: string, body: string) {
+export async function sendExpoPushNotification(
+  pushTokens: string[],
+  title: string,
+  body: string
+) {
   if (isExpoGo || !Notifications) return;
 
-  const uniqueTokens = Array.from(new Set(pushTokens.filter((t) => !!t && t.trim() !== '')));
+  const uniqueTokens = Array.from(
+    new Set(pushTokens.filter((t) => !!t && t.trim() !== ''))
+  );
   if (uniqueTokens.length === 0) return;
 
   const messages = uniqueTokens.map((token) => ({
@@ -117,10 +117,20 @@ export async function sendExpoPushNotification(pushTokens: string[], title: stri
 }
 
 /**
- * Envia um Comunicado Geral (In-App + Push)
+ * Envia um Comunicado Geral (In-App + Push) apenas para Alunos e Personais Ativos
  */
-export async function sendBroadcastNotification(senderId: string, title: string, message: string) {
-  const { data: profiles, error } = await supabase.from('profiles').select('id, push_token');
+export async function sendBroadcastNotification(
+  senderId: string,
+  title: string,
+  message: string
+) {
+  // 🟢 FILTRO: Seleciona apenas usuários ativos e NÃO administradores
+  const { data: profiles, error } = await supabase
+    .from('profiles')
+    .select('id, push_token')
+    .eq('is_blocked', false)
+    .neq('role', 'admin');
+
   if (error || !profiles || profiles.length === 0) return;
 
   const notificationsRecords = profiles.map((profile) => ({
@@ -133,7 +143,10 @@ export async function sendBroadcastNotification(senderId: string, title: string,
 
   await supabase.from('notifications').insert(notificationsRecords);
 
-  const tokens = profiles.map((p) => p.push_token).filter((token): token is string => !!token);
+  const tokens = profiles
+    .map((p) => p.push_token)
+    .filter((token): token is string => !!token);
+
   await sendExpoPushNotification(tokens, title, message);
 }
 

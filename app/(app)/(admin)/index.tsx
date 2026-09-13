@@ -1,8 +1,5 @@
 // ============================================================================
-// DOCUMENTAÇÃO: PAINEL DE GESTÃO ADMINISTRATIVA COM NOTIFICAÇÕES (SDK 56+)
-// ============================================================================
-// Gerencia usuários (A-Z), bloqueio/desbloqueio de contas, alternância de tema
-// (Light/Dark) e central de disparo de Notificações (Broadcast e Individual).
+// DOCUMENTAÇÃO: PAINEL DE GESTÃO ADMINISTRATIVA (SDK 56+)
 // ============================================================================
 
 import React, { useState, useEffect } from 'react';
@@ -14,7 +11,6 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
-  useColorScheme,
   Modal,
   KeyboardAvoidingView,
   Platform,
@@ -44,6 +40,7 @@ import {
   sendBroadcastNotification,
   sendNotificationToUser,
 } from '../../../lib/notifications';
+import { useTheme } from '../../../context/ThemeContext';
 import { useRouter } from 'expo-router';
 
 interface UserProfile {
@@ -55,9 +52,6 @@ interface UserProfile {
   created_at: string;
 }
 
-/**
- * Busca todos os perfis cadastrados no sistema em ordem alfabética
- */
 async function fetchAllUsers(): Promise<UserProfile[]> {
   const { data, error } = await supabase
     .from('profiles')
@@ -78,27 +72,21 @@ async function fetchAllUsers(): Promise<UserProfile[]> {
 export default function AdminDashboardScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const systemColorScheme = useColorScheme();
   
-  // ESTADO DE TEMA CLARO / ESCURO
-  const [isDark, setIsDark] = useState<boolean>(systemColorScheme === 'dark');
+  // 🟢 CONSUMO DO TEMA GLOBAL (PERSISTENTE)
+  const { isDark, toggleTheme } = useTheme();
   const queryClient = useQueryClient();
 
-  // ESTADO DO USUÁRIO LOGADO (ADMIN)
   const [currentAdminId, setCurrentAdminId] = useState<string>('');
-
-  // ESTADOS DE BUSCA E MODAL DE BLOQUEIO
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
 
-  // ESTADOS DO MODAL DE NOTIFICAÇÕES
   const [notifModalVisible, setNotifModalVisible] = useState(false);
   const [notifTarget, setNotifTarget] = useState<UserProfile | 'ALL'>('ALL');
   const [notifTitle, setNotifTitle] = useState('');
   const [notifMessage, setNotifMessage] = useState('');
   const [sendingNotif, setSendingNotif] = useState(false);
 
-  // ESTADO DO MODAL DE ALERTA PERSONALIZADO
   const [alertConfig, setAlertConfig] = useState<{
     visible: boolean;
     title: string;
@@ -111,7 +99,6 @@ export default function AdminDashboardScreen() {
     type: 'info',
   });
 
-  // Obter o ID do Administrador logado para o histórico de notificações
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
       if (data?.user) {
@@ -120,7 +107,6 @@ export default function AdminDashboardScreen() {
     });
   }, []);
 
-  // --- CONSULTA TANSTACK QUERY ---
   const {
     data: users = [],
     isLoading,
@@ -131,7 +117,6 @@ export default function AdminDashboardScreen() {
     queryFn: fetchAllUsers,
   });
 
-  // --- MUTAÇÃO PARA BLOQUEAR / DESBLOQUEAR USUÁRIO ---
   const toggleBlockMutation = useMutation({
     mutationFn: async ({
       userId,
@@ -153,7 +138,6 @@ export default function AdminDashboardScreen() {
     },
   });
 
-  // FUNÇÃO PARA ENVIAR NOTIFICAÇÕES (BROADCAST OU INDIVIDUAL)
   async function handleSendNotification() {
     if (!notifTitle.trim() || !notifMessage.trim()) {
       setAlertConfig({
@@ -193,7 +177,7 @@ export default function AdminDashboardScreen() {
         title: 'Notificação Enviada! 🚀',
         message:
           notifTarget === 'ALL'
-            ? 'Sua mensagem foi transmitida para todos os usuários do aplicativo.'
+            ? 'Sua mensagem foi transmitida para todos os alunos e personais.'
             : `Notificação enviada com sucesso para ${notifTarget.full_name}.`,
         type: 'success',
       });
@@ -210,7 +194,6 @@ export default function AdminDashboardScreen() {
     }
   }
 
-  // FILTRO DE BUSCA + ORDENAÇÃO ALFABÉTICA (A-Z)
   const filteredUsers = users
     .filter((u) =>
       u.full_name.toLowerCase().includes(searchQuery.toLowerCase().trim())
@@ -266,11 +249,10 @@ export default function AdminDashboardScreen() {
           </View>
         </View>
 
-        {/* GRUPO DE AÇÕES DO CABEÇALHO */}
         <View className="flex-row items-center gap-2">
-          {/* BOTÃO TOGGLE TEMA */}
+          {/* 🟢 ALTERNA O TEMA GLOBAL AO CLICAR */}
           <TouchableOpacity
-            onPress={() => setIsDark((prev) => !prev)}
+            onPress={toggleTheme}
             activeOpacity={0.7}
             className={`w-9 h-9 rounded-xl items-center justify-center border ${
               isDark
@@ -285,7 +267,6 @@ export default function AdminDashboardScreen() {
             )}
           </TouchableOpacity>
 
-          {/* BOTÃO DISPARAR NOTIFICAÇÃO BROADCAST */}
           <TouchableOpacity
             onPress={() => {
               setNotifTarget('ALL');
@@ -297,7 +278,6 @@ export default function AdminDashboardScreen() {
             <Bell size={18} color="#59C83A" weight="bold" />
           </TouchableOpacity>
 
-          {/* BOTÃO LOGOUT */}
           <TouchableOpacity
             onPress={handleSignOut}
             className="w-9 h-9 rounded-xl bg-red-500/10 items-center justify-center border border-red-500/20"
@@ -307,7 +287,7 @@ export default function AdminDashboardScreen() {
         </View>
       </MotiView>
 
-      {/* 2. CARDS DE RESUMO ESTATÍSTICO */}
+      {/* 2. CARDS ESTATÍSTICOS */}
       <MotiView
         from={{ opacity: 0, translateY: 10 }}
         animate={{ opacity: 1, translateY: 0 }}
@@ -483,20 +463,20 @@ export default function AdminDashboardScreen() {
                 </Text>
               </View>
 
-              {/* BOTOES DE AÇÃO DO CARTÃO */}
               <View className="flex-row items-center gap-2">
-                {/* BOTÃO ENVIAR NOTIFICAÇÃO INDIVIDUAL */}
-                <TouchableOpacity
-                  onPress={() => {
-                    setNotifTarget(item);
-                    setNotifModalVisible(true);
-                  }}
-                  className="w-9 h-9 rounded-xl bg-[#59C83A]/10 items-center justify-center border border-[#59C83A]/30"
-                >
-                  <Bell size={16} color="#59C83A" weight="bold" />
-                </TouchableOpacity>
+                {/* 🟢 OCULTA O ÍCONE DE SINO CASO O USUÁRIO SEJA ADMIN */}
+                {item.role !== 'admin' && (
+                  <TouchableOpacity
+                    onPress={() => {
+                      setNotifTarget(item);
+                      setNotifModalVisible(true);
+                    }}
+                    className="w-9 h-9 rounded-xl bg-[#59C83A]/10 items-center justify-center border border-[#59C83A]/30"
+                  >
+                    <Bell size={16} color="#59C83A" weight="bold" />
+                  </TouchableOpacity>
+                )}
 
-                {/* BOTÃO BLOQUEAR/LIBERAR */}
                 {item.role !== 'admin' && (
                   <TouchableOpacity
                     onPress={() => setSelectedUser(item)}
@@ -516,7 +496,7 @@ export default function AdminDashboardScreen() {
         />
       )}
 
-      {/* MODAL DE ENVIAR NOTIFICAÇÃO */}
+      {/* MODAL DE DISPARO DE NOTIFICAÇÃO */}
       <Modal
         visible={notifModalVisible}
         transparent
@@ -568,11 +548,10 @@ export default function AdminDashboardScreen() {
                     }`}
                   >
                     {notifTarget === 'ALL'
-                      ? 'Esta mensagem será disparada para TODOS os usuários ativos da plataforma.'
+                      ? 'Esta mensagem será disparada para todos os alunos e personais ativos.'
                       : `Enviando notificação direta para: ${notifTarget.full_name}`}
                   </Text>
 
-                  {/* Campo Título */}
                   <View className="mb-3">
                     <Text
                       className={`font-sans-bold text-[10px] uppercase mb-1 ${
@@ -594,7 +573,6 @@ export default function AdminDashboardScreen() {
                     />
                   </View>
 
-                  {/* Campo Mensagem */}
                   <View className="mb-5">
                     <Text
                       className={`font-sans-bold text-[10px] uppercase mb-1 ${
@@ -619,7 +597,6 @@ export default function AdminDashboardScreen() {
                     />
                   </View>
 
-                  {/* Botão Enviar */}
                   <TouchableOpacity
                     onPress={handleSendNotification}
                     disabled={sendingNotif}
@@ -643,10 +620,11 @@ export default function AdminDashboardScreen() {
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* MODAL DE CONFIRMAÇÃO DE ALTERAÇÃO DE STATUS */}
+      {/* MODAL DE CONFIRMAÇÃO DE BLOQUEIO */}
       {selectedUser && (
         <CustomModal
           visible={!!selectedUser}
+          isDark={isDark}
           title={
             selectedUser.is_blocked
               ? 'Desbloquear Usuário'
@@ -671,9 +649,10 @@ export default function AdminDashboardScreen() {
         />
       )}
 
-      {/* 🟢 MODAL DE ALERTA DE SUCESSO / ERRO (COM onConfirm ADICIONADO) */}
+      {/* MODAL DE ALERTA DE SUCESSO / ERRO */}
       <CustomModal
         visible={alertConfig.visible}
+        isDark={isDark}
         title={alertConfig.title}
         message={alertConfig.message}
         type={alertConfig.type}

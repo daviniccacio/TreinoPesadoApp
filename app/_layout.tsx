@@ -1,9 +1,9 @@
 // ============================================================================
-// DOCUMENTAÇÃO: ROOT LAYOUT COM ROTEAMENTO POR ROLE E SEGURANÇA (SDK 56+)
+// DOCUMENTAÇÃO: ROOT LAYOUT INTEGRADO COM TEMA PERSISTENTE E ROLE (SDK 56+)
 // ============================================================================
 // Gerencia a autenticação com Supabase, fontes customizadas, cache do TanStack Query,
-// verificação de bloqueio (is_blocked), suporte à redefinição de senha e
-// redirecionamento dinâmico baseado na role (admin, personal, aluno).
+// contexto de tema global (Light/Dark persitente), verificação de bloqueio (is_blocked),
+// suporte à redefinição de senha e redirecionamento dinâmico baseado na role.
 // ============================================================================
 
 // 1. Importação do SafeAreaProvider para gestão de áreas seguras
@@ -19,15 +19,15 @@ import '../global.css';
 
 // 4. Importações do React e React Native
 import React, { useEffect, useState } from 'react';
-import { View, ActivityIndicator, useColorScheme, Alert } from 'react-native';
+import { View, ActivityIndicator, Alert } from 'react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
-// 5. Importações do Expo Router
+// 5. Importações do Expo Router (Com alias para evitar conflito de ThemeProvider)
 import {
   Stack,
   useRouter,
   useSegments,
-  ThemeProvider,
+  ThemeProvider as NavigationThemeProvider,
   DarkTheme,
   DefaultTheme,
 } from 'expo-router';
@@ -50,7 +50,10 @@ import {
 import { registerForPushNotificationsAsync } from '../lib/notifications';
 import { supabase } from '../lib/supabase';
 
-// 8. Configuração da instância global do TanStack Query
+// 🟢 8. IMPORTAÇÃO DO PROVEDOR E HOOK DE TEMA GLOBAL
+import { ThemeProvider as AppThemeProvider, useTheme } from '../context/ThemeContext';
+
+// 9. Configuração da instância global do TanStack Query
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -61,7 +64,7 @@ const queryClient = new QueryClient({
   },
 });
 
-// 9. DEFINIÇÃO DOS TEMAS RE-EXPORTADOS PELO EXPO ROUTER
+// 10. DEFINIÇÃO DOS TEMAS RE-EXPORTADOS PELO EXPO ROUTER
 const CustomDarkTheme = {
   ...DarkTheme,
   colors: {
@@ -80,7 +83,10 @@ const CustomLightTheme = {
   },
 };
 
-export default function RootLayout() {
+/**
+ * Componente interno que consome o contexto de tema global e gerencia a navegação
+ */
+function RootLayoutContent() {
   const [session, setSession] = useState<any>(null);
   const [isReady, setIsReady] = useState<boolean>(false);
 
@@ -95,8 +101,8 @@ export default function RootLayout() {
   const segments = useSegments();
   const router = useRouter();
 
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  // 🟢 LÊ O ESTADO DE TEMA DO NOSSO CONTEXTO GLOBAL PERSISTENTE
+  const { isDark } = useTheme();
   const backgroundColor = isDark ? '#09090b' : '#ffffff';
 
   // Atualização da cor da janela nativa do sistema operacional
@@ -105,13 +111,6 @@ export default function RootLayout() {
   }, [isDark, backgroundColor]);
 
   // Validação inicial da sessão no Supabase
-  // ============================================================================
-  // DOCUMENTAÇÃO: ATUALIZAÇÃO DO OUVINTE DE AUTENTICAÇÃO COM LIMPEZA DE CACHE
-  // ============================================================================
-  // Adiciona a instrução 'queryClient.clear()' para apagar os dados em memória
-  // da conta anterior sempre que houver mudança de sessão/login.
-  // ============================================================================
-
   useEffect(() => {
     async function validateAuthOnServer() {
       try {
@@ -122,7 +121,7 @@ export default function RootLayout() {
 
         if (error || !user) {
           await supabase.auth.signOut();
-          queryClient.clear(); // 🟢 Limpa o cache caso o usuário não seja válido
+          queryClient.clear();
           setSession(null);
         } else {
           const {
@@ -143,7 +142,6 @@ export default function RootLayout() {
 
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, currentSession) => {
-        // 🟢 LIMPEZA CRÍTICA: Esvazia todo o cache do TanStack Query a cada troca de estado de auth
         queryClient.clear();
 
         if (event === 'PASSWORD_RECOVERY') {
@@ -183,7 +181,6 @@ export default function RootLayout() {
       const rootGroup = routeSegments[0]; // '(app)' ou '(auth)'
       const subGroup = routeSegments[1];  // '(admin)', '(personal)', '(aluno)'
 
-      // 🟢 CORREÇÃO CRÍTICA: Se a rota atual for 'reset-password', não executa os redirecionamentos automáticos
       if (routeSegments.includes('reset-password')) {
         return;
       }
@@ -231,7 +228,6 @@ export default function RootLayout() {
             router.replace('/(app)/(personal)' as any);
           }
         } else {
-          // Padrão: Aluno
           if (rootGroup !== '(app)' || subGroup !== '(aluno)') {
             router.replace('/(app)/(aluno)' as any);
           }
@@ -253,26 +249,33 @@ export default function RootLayout() {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor }}>
-      <QueryClientProvider client={queryClient}>
-        <SafeAreaProvider style={{ flex: 1, backgroundColor }}>
-          <ThemeProvider value={isDark ? CustomDarkTheme : CustomLightTheme}>
-            <Stack
-              screenOptions={{
-                headerShown: false,
-                animation: 'fade',
-                contentStyle: {
-                  backgroundColor,
-                },
-              }}
-            >
-              <Stack.Screen name="index" options={{ style: { backgroundColor } } as any} />
-              <Stack.Screen name="(auth)" options={{ style: { backgroundColor } } as any} />
-              <Stack.Screen name="(app)" options={{ style: { backgroundColor } } as any} />
-            </Stack>
-          </ThemeProvider>
-        </SafeAreaProvider>
-      </QueryClientProvider>
-    </View>
+    <SafeAreaProvider style={{ flex: 1, backgroundColor }}>
+      <NavigationThemeProvider value={isDark ? CustomDarkTheme : CustomLightTheme}>
+        <Stack
+          screenOptions={{
+            headerShown: false,
+            animation: 'fade',
+            contentStyle: {
+              backgroundColor,
+            },
+          }}
+        >
+          <Stack.Screen name="index" options={{ style: { backgroundColor } } as any} />
+          <Stack.Screen name="(auth)" options={{ style: { backgroundColor } } as any} />
+          <Stack.Screen name="(app)" options={{ style: { backgroundColor } } as any} />
+        </Stack>
+      </NavigationThemeProvider>
+    </SafeAreaProvider>
+  );
+}
+
+// 🟢 COMPONENTE RAIZ QUE ENVELOPA OS PROVEDORES GLOBAIS
+export default function RootLayout() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <AppThemeProvider>
+        <RootLayoutContent />
+      </AppThemeProvider>
+    </QueryClientProvider>
   );
 }
