@@ -418,7 +418,7 @@ export default function AdminDashboardScreen() {
               <View className="flex-1 min-w-0 mr-1">
                 <View className="flex-row flex-wrap items-center gap-1.5 mb-1">
                   <Text
-                    className={`text-sm font-outfit-bold shrink ${
+                    className={`text-sm font-outfit shrink ${
                       isDark ? 'text-white' : 'text-[#1b1b1d]'
                     }`}
                     numberOfLines={1}
@@ -566,7 +566,7 @@ export default function AdminDashboardScreen() {
                           ? 'bg-zinc-950 border-zinc-800 text-white'
                           : 'bg-[#f8f9fa] border-[#e2dfe1] text-[#1b1b1d]'
                       }`}
-                      placeholder="Ex: Novo Treino Disponível! 🏋️‍♂️"
+                      placeholder="Ex: Feriado Amanhã!"
                       placeholderTextColor={isDark ? '#71717a' : '#a09da1'}
                       value={notifTitle}
                       onChangeText={setNotifTitle}
@@ -607,7 +607,7 @@ export default function AdminDashboardScreen() {
                     ) : (
                       <>
                         <Text className="font-outfit text-white text-base">
-                          Disparar Notificação
+                          Enviar Notificação
                         </Text>
                         <PaperPlaneRight size={18} color="#ffffff" weight="bold" />
                       </>
