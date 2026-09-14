@@ -1,28 +1,23 @@
 // ============================================================================
-// DOCUMENTAÇÃO: ROOT LAYOUT INTEGRADO COM TEMA PERSISTENTE E ROLE (SDK 56+)
+// DOCUMENTAÇÃO: ROOT LAYOUT INTEGRADO COM TEMA PERSISTENTE, ROLE E PUSH LISTENERS
 // ============================================================================
-// Gerencia a autenticação com Supabase, fontes customizadas, cache do TanStack Query,
-// contexto de tema global (Light/Dark persitente), verificação de bloqueio (is_blocked),
-// suporte à redefinição de senha e redirecionamento dinâmico baseado na role.
+// Gerencia autenticação via Supabase, fontes, cache TanStack Query, tema global,
+// verificação de perfil, direcionamento e escuta ativa de Push Notifications.
 // ============================================================================
 
-// 1. Importação do SafeAreaProvider para gestão de áreas seguras
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-// 2. Correção de displayName para compatibilidade com NativeWind
 if (SafeAreaProvider) {
   (SafeAreaProvider as any).displayName = 'SafeAreaProvider';
 }
 
-// 3. Estilos globais do Tailwind / NativeWind
 import '../global.css';
 
-// 4. Importações do React e React Native
 import React, { useEffect, useState } from 'react';
+// 🟢 1. CORREÇÃO DE SINTAXE: Removido o fragmento invalido 'react-[#1b1b1d]'
 import { View, ActivityIndicator, Alert, Text, TouchableOpacity } from 'react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
-// 5. Importações do Expo Router
 import {
   Stack,
   useRouter,
@@ -32,10 +27,8 @@ import {
   DefaultTheme,
 } from 'expo-router';
 
-// 6. Assistente SystemUI para alterar a cor da janela nativa do OS
 import * as SystemUI from 'expo-system-ui';
 
-// 7. Importação das fontes Google Fonts (Outfit e DM Sans)
 import {
   useFonts,
   Outfit_700Bold,
@@ -47,13 +40,22 @@ import {
   DMSans_700Bold,
 } from '@expo-google-fonts/dm-sans';
 
+import * as Notifications from 'expo-notifications';
 import { registerForPushNotificationsAsync } from '../lib/notifications';
 import { supabase } from '../lib/supabase';
-
-// 🟢 8. IMPORTAÇÃO DO PROVEDOR E HOOK DE TEMA GLOBAL
 import { ThemeProvider as AppThemeProvider, useTheme } from '../context/ThemeContext';
 
-// 9. Configuração da instância global do TanStack Query
+// 🟢 2. CORREÇÃO DE TIPAGEM: Incluídas as propriedades 'shouldShowBanner' e 'shouldShowList'
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+    shouldShowBanner: true,
+    shouldShowList: true,
+  }),
+});
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -64,7 +66,6 @@ const queryClient = new QueryClient({
   },
 });
 
-// 10. DEFINIÇÃO DOS TEMAS RE-EXPORTADOS PELO EXPO ROUTER
 const CustomDarkTheme = {
   ...DarkTheme,
   colors: {
@@ -83,15 +84,11 @@ const CustomLightTheme = {
   },
 };
 
-// Interface para o perfil do usuário em memória
 interface UserProfile {
   role: string;
   is_blocked: boolean;
 }
 
-/**
- * Componente interno que consome o contexto de tema global e gerencia a navegação
- */
 function RootLayoutContent() {
   const [session, setSession] = useState<any>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
@@ -110,16 +107,42 @@ function RootLayoutContent() {
   const segments = useSegments();
   const router = useRouter();
 
-  // 🟢 LÊ O ESTADO DE TEMA DO NOSSO CONTEXTO GLOBAL PERSISTENTE
   const { isDark } = useTheme();
   const backgroundColor = isDark ? '#09090b' : '#ffffff';
 
-  // Atualização da cor da janela nativa do sistema operacional
   useEffect(() => {
     SystemUI.setBackgroundColorAsync(backgroundColor);
   }, [isDark, backgroundColor]);
 
-  // 🟢 ETAPA 1: VALIDAÇÃO DA SESSÃO INICIAL
+  // ESCUTA ATIVA DE NOTIFICAÇÕES (RECEBIMENTO E CLIQUE)
+  useEffect(() => {
+    const notificationListener = Notifications.addNotificationReceivedListener(
+      (notification) => {
+        console.log(
+          '🔔 [PUSH RECEBIDO EM PRIMEIRO PLANO]:',
+          notification.request.content.title,
+          '-',
+          notification.request.content.body
+        );
+      }
+    );
+
+    const responseListener = Notifications.addNotificationResponseReceivedListener(
+      (response) => {
+        console.log(
+          '👆 [USUÁRIO CLICOU NA NOTIFICAÇÃO]:',
+          response.notification.request.content.data
+        );
+      }
+    );
+
+    return () => {
+      notificationListener.remove();
+      responseListener.remove();
+    };
+  }, []);
+
+  // ETAPA 1: VALIDAÇÃO DA SESSÃO INICIAL
   useEffect(() => {
     async function validateAuthOnServer() {
       try {
@@ -175,7 +198,7 @@ function RootLayoutContent() {
     };
   }, []);
 
-  // 🟢 ETAPA 2: BUSCA DO PERFIL NO SUPABASE (APENAS QUANDO A SESSÃO MUDAR)
+  // ETAPA 2: BUSCA DO PERFIL NO SUPABASE
   async function fetchUserProfile() {
     if (!session?.user?.id) {
       setUserProfile(null);
@@ -212,26 +235,25 @@ function RootLayoutContent() {
     }
   }, [session?.user?.id]);
 
-  // Registro de Push Notifications para o usuário logado
+  // REGISTRO DO PUSH TOKEN NO SUPABASE QUANDO LOGADO
   useEffect(() => {
     if (session?.user?.id) {
       registerForPushNotificationsAsync(session.user.id);
     }
   }, [session]);
 
-  // 🟢 ETAPA 3: PROTEÇÃO GLOBAL DE ROTAS E DIRECIONAMENTO INSTANTÂNEO
+  // ETAPA 3: PROTEÇÃO GLOBAL DE ROTAS
   useEffect(() => {
     if (!isReady || (!fontsLoaded && !fontError) || isProfileLoading) return;
 
     const routeSegments = segments as string[];
-    const rootGroup = routeSegments[0]; // '(app)' ou '(auth)'
-    const subGroup = routeSegments[1];  // '(admin)', '(personal)', '(aluno)'
+    const rootGroup = routeSegments[0];
+    const subGroup = routeSegments[1];
 
     if (routeSegments.includes('reset-password')) {
       return;
     }
 
-    // 1. CASO NÃO HAJA SESSÃO ATIVA
     if (!session) {
       if (rootGroup !== '(auth)') {
         router.replace('/(auth)/login');
@@ -239,10 +261,8 @@ function RootLayoutContent() {
       return;
     }
 
-    // Se o perfil ainda não foi carregado devido a erro de rede, aguarda
     if (!userProfile) return;
 
-    // 2. SE O USUÁRIO ESTIVER BLOQUEADO
     if (userProfile.is_blocked) {
       supabase.auth.signOut();
       setSession(null);
@@ -255,7 +275,6 @@ function RootLayoutContent() {
       return;
     }
 
-    // 3. DIRECIONAMENTO COM BASE NA ROLE SALVA EM MEMÓRIA (SEM CONSULTA REPETIDA)
     if (userProfile.role === 'admin') {
       if (rootGroup !== '(app)' || subGroup !== '(admin)') {
         router.replace('/(app)/(admin)' as any);
@@ -271,7 +290,6 @@ function RootLayoutContent() {
     }
   }, [session, userProfile, isReady, isProfileLoading, fontsLoaded, fontError, segments]);
 
-  // TELA DE ERRO DE CONEXÃO (RETRY AMIGÁVEL EM CASO DE GATEWAY TIMEOUT)
   if (networkError && !userProfile) {
     return (
       <View style={{ flex: 1, backgroundColor }} className="justify-center items-center px-6">
@@ -291,7 +309,6 @@ function RootLayoutContent() {
     );
   }
 
-  // CARREGAMENTO INICIAL DO APLICATIVO
   if (!isReady || (!fontsLoaded && !fontError) || (session && isProfileLoading && !userProfile)) {
     return (
       <View style={{ flex: 1, backgroundColor }} className="justify-center items-center">
@@ -321,7 +338,6 @@ function RootLayoutContent() {
   );
 }
 
-// 🟢 COMPONENTE RAIZ QUE ENVELOPA OS PROVEDORES GLOBAIS
 export default function RootLayout() {
   return (
     <QueryClientProvider client={queryClient}>

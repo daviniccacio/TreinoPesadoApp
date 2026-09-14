@@ -1,38 +1,31 @@
 // ============================================================================
-// DOCUMENTAÇÃO: SERVIÇO DE NOTIFICAÇÕES (COM FILTRO PARA ADMIN)
+// DOCUMENTAÇÃO: SERVIÇO DE NOTIFICAÇÕES (SUPORTE COMPATÍVEL COM EXPO GO)
 // ============================================================================
 
 import * as Device from 'expo-device';
-import Constants, { ExecutionEnvironment } from 'expo-constants';
+import Constants from 'expo-constants';
 import { Platform } from 'react-native';
+import * as Notifications from 'expo-notifications';
 import { supabase } from './supabase';
 
-let Notifications: any = null;
-const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
-
-try {
-  if (!isExpoGo) {
-    Notifications = require('expo-notifications');
-    
-    Notifications.setNotificationHandler({
-      handleNotification: async () => ({
-        shouldPlaySound: true,
-        shouldSetBadge: true,
-        shouldShowBanner: true,
-        shouldShowList: true,
-      }),
-    });
-  }
-} catch (error) {
-  console.warn('[Notifications] Módulo não carregado em ambiente simulado.');
-}
+// Configuração do handler em primeiro plano
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
+  }),
+});
 
 /**
  * Registra o dispositivo para receber Push Notifications
  */
 export async function registerForPushNotificationsAsync(userId: string) {
-  if (isExpoGo || !Notifications) return undefined;
-  if (!Device.isDevice) return undefined;
+  if (!Device.isDevice) {
+    console.warn('[Push Notifications] Deve ser executado em um dispositivo físico.');
+    return undefined;
+  }
 
   try {
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
@@ -43,7 +36,10 @@ export async function registerForPushNotificationsAsync(userId: string) {
       finalStatus = status;
     }
 
-    if (finalStatus !== 'granted') return undefined;
+    if (finalStatus !== 'granted') {
+      console.warn('[Push Notifications] Permissão negada pelo usuário.');
+      return undefined;
+    }
 
     const projectId =
       Constants?.expoConfig?.extra?.eas?.projectId ??
@@ -56,10 +52,16 @@ export async function registerForPushNotificationsAsync(userId: string) {
     const token = pushTokenData?.data;
 
     if (token && userId) {
-      await supabase
+      const { error } = await supabase
         .from('profiles')
         .update({ push_token: token })
         .eq('id', userId);
+
+      if (error) {
+        console.error('[Push Notifications] Erro ao salvar token no Supabase:', error.message);
+      } else {
+        console.log('[Push Notifications] Token salvo com sucesso:', token);
+      }
     }
 
     if (Platform.OS === 'android') {
@@ -79,19 +81,21 @@ export async function registerForPushNotificationsAsync(userId: string) {
 }
 
 /**
- * Envia notificações Push via API do Expo
+ * Envia notificações Push via API do Expo (Funciona em Expo Go e Build nativa)
  */
 export async function sendExpoPushNotification(
   pushTokens: string[],
   title: string,
   body: string
 ) {
-  if (isExpoGo || !Notifications) return;
-
   const uniqueTokens = Array.from(
     new Set(pushTokens.filter((t) => !!t && t.trim() !== ''))
   );
-  if (uniqueTokens.length === 0) return;
+  
+  if (uniqueTokens.length === 0) {
+    console.warn('[Expo Push] Nenhum token válido fornecido para envio.');
+    return;
+  }
 
   const messages = uniqueTokens.map((token) => ({
     to: token,
@@ -102,7 +106,7 @@ export async function sendExpoPushNotification(
   }));
 
   try {
-    await fetch('https://exp.host/--/api/v2/push/send', {
+    const response = await fetch('https://exp.host/--/api/v2/push/send', {
       method: 'POST',
       headers: {
         Accept: 'application/json',
@@ -111,8 +115,11 @@ export async function sendExpoPushNotification(
       },
       body: JSON.stringify(messages),
     });
+
+    const result = await response.json();
+    console.log('📬 [Expo Push API Resposta]:', result);
   } catch (error) {
-    console.error('Erro ao enviar Push:', error);
+    console.error('Erro ao enviar Push via fetch:', error);
   }
 }
 
@@ -124,30 +131,46 @@ export async function sendBroadcastNotification(
   title: string,
   message: string
 ) {
-  // 🟢 FILTRO: Seleciona apenas usuários ativos e NÃO administradores
-  const { data: profiles, error } = await supabase
-    .from('profiles')
-    .select('id, push_token')
-    .eq('is_blocked', false)
-    .neq('role', 'admin');
+  try {
+    const { data: profiles, error } = await supabase
+      .from('profiles')
+      .select('id, push_token')
+      .eq('is_blocked', false)
+      .neq('role', 'admin');
 
-  if (error || !profiles || profiles.length === 0) return;
+    if (error) {
+      console.error('Erro ao buscar perfis para broadcast:', error.message);
+      return;
+    }
 
-  const notificationsRecords = profiles.map((profile) => ({
-    user_id: profile.id,
-    sender_id: senderId,
-    title,
-    message,
-    type: 'ANNOUNCEMENT',
-  }));
+    if (!profiles || profiles.length === 0) {
+      console.warn('Nenhum perfil encontrado para broadcast.');
+      return;
+    }
 
-  await supabase.from('notifications').insert(notificationsRecords);
+    const notificationsRecords = profiles.map((profile) => ({
+      user_id: profile.id,
+      sender_id: senderId,
+      title,
+      message,
+      type: 'ANNOUNCEMENT',
+    }));
 
-  const tokens = profiles
-    .map((p) => p.push_token)
-    .filter((token): token is string => !!token);
+    const { error: insertError } = await supabase.from('notifications').insert(notificationsRecords);
+    if (insertError) {
+      console.error('Erro ao inserir registros de notificação no banco:', insertError.message);
+      return;
+    }
 
-  await sendExpoPushNotification(tokens, title, message);
+    const tokens = profiles
+      .map((p) => p.push_token)
+      .filter((token): token is string => !!token);
+
+    console.log(`Disparando broadcast push para ${tokens.length} dispositivos.`);
+    await sendExpoPushNotification(tokens, title, message);
+  } catch (err) {
+    console.error('Erro em sendBroadcastNotification:', err);
+  }
 }
 
 /**
@@ -167,13 +190,18 @@ export async function sendNotificationToUser({
   type?: string;
 }) {
   try {
-    await supabase.from('notifications').insert({
+    const { error: insertError } = await supabase.from('notifications').insert({
       user_id: targetUserId,
       sender_id: senderId || null,
       title,
       message,
       type,
     });
+
+    if (insertError) {
+      console.error('Erro ao inserir notificação individual no banco:', insertError.message);
+      return;
+    }
 
     const { data: profile } = await supabase
       .from('profiles')
@@ -182,9 +210,12 @@ export async function sendNotificationToUser({
       .single();
 
     if (profile?.push_token) {
+      console.log(`Disparando push direto para o token: ${profile.push_token}`);
       await sendExpoPushNotification([profile.push_token], title, message);
+    } else {
+      console.warn(`O usuário ${targetUserId} não possui 'push_token' cadastrado no perfil.`);
     }
   } catch (error) {
-    console.error('Erro ao enviar notificação:', error);
+    console.error('Erro ao enviar notificação para usuário:', error);
   }
 }
