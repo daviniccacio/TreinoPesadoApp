@@ -227,7 +227,7 @@ export default function HomeScreen() {
                   <View className="flex-1 justify-end p-3 bg-black/30">
                     {/* Título da Categoria em Outfit Bold */}
                     <Text
-                      className="text-sm font-outfit text-white"
+                      className="text font-outfit text-white"
                       numberOfLines={1}
                     >
                       {category.title}

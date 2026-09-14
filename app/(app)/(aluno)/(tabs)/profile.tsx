@@ -173,7 +173,7 @@ async function linkStudentToPersonalByCode(inviteCode: string) {
 
 // 🟢 2. COMPONENTE DE BOTÃO DA POLÍTICA DE PRIVACIDADE CORRIGIDO
 export function PrivacyPolicyButton({
-  policyUrl = 'https://github.com/davinicacio/treino-pesado/blob/develop/PRIVACY_POLICY.md',
+  policyUrl = 'https://github.com/davinicacio/treino-pesado/blob/main/PRIVACY_POLICY.md',
 }: PrivacyButtonProps) {
   const handleOpenLink = async () => {
     const supported = await Linking.canOpenURL(policyUrl);
@@ -257,7 +257,10 @@ export default function StudentProfileScreen() {
   const { data: profile, isLoading } = useQuery({
     queryKey: ['student-profile-data'],
     queryFn: fetchStudentProfileData,
-    refetchOnMount: 'always',
+    staleTime: 1000 * 60 * 5, // 5 minutos
+    gcTime: 1000 * 60 * 10, // 10 minutos
+    refetchOnMount: false,
+
   });
 
   const { data: hasUnreadNotifications = false } = useQuery({

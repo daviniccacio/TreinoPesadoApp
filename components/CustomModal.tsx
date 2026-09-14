@@ -97,7 +97,7 @@ export function CustomModal({
             </View>
 
             <Text
-              className={`text-lg font-outfit-bold text-center ${
+              className={`text-lg font-outfit text-center ${
                 isDark ? 'text-white' : 'text-[#1b1b1d]'
               }`}
             >

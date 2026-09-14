@@ -123,7 +123,7 @@ export function UserNotificationModal({
                 <Bell size={20} color="#59C83A" weight="bold" />
               </View>
               <View>
-                <Text className="text-base font-outfit-bold text-[#1b1b1d] dark:text-white">
+                <Text className="text-base font-outfit text-[#1b1b1d] dark:text-white">
                   Últimos Avisos
                 </Text>
                 <Text className="text-[11px] font-sans-medium text-[#71717a] dark:text-zinc-400">
@@ -175,7 +175,7 @@ export function UserNotificationModal({
                         <Barbell size={18} color="#59C83A" />
                       )}
                     </View>
-                    <Text className="text-sm font-outfit-bold text-[#1b1b1d] dark:text-white flex-1">
+                    <Text className="text-sm font-outfit text-[#1b1b1d] dark:text-white flex-1">
                       {item.title}
                     </Text>
                     {!item.read && (
