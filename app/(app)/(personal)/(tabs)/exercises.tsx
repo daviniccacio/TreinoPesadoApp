@@ -20,7 +20,7 @@ import { CaretRight } from 'phosphor-react-native';
 import { useQuery } from '@tanstack/react-query';
 import { MotiView } from 'moti';
 import { Image } from 'expo-image'; // 🟢 Otimizado para alta performance e cache de imagens
-import { supabase } from '../../../lib/supabase';
+import { supabase } from '../../../../lib/supabase';
 
 // --- TIPAGENS DE DADOS ---
 interface Category {

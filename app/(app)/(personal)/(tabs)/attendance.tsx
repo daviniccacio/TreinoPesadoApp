@@ -25,7 +25,7 @@ import {
 } from 'phosphor-react-native';
 import { useQuery } from '@tanstack/react-query';
 import { MotiView } from 'moti';
-import { supabase } from '../../../lib/supabase';
+import { supabase } from '../../../../lib/supabase';
 
 // --- ESTRUTURA DE DADOS ---
 interface AttendanceLog {

@@ -31,8 +31,8 @@ import {
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { MotiView } from 'moti';
-import { supabase } from '../../../lib/supabase';
-import { CustomModal } from '../../../components/CustomModal';
+import { supabase } from '../../../../lib/supabase';
+import { CustomModal } from '../../../../components/CustomModal';
 
 // --- TIPAGENS DE DADOS ---
 interface RoutineItem {

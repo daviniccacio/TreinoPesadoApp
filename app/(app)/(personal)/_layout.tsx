@@ -1,194 +1,39 @@
 // ============================================================================
-// DOCUMENTAÇÃO: LAYOUT DE ABAS FLUTUANTE (PERSONAL TRAINER) - 0ms DELAY
+// DOCUMENTAÇÃO: LAYOUT PAI DE PILHA (PERSONAL TRAINER)
 // ============================================================================
-// Gerencia a navegação principal da área do personal com abas sincronizadas
-// diretamente ao useTheme() global, eliminando atrasos de renderização.
+// Define a estrutura Stack para a área do personal.
+// Gerencia a transição entre o grupo de abas (tabs) e as telas cheias secundárias.
 // ============================================================================
 
-import React from "react";
-import { View } from "react-native";
-import { Tabs } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import {
-  Users,
-  Barbell,
-  Books,
-  CalendarCheck,
-  User,
-} from "phosphor-react-native";
-import { MotiView } from "moti";
+import React from 'react';
+import { Stack } from 'expo-router';
 
-// 🟢 1. IMPORTAÇÃO DO HOOK DE TEMA GLOBAL PERSISTENTE
-import { useTheme } from "../../../context/ThemeContext";
+// 🟢 IMPORTAÇÃO DO HOOK DE TEMA GLOBAL (3 níveis acima para sair de personal, app e app)
+import { useTheme } from '../../../context/ThemeContext';
 
-// --- COMPONENTE DE ÍCONE ANIMADO (MINIMALISTA) ---
-interface AnimatedTabItemProps {
-  focused: boolean;
-  children: React.ReactNode;
-}
-
-function AnimatedTabItem({ focused, children }: AnimatedTabItemProps) {
-  return (
-    <View className="items-center justify-center relative w-full h-full">
-      <MotiView
-        animate={{
-          scale: focused ? 1.12 : 1.0,
-          translateY: focused ? -1 : 0,
-        }}
-        transition={{
-          type: "spring",
-          damping: 22,
-          stiffness: 160,
-        }}
-      >
-        {children}
-      </MotiView>
-    </View>
-  );
-}
-
-export default function PersonalLayout() {
-  const insets = useSafeAreaInsets();
-
-  // 🟢 2. CONSUMINDO DIRETO DO CONTEXTO GLOBAL (RESPOSTA INSTANTÂNEA EM 0ms)
+export default function PersonalStackLayout() {
   const { isDark } = useTheme();
+  const backgroundColor = isDark ? '#09090b' : '#f8f9fa';
 
   return (
-    <Tabs
+    <Stack
       screenOptions={{
         headerShown: false,
-        animation: "fade",
-
-        // 🟢 PROPRIEDADE CORRETA DO EXPO ROUTER / REACT NAVIGATION 7:
-        sceneStyle: {
-          backgroundColor: isDark ? "#09090b" : "#f8f9fa",
-        },
-
-        tabBarActiveTintColor: "#59C83A",
-        tabBarInactiveTintColor: isDark ? "#a1a1aa" : "#71717a",
-
-        tabBarStyle: {
-          position: "absolute",
-          bottom: Math.max(insets.bottom, 12),
-          left: 16,
-          right: 16,
-          height: 62,
-          borderRadius: 24,
-          borderWidth: 1,
-          borderColor: isDark ? "#27272a" : "#e2dfe1",
-          backgroundColor: isDark
-            ? "rgba(24, 24, 27, 0.96)"
-            : "rgba(255, 255, 255, 0.96)",
-          elevation: 6,
-          shadowColor: "#000000",
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: isDark ? 0.3 : 0.08,
-          shadowRadius: 10,
-          paddingBottom: 6,
-          paddingTop: 6,
-        },
-
-        // 🟢 TIPOGRAFIA DA NAVBAR: Usa a fonte DM Sans Bold
-        tabBarLabelStyle: {
-          fontFamily: "DMSans_700Bold",
-          fontSize: 10,
-          marginTop: 2,
+        animation: 'fade',
+        contentStyle: {
+          backgroundColor,
         },
       }}
     >
-      {/* 1. ABA ALUNOS */}
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: "Alunos",
-          tabBarIcon: ({ color, size, focused }) => (
-            <AnimatedTabItem focused={focused}>
-              <Users
-                size={size - 2}
-                color={color as string}
-                weight={focused ? "fill" : "regular"}
-              />
-            </AnimatedTabItem>
-          ),
-        }}
-      />
+      {/* 1. MÓDULO DE ABAS PRINCIPAIS */}
+      <Stack.Screen name="(tabs)" />
 
-      {/* 2. ABA EXERCÍCIOS (CATÁLOGO DA ACADEMIA) */}
-      <Tabs.Screen
-        name="exercises"
-        options={{
-          title: "Exercícios",
-          tabBarIcon: ({ color, size, focused }) => (
-            <AnimatedTabItem focused={focused}>
-              <Barbell
-                size={size - 2}
-                color={color as string}
-                weight={focused ? "fill" : "regular"}
-              />
-            </AnimatedTabItem>
-          ),
-        }}
-      />
-
-      {/* 3. ABA BIBLIOTECA DE MODELOS */}
-      <Tabs.Screen
-        name="routines"
-        options={{
-          title: "Biblioteca",
-          tabBarIcon: ({ color, size, focused }) => (
-            <AnimatedTabItem focused={focused}>
-              <Books
-                size={size - 2}
-                color={color as string}
-                weight={focused ? "fill" : "regular"}
-              />
-            </AnimatedTabItem>
-          ),
-        }}
-      />
-
-      {/* 4. ABA FREQUÊNCIA SEMANAL */}
-      <Tabs.Screen
-        name="attendance"
-        options={{
-          title: "Frequência",
-          tabBarIcon: ({ color, size, focused }) => (
-            <AnimatedTabItem focused={focused}>
-              <CalendarCheck
-                size={size - 2}
-                color={color as string}
-                weight={focused ? "fill" : "regular"}
-              />
-            </AnimatedTabItem>
-          ),
-        }}
-      />
-
-      {/* 5. ABA PERFIL PROFISSIONAL */}
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: "Perfil",
-          tabBarIcon: ({ color, size, focused }) => (
-            <AnimatedTabItem focused={focused}>
-              <User
-                size={size - 2}
-                color={color as string}
-                weight={focused ? "fill" : "regular"}
-              />
-            </AnimatedTabItem>
-          ),
-        }}
-      />
-
-      {/* ==================================================================== */}
-      {/* ROTAS OCULTAS DA NAVBAR (Telas acessadas por navegação interna)     */}
-      {/* ==================================================================== */}
-      <Tabs.Screen name="create-workout" options={{ href: null }} />
-      <Tabs.Screen name="student-detail" options={{ href: null }} />
-      <Tabs.Screen name="category/[id]" options={{ href: null }} />
-      <Tabs.Screen name="exercise/[id]" options={{ href: null }} />
-      <Tabs.Screen name="routine/[id]" options={{ href: null }} />
-    </Tabs>
+      {/* 2. TELAS SECUNDÁRIAS (EXIBIDAS EM TELA CHEIA SEM NAVBAR) */}
+      <Stack.Screen name="create-workout" />
+      <Stack.Screen name="student-detail" />
+      <Stack.Screen name="category/[id]" />
+      <Stack.Screen name="exercise/[id]" />
+      <Stack.Screen name="routine/[id]" />
+    </Stack>
   );
 }

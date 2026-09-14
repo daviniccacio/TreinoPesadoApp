@@ -29,12 +29,12 @@ import {
 } from 'phosphor-react-native';
 import { useQuery } from '@tanstack/react-query';
 import { MotiView } from 'moti';
-import { supabase } from '../../../lib/supabase';
-import { CustomModal } from '../../../components/CustomModal';
-import { SendNotificationModal } from '../../../components/SendNotificationModal';
+import { supabase } from '../../../../lib/supabase';
+import { CustomModal } from '../../../../components/CustomModal';
+import { SendNotificationModal } from '../../../../components/SendNotificationModal';
 
 // 🟢 IMPORTAÇÃO DO CONTEXTO DE TEMA GLOBAL PERSISTENTE
-import { useTheme } from '../../../context/ThemeContext';
+import { useTheme } from '../../../../context/ThemeContext';
 
 // --- TIPAGENS DE DADOS ---
 interface PersonalProfileData {
