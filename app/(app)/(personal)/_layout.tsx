@@ -1,12 +1,12 @@
 // ============================================================================
-// DOCUMENTAÇÃO: LAYOUT DE ABAS FLUTUANTE (PERSONAL TRAINER)
+// DOCUMENTAÇÃO: LAYOUT DE ABAS FLUTUANTE (PERSONAL TRAINER) - 0ms DELAY
 // ============================================================================
-// Gerencia a navegação principal entre telas por meio de uma Bottom Tab Bar
-// flutuante animada com Moti e tipografia customizada DM Sans.
+// Gerencia a navegação principal da área do personal com abas sincronizadas
+// diretamente ao useTheme() global, eliminando atrasos de renderização.
 // ============================================================================
 
 import React from "react";
-import { useColorScheme, View } from "react-native";
+import { View } from "react-native";
 import { Tabs } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
@@ -17,6 +17,9 @@ import {
   User,
 } from "phosphor-react-native";
 import { MotiView } from "moti";
+
+// 🟢 1. IMPORTAÇÃO DO HOOK DE TEMA GLOBAL PERSISTENTE
+import { useTheme } from "../../../context/ThemeContext";
 
 // --- COMPONENTE DE ÍCONE ANIMADO (MINIMALISTA) ---
 interface AnimatedTabItemProps {
@@ -46,8 +49,9 @@ function AnimatedTabItem({ focused, children }: AnimatedTabItemProps) {
 
 export default function PersonalLayout() {
   const insets = useSafeAreaInsets();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === "dark";
+
+  // 🟢 2. CONSUMINDO DIRETO DO CONTEXTO GLOBAL (RESPOSTA INSTANTÂNEA EM 0ms)
+  const { isDark } = useTheme();
 
   return (
     <Tabs
@@ -56,7 +60,6 @@ export default function PersonalLayout() {
         animation: "fade",
 
         // 🟢 PROPRIEDADE CORRETA DO EXPO ROUTER / REACT NAVIGATION 7:
-        // 'sceneStyle' substitui 'sceneContainerStyle' e resolve o erro TS2353
         sceneStyle: {
           backgroundColor: isDark ? "#09090b" : "#f8f9fa",
         },
@@ -179,7 +182,7 @@ export default function PersonalLayout() {
       />
 
       {/* ==================================================================== */}
-      {/* ROTAS OCULTAS DA NAVBAR (Telas acessadas por navegação interna)    */}
+      {/* ROTAS OCULTAS DA NAVBAR (Telas acessadas por navegação interna)     */}
       {/* ==================================================================== */}
       <Tabs.Screen name="create-workout" options={{ href: null }} />
       <Tabs.Screen name="student-detail" options={{ href: null }} />

@@ -1,8 +1,8 @@
 // ============================================================================
-// DOCUMENTAÇÃO: TELA DE PERFIL PROFISSIONAL (PERSONAL TRAINER)
+// DOCUMENTAÇÃO: TELA DE PERFIL PROFISSIONAL (PERSONAL TRAINER) - TEMA GLOBAL
 // ============================================================================
 // Exibe dados cadastrais, código de acesso exclusivo para alunos, estatísticas
-// de trabalho, seletores de tema de aparência, envio de comunicados e logout.
+// de trabalho, alternância de tema global (0ms delay), envio de comunicados e logout.
 // ============================================================================
 
 import React, { useState } from 'react';
@@ -12,8 +12,6 @@ import {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
-  useColorScheme,
-  Appearance,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -22,7 +20,6 @@ import {
   Users,
   Moon,
   Sun,
-  Desktop,
   SignOut,
   CaretRight,
   Shield,
@@ -35,6 +32,9 @@ import { MotiView } from 'moti';
 import { supabase } from '../../../lib/supabase';
 import { CustomModal } from '../../../components/CustomModal';
 import { SendNotificationModal } from '../../../components/SendNotificationModal';
+
+// 🟢 IMPORTAÇÃO DO CONTEXTO DE TEMA GLOBAL PERSISTENTE
+import { useTheme } from '../../../context/ThemeContext';
 
 // --- TIPAGENS DE DADOS ---
 interface PersonalProfileData {
@@ -104,9 +104,9 @@ async function fetchPersonalProfileData(): Promise<PersonalProfileData> {
 export default function PersonalProfileScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const systemColorScheme = useColorScheme();
 
-  const [themeMode, setThemeMode] = useState<'light' | 'dark' | 'system'>('system');
+  // 🟢 SUBSCRITO AO TEMA GLOBAL PERSISTENTE
+  const { isDark, toggleTheme } = useTheme();
 
   // 🟢 ESTADO PARA EXIBIÇÃO DO MODAL DE ENVIAR COMUNICADOS
   const [modalVisible, setModalVisible] = useState(false);
@@ -129,7 +129,7 @@ export default function PersonalProfileScreen() {
     confirmText: 'Entendi',
     cancelText: 'Cancelar',
     showCancelButton: false,
-    onConfirm: () => { },
+    onConfirm: () => {},
   });
 
   function showAlertModal({
@@ -162,15 +162,6 @@ export default function PersonalProfileScreen() {
     queryFn: fetchPersonalProfileData,
   });
 
-  function handleThemeChange(mode: 'light' | 'dark' | 'system') {
-    setThemeMode(mode);
-    if (mode === 'system') {
-      Appearance.setColorScheme(null as any);
-    } else {
-      Appearance.setColorScheme(mode);
-    }
-  }
-
   function handleSignOut() {
     showAlertModal({
       title: 'Sair da Conta',
@@ -190,7 +181,7 @@ export default function PersonalProfileScreen() {
             });
             return;
           }
-          router.replace('/');
+          router.replace('/(auth)/login');
         } catch (err) {
           console.error('Erro ao processar logout:', err);
           showAlertModal({
@@ -212,7 +203,10 @@ export default function PersonalProfileScreen() {
   const safeTopPadding = Math.max(insets?.top || 0, 16);
 
   return (
-    <View className="flex-1 bg-white pb-4 dark:bg-zinc-950" style={{ paddingTop: safeTopPadding }}>
+    <View
+      className={`flex-1 pb-4 ${isDark ? 'bg-zinc-950' : 'bg-[#f8f9fa]'}`}
+      style={{ paddingTop: safeTopPadding }}
+    >
       {/* 1. CABEÇALHO ANIMADO */}
       <MotiView
         from={{ opacity: 0, translateY: -12 }}
@@ -222,9 +216,15 @@ export default function PersonalProfileScreen() {
           damping: 24,
           stiffness: 160,
         }}
-        className="px-5 py-4 border-b border-[#f0edef] dark:border-zinc-800 flex-row justify-between items-center"
+        className={`px-5 py-4 border-b flex-row justify-between items-center ${
+          isDark ? 'border-zinc-800' : 'border-[#e2dfe1]'
+        }`}
       >
-        <Text className="text-xl font-outfit-extrabold text-[#1b1b1d] dark:text-white">
+        <Text
+          className={`text-xl font-outfit-extrabold ${
+            isDark ? 'text-white' : 'text-[#1b1b1d]'
+          }`}
+        >
           Meu Perfil
         </Text>
       </MotiView>
@@ -235,7 +235,7 @@ export default function PersonalProfileScreen() {
         contentContainerStyle={{
           paddingHorizontal: 20,
           paddingTop: 24,
-          paddingBottom: 120,
+          paddingBottom: 140,
         }}
         showsVerticalScrollIndicator={false}
       >
@@ -257,10 +257,18 @@ export default function PersonalProfileScreen() {
           >
             <User size={48} color="#ffffff" weight="bold" />
           </View>
-          <Text className="text-2xl font-outfit-extrabold text-[#1b1b1d] dark:text-white">
+          <Text
+            className={`text-2xl font-outfit-extrabold text-center ${
+              isDark ? 'text-white' : 'text-[#1b1b1d]'
+            }`}
+          >
             {fullName}
           </Text>
-          <Text className="text-sm font-sans-medium text-[#414755] dark:text-zinc-400 mt-1">
+          <Text
+            className={`text-sm font-sans-medium mt-1 ${
+              isDark ? 'text-zinc-400' : 'text-[#414755]'
+            }`}
+          >
             {email}
           </Text>
         </MotiView>
@@ -289,7 +297,11 @@ export default function PersonalProfileScreen() {
               {isLoading ? (
                 <ActivityIndicator size="small" color="#59C83A" className="self-start mt-1" />
               ) : (
-                <Text className="text-xl font-outfit-extrabold text-[#1b1b1d] dark:text-white mt-0.5 tracking-wider">
+                <Text
+                  className={`text-xl font-outfit-extrabold mt-0.5 tracking-wider ${
+                    isDark ? 'text-white' : 'text-[#1b1b1d]'
+                  }`}
+                >
                   {inviteCode}
                 </Text>
               )}
@@ -322,7 +334,11 @@ export default function PersonalProfileScreen() {
             delay: 60,
           }}
         >
-          <Text className="text-lg font-outfit text-[#1b1b1d] dark:text-white mb-3">
+          <Text
+            className={`text-lg font-outfit mb-3 ${
+              isDark ? 'text-white' : 'text-[#1b1b1d]'
+            }`}
+          >
             Visão Geral do Trabalho
           </Text>
 
@@ -334,28 +350,52 @@ export default function PersonalProfileScreen() {
             <View className="flex-row justify-between gap-3 mb-6">
               <TouchableOpacity
                 onPress={() => router.push('/(personal)')}
-                className="flex-1 bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl items-center border border-[#e2dfe1] dark:border-zinc-800"
+                className={`flex-1 p-4 rounded-2xl items-center border ${
+                  isDark
+                    ? 'bg-zinc-900 border-zinc-800'
+                    : 'bg-white border-[#e2dfe1]'
+                }`}
                 activeOpacity={0.8}
               >
                 <Users size={28} color="#59C83A" weight="bold" />
-                <Text className="text-2xl font-outfit-extrabold text-[#1b1b1d] dark:text-white mt-1">
+                <Text
+                  className={`text-2xl font-outfit-extrabold mt-1 ${
+                    isDark ? 'text-white' : 'text-[#1b1b1d]'
+                  }`}
+                >
                   {linkedStudentsCount}
                 </Text>
-                <Text className="text-xs font-sans-medium text-[#414755] dark:text-zinc-400 mt-1 text-center">
+                <Text
+                  className={`text-xs font-sans-medium mt-1 text-center ${
+                    isDark ? 'text-zinc-400' : 'text-[#414755]'
+                  }`}
+                >
                   Alunos Vinculados
                 </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 onPress={() => router.push('/(personal)/routines')}
-                className="flex-1 bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl items-center border border-[#e2dfe1] dark:border-zinc-800"
+                className={`flex-1 p-4 rounded-2xl items-center border ${
+                  isDark
+                    ? 'bg-zinc-900 border-zinc-800'
+                    : 'bg-white border-[#e2dfe1]'
+                }`}
                 activeOpacity={0.8}
               >
                 <Books size={28} color="#59C83A" weight="bold" />
-                <Text className="text-2xl font-outfit-extrabold text-[#1b1b1d] dark:text-white mt-1">
+                <Text
+                  className={`text-2xl font-outfit-extrabold mt-1 ${
+                    isDark ? 'text-white' : 'text-[#1b1b1d]'
+                  }`}
+                >
                   {libraryCount}
                 </Text>
-                <Text className="text-xs font-sans-medium text-[#414755] dark:text-zinc-400 mt-1 text-center">
+                <Text
+                  className={`text-xs font-sans-medium mt-1 text-center ${
+                    isDark ? 'text-zinc-400' : 'text-[#414755]'
+                  }`}
+                >
                   Modelos Salvos
                 </Text>
               </TouchableOpacity>
@@ -363,7 +403,7 @@ export default function PersonalProfileScreen() {
           )}
         </MotiView>
 
-        {/* 6. SELETOR DE TEMA ANIMADO */}
+        {/* 6. SELETOR DE TEMA ANIMADO (0ms DELAY) */}
         <MotiView
           from={{ opacity: 0, translateY: 10 }}
           animate={{ opacity: 1, translateY: 0 }}
@@ -374,59 +414,58 @@ export default function PersonalProfileScreen() {
             delay: 80,
           }}
         >
-          <Text className="text-lg font-outfit text-[#1b1b1d] dark:text-white mb-3">
+          <Text
+            className={`text-lg font-outfit mb-3 ${
+              isDark ? 'text-white' : 'text-[#1b1b1d]'
+            }`}
+          >
             Aparência do Aplicativo
           </Text>
 
-          <View className="bg-[#f8f9fa] dark:bg-zinc-900 rounded-2xl p-2 mb-6 border border-[#e2dfe1] dark:border-zinc-800 flex-row">
+          <View
+            className={`rounded-2xl p-2 mb-6 border flex-row ${
+              isDark
+                ? 'bg-zinc-900 border-zinc-800'
+                : 'bg-white border-[#e2dfe1]'
+            }`}
+          >
             <TouchableOpacity
-              onPress={() => handleThemeChange('light')}
-              className={`flex-1 py-3 rounded-xl flex-row items-center justify-center gap-1.5 ${themeMode === 'light'
-                  ? 'bg-white dark:bg-zinc-800 border border-[#e2dfe1] dark:border-zinc-700'
+              onPress={() => {
+                if (isDark) toggleTheme();
+              }}
+              className={`flex-1 py-3 rounded-xl flex-row items-center justify-center gap-1.5 ${
+                !isDark
+                  ? 'bg-[#f8f9fa] border border-[#e2dfe1]'
                   : 'bg-transparent'
-                }`}
+              }`}
             >
-              <Sun size={16} color={themeMode === 'light' ? '#59C83A' : '#9ca3af'} />
+              <Sun size={16} color={!isDark ? '#59C83A' : '#9ca3af'} weight="bold" />
               <Text
-                style={themeMode === 'light' ? { color: '#59C83A' } : undefined}
-                className={`font-sans-bold text-xs ${themeMode !== 'light' ? 'text-[#414755] dark:text-zinc-300' : ''
-                  }`}
+                className={`font-sans-bold text-xs ${
+                  !isDark ? 'text-[#59C83A]' : 'text-zinc-400'
+                }`}
               >
                 Claro
               </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              onPress={() => handleThemeChange('dark')}
-              className={`flex-1 py-3 rounded-xl flex-row items-center justify-center gap-1.5 ${themeMode === 'dark'
-                  ? 'bg-white dark:bg-zinc-800 border border-[#e2dfe1] dark:border-zinc-700'
+              onPress={() => {
+                if (!isDark) toggleTheme();
+              }}
+              className={`flex-1 py-3 rounded-xl flex-row items-center justify-center gap-1.5 ${
+                isDark
+                  ? 'bg-zinc-800 border border-zinc-700'
                   : 'bg-transparent'
-                }`}
+              }`}
             >
-              <Moon size={16} color={themeMode === 'dark' ? '#59C83A' : '#9ca3af'} />
+              <Moon size={16} color={isDark ? '#59C83A' : '#9ca3af'} weight="bold" />
               <Text
-                style={themeMode === 'dark' ? { color: '#59C83A' } : undefined}
-                className={`font-sans-bold text-xs ${themeMode !== 'dark' ? 'text-[#414755] dark:text-zinc-300' : ''
-                  }`}
+                className={`font-sans-bold text-xs ${
+                  isDark ? 'text-[#59C83A]' : 'text-[#71717a]'
+                }`}
               >
                 Escuro
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={() => handleThemeChange('system')}
-              className={`flex-1 py-3 rounded-xl flex-row items-center justify-center gap-1.5 ${themeMode === 'system'
-                  ? 'bg-white dark:bg-zinc-800 border border-[#e2dfe1] dark:border-zinc-700'
-                  : 'bg-transparent'
-                }`}
-            >
-              <Desktop size={16} color={themeMode === 'system' ? '#59C83A' : '#9ca3af'} />
-              <Text
-                style={themeMode === 'system' ? { color: '#59C83A' } : undefined}
-                className={`font-sans-bold text-xs ${themeMode !== 'system' ? 'text-[#414755] dark:text-zinc-300' : ''
-                  }`}
-              >
-                Sistema
               </Text>
             </TouchableOpacity>
           </View>
@@ -443,26 +482,43 @@ export default function PersonalProfileScreen() {
             delay: 100,
           }}
         >
-          <Text className="text-lg font-outfit text-[#1b1b1d] dark:text-white mb-3">
+          <Text
+            className={`text-lg font-outfit mb-3 ${
+              isDark ? 'text-white' : 'text-[#1b1b1d]'
+            }`}
+          >
             Opções da Conta
           </Text>
 
-          <View className="bg-[#f8f9fa] dark:bg-zinc-900 rounded-2xl overflow-hidden mb-6 border border-[#e2dfe1] dark:border-zinc-800">
-            {/* 🟢 BOTÃO CORRIGIDO: Agora chama setModalVisible(true) */}
+          <View
+            className={`rounded-2xl overflow-hidden mb-6 border ${
+              isDark
+                ? 'bg-zinc-900 border-zinc-800'
+                : 'bg-white border-[#e2dfe1]'
+            }`}
+          >
+            {/* ENVIAR COMUNICADOS / NOTIFICAÇÕES */}
             <TouchableOpacity
               onPress={() => setModalVisible(true)}
-              className="flex-row items-center justify-between p-4 border-b border-[#e2dfe1] dark:border-zinc-800"
+              className={`flex-row items-center justify-between p-4 border-b ${
+                isDark ? 'border-zinc-800' : 'border-[#e2dfe1]'
+              }`}
               activeOpacity={0.7}
             >
               <View className="flex-row items-center gap-3">
-                <Bell size={20} color={systemColorScheme === 'dark' ? '#ffffff' : '#1b1b1d'} />
-                <Text className="font-outfit text-[#1b1b1d] dark:text-white">
+                <Bell size={20} color={isDark ? '#ffffff' : '#1b1b1d'} />
+                <Text
+                  className={`font-outfit ${
+                    isDark ? 'text-white' : 'text-[#1b1b1d]'
+                  }`}
+                >
                   Notificações e Lembretes
                 </Text>
               </View>
-              <CaretRight size={18} color={systemColorScheme === 'dark' ? '#a1a1aa' : '#414755'} />
+              <CaretRight size={18} color={isDark ? '#a1a1aa' : '#414755'} />
             </TouchableOpacity>
 
+            {/* PRIVACIDADE */}
             <TouchableOpacity
               onPress={() =>
                 showAlertModal({
@@ -475,30 +531,33 @@ export default function PersonalProfileScreen() {
               activeOpacity={0.7}
             >
               <View className="flex-row items-center gap-3">
-                <Shield size={20} color={systemColorScheme === 'dark' ? '#ffffff' : '#1b1b1d'} />
-                <Text className="font-outfit text-[#1b1b1d] dark:text-white">
+                <Shield size={20} color={isDark ? '#ffffff' : '#1b1b1d'} />
+                <Text
+                  className={`font-outfit ${
+                    isDark ? 'text-white' : 'text-[#1b1b1d]'
+                  }`}
+                >
                   Privacidade e Dados
                 </Text>
               </View>
-              <CaretRight size={18} color={systemColorScheme === 'dark' ? '#a1a1aa' : '#414755'} />
+              <CaretRight size={18} color={isDark ? '#a1a1aa' : '#414755'} />
             </TouchableOpacity>
           </View>
         </MotiView>
 
-        {/* 8. BOTÃO DE SAIR ANIMADO */}
+        {/* 8. BOTÃO DE SAIR ANIMADO (COM CONFIRMAÇÃO) */}
         <MotiView
           from={{ opacity: 0, translateY: 10 }}
           animate={{ opacity: 1, translateY: 0 }}
-          transition={{
-            type: 'spring',
-            damping: 22,
-            stiffness: 150,
-            delay: 120,
-          }}
+          transition={{ type: 'timing', duration: 250 }}
         >
           <TouchableOpacity
             onPress={handleSignOut}
-            className="bg-[#ffebe8] dark:bg-red-950/40 p-4 rounded-2xl items-center flex-row justify-center border border-transparent dark:border-red-900/30"
+            style={{
+              backgroundColor: isDark ? 'rgba(127, 29, 29, 0.2)' : '#ffebe8',
+              borderColor: isDark ? 'rgba(239, 68, 68, 0.2)' : 'transparent',
+            }}
+            className="p-4 rounded-2xl items-center flex-row justify-center border"
             activeOpacity={0.8}
           >
             <SignOut size={20} color="#e11d48" />
@@ -518,6 +577,7 @@ export default function PersonalProfileScreen() {
       {/* COMPONENTE DO MODAL PERSONALIZADO REUTILIZÁVEL DE ALERTA */}
       <CustomModal
         visible={modalConfig.visible}
+        isDark={isDark}
         title={modalConfig.title}
         message={modalConfig.message}
         type={modalConfig.type}
