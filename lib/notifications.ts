@@ -1,5 +1,5 @@
 // ============================================================================
-// DOCUMENTAÇÃO: SERVIÇO DE NOTIFICAÇÕES (SUPORTE COMPATÍVEL COM EXPO GO)
+// DOCUMENTAÇÃO: SERVIÇO DE NOTIFICAÇÕES (SUPORTE COMPATÍVEL COM EXPO GO + RETRY)
 // ============================================================================
 
 import * as Device from 'expo-device';
@@ -17,6 +17,49 @@ Notifications.setNotificationHandler({
     shouldShowList: true,
   }),
 });
+
+/**
+ * 🟢 FUNÇÃO AUXILIAR: Tenta salvar o token no Supabase com retentativas automáticas.
+ * Resolve falhas rápidas de perda de conexão de rede no arranque do aplicativo.
+ */
+async function savePushTokenWithRetry(
+  userId: string,
+  token: string,
+  retries: number = 3,
+  delayMs: number = 1500
+): Promise<void> {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ push_token: token })
+        .eq('id', userId);
+
+      if (!error) {
+        console.log('[Push Notifications] Token salvo com sucesso:', token);
+        return; // Sucesso: encerra a função
+      }
+
+      console.warn(
+        `[Push Notifications] Tentativa ${attempt}/${retries} falhou (${error.message}). A tentar novamente em ${delayMs / 1000}s...`
+      );
+    } catch (err: any) {
+      console.warn(
+        `[Push Notifications] Falha de conexão na tentativa ${attempt}/${retries}:`,
+        err?.message || err
+      );
+    }
+
+    // Aguarda o tempo estipulado antes da próxima tentativa
+    if (attempt < retries) {
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+  }
+
+  console.error(
+    '[Push Notifications] Não foi possível salvar o token após múltiplas tentativas de rede.'
+  );
+}
 
 /**
  * Registra o dispositivo para receber Push Notifications
@@ -52,16 +95,8 @@ export async function registerForPushNotificationsAsync(userId: string) {
     const token = pushTokenData?.data;
 
     if (token && userId) {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ push_token: token })
-        .eq('id', userId);
-
-      if (error) {
-        console.error('[Push Notifications] Erro ao salvar token no Supabase:', error.message);
-      } else {
-        console.log('[Push Notifications] Token salvo com sucesso:', token);
-      }
+      // 🟢 Chamada resiliente com o mecanismo de retry integrado
+      await savePushTokenWithRetry(userId, token);
     }
 
     if (Platform.OS === 'android') {
