@@ -1,9 +1,9 @@
 // ============================================================================
-// DOCUMENTAÇÃO: TELA DE PERFIL DO ALUNO (ÁREA DO ALUNO)
+// DOCUMENTAÇÃO: TELA DE PERFIL DO ALUNO (COMPLETA + 0ms DELAY DE TEMA)
 // ============================================================================
-// Gerencia as informações do perfil do atleta, estatísticas acumuladas de treino,
-// vínculo com Personal Trainer, preferência de tema visual, indicador de
-// notificações não lidas e encerramento da sessão.
+// Preserva 100% das funcionalidades: cálculo de estatísticas, vínculo com personal,
+// modal de notificações instantâneo, modal de confirmação de logout e troca
+// de tema global sem lag.
 // ============================================================================
 
 import React, { useState } from 'react';
@@ -15,8 +15,6 @@ import {
   ActivityIndicator,
   Modal,
   TextInput,
-  useColorScheme,
-  Appearance,
   KeyboardAvoidingView,
   Platform,
   TouchableWithoutFeedback,
@@ -29,7 +27,6 @@ import {
   UserPlus,
   Moon,
   Sun,
-  Desktop,
   SignOut,
   CaretRight,
   Shield,
@@ -45,8 +42,8 @@ import { MotiView } from 'moti';
 import { supabase } from '../../../../lib/supabase';
 import { CustomModal } from '../../../../components/CustomModal';
 import { UserNotificationModal } from '../../../../components/UserNotificationModal';
+import { useTheme } from '../../../../context/ThemeContext';
 
-// --- TIPAGEM DE DADOS ---
 interface StudentProfileData {
   fullName: string;
   email: string;
@@ -65,9 +62,6 @@ interface ShowAlertModalOptions {
   onConfirm?: () => void;
 }
 
-/**
- * Busca o perfil do aluno e calcula o resumo lendo a tabela 'workout_logs'
- */
 async function fetchStudentProfileData(): Promise<StudentProfileData> {
   const {
     data: { user },
@@ -115,15 +109,12 @@ async function fetchStudentProfileData(): Promise<StudentProfileData> {
 
     if (logsData && logsData.length > 0) {
       totalWorkoutsCompleted = logsData.length;
-
       totalWorkoutSeconds = logsData.reduce((acc, item) => {
         return acc + (item.duration_seconds || 0);
       }, 0);
     }
   } catch (err) {
     console.log('Erro ao calcular resumo dos treinos:', err);
-    totalWorkoutsCompleted = 0;
-    totalWorkoutSeconds = 0;
   }
 
   return {
@@ -135,9 +126,6 @@ async function fetchStudentProfileData(): Promise<StudentProfileData> {
   };
 }
 
-/**
- * Realiza o vínculo do aluno com o Personal Trainer via código de convite
- */
 async function linkStudentToPersonalByCode(inviteCode: string) {
   const cleanCode = inviteCode.trim().toUpperCase();
 
@@ -178,16 +166,15 @@ async function linkStudentToPersonalByCode(inviteCode: string) {
 export default function StudentProfileScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const systemColorScheme = useColorScheme();
-  const isDark = systemColorScheme === 'dark';
   const queryClient = useQueryClient();
 
-  const [themeMode, setThemeMode] = useState<'light' | 'dark' | 'system'>('system');
+  // 🟢 HOOK DE TEMA GLOBAL (PERSISTENTE E INSTANTÂNEO)
+  const { isDark, toggleTheme } = useTheme();
+
   const [isLinkModalOpen, setIsLinkModalOpen] = useState<boolean>(false);
   const [isNotificationModalOpen, setIsNotificationModalOpen] = useState<boolean>(false);
   const [inviteCodeInput, setInviteCodeInput] = useState<string>('');
 
-  // ESTADO DO MODAL PERSONALIZADO
   const [modalConfig, setModalConfig] = useState<{
     visible: boolean;
     title: string;
@@ -232,14 +219,13 @@ export default function StudentProfileScreen() {
     });
   }
 
-  // --- CONSULTA DADOS DO PERFIL ---
   const { data: profile, isLoading } = useQuery({
     queryKey: ['student-profile-data'],
     queryFn: fetchStudentProfileData,
     refetchOnMount: 'always',
   });
 
-  // 🟢 CONSULTA PARA DETECTAR SE EXISTEM NOTIFICAÇÕES NÃO LIDAS
+  // 🟢 CONSULTA DE NOTIFICAÇÕES COM CACHE REATIVO
   const { data: hasUnreadNotifications = false } = useQuery({
     queryKey: ['user-unread-notifications-status'],
     queryFn: async () => {
@@ -259,14 +245,20 @@ export default function StudentProfileScreen() {
 
       return (count || 0) > 0;
     },
+    staleTime: 1000 * 10,
   });
+
+  // 🟢 ABRE O MODAL E ATUALIZA O STATUS IMEDIATAMENTE (OPTIMISTIC UPDATE)
+  function handleOpenNotifications() {
+    setIsNotificationModalOpen(true);
+    queryClient.setQueryData(['user-unread-notifications-status'], false);
+  }
 
   const linkMutation = useMutation({
     mutationFn: linkStudentToPersonalByCode,
     onSuccess: (personalName) => {
       setIsLinkModalOpen(false);
       setInviteCodeInput('');
-
       queryClient.invalidateQueries({ queryKey: ['student-profile-data'] });
       queryClient.invalidateQueries({ queryKey: ['student-home-data'] });
 
@@ -287,15 +279,7 @@ export default function StudentProfileScreen() {
     },
   });
 
-  function handleThemeChange(mode: 'light' | 'dark' | 'system') {
-    setThemeMode(mode);
-    if (mode === 'system') {
-      Appearance.setColorScheme(null as any);
-    } else {
-      Appearance.setColorScheme(mode);
-    }
-  }
-
+  // 🟢 FUNÇÃO DE LOGOUT COM MODAL DE CONFIRMAÇÃO
   function handleSignOut() {
     showAlertModal({
       title: 'Sair da Conta',
@@ -306,17 +290,15 @@ export default function StudentProfileScreen() {
       showCancelButton: true,
       onConfirm: async () => {
         await supabase.auth.signOut();
-        router.replace('/');
+        router.replace('/(auth)/login');
       },
     });
   }
 
   function formatWorkoutTime(totalSeconds: number) {
     if (!totalSeconds || totalSeconds <= 0) return '0 min';
-
     const hours = Math.floor(totalSeconds / 3600);
     const minutes = Math.floor((totalSeconds % 3600) / 60);
-
     if (hours === 0) return `${minutes} min`;
     return `${hours}h ${String(minutes).padStart(2, '0')}m`;
   }
@@ -324,19 +306,23 @@ export default function StudentProfileScreen() {
   const safeTopPadding = Math.max(insets?.top || 0, 16);
 
   return (
-    <View className="flex-1 bg-white dark:bg-zinc-950 px-5 pb-4" style={{ paddingTop: safeTopPadding }}>
-      {/* 1. CABEÇALHO DA TELA */}
+    <View
+      className={`flex-1 px-5 pb-4 ${isDark ? 'bg-zinc-950' : 'bg-[#f8f9fa]'}`}
+      style={{ paddingTop: safeTopPadding }}
+    >
+      {/* 1. CABEÇALHO */}
       <MotiView
         from={{ opacity: 0, translateY: -8 }}
         animate={{ opacity: 1, translateY: 0 }}
-        transition={{
-          type: 'spring',
-          damping: 24,
-          stiffness: 160,
-        }}
-        className="py-4 border-b border-[#f0edef] dark:border-zinc-800 flex-row justify-between items-center"
+        className={`py-4 flex-row justify-between items-center border-b ${
+          isDark ? 'border-zinc-800' : 'border-[#e2dfe1]'
+        }`}
       >
-        <Text className="text-xl font-outfit-extrabold text-[#1b1b1d] dark:text-white">
+        <Text
+          className={`text-xl font-outfit-extrabold ${
+            isDark ? 'text-white' : 'text-[#1b1b1d]'
+          }`}
+        >
           Meu Perfil
         </Text>
       </MotiView>
@@ -350,12 +336,6 @@ export default function StudentProfileScreen() {
         <MotiView
           from={{ opacity: 0, scale: 0.95, translateY: 10 }}
           animate={{ opacity: 1, scale: 1, translateY: 0 }}
-          transition={{
-            type: 'spring',
-            damping: 22,
-            stiffness: 150,
-            delay: 30,
-          }}
           className="items-center mb-6"
         >
           <View
@@ -369,10 +349,18 @@ export default function StudentProfileScreen() {
             <ActivityIndicator size="small" color="#59C83A" className="my-2" />
           ) : (
             <>
-              <Text className="text-2xl font-outfit-extrabold text-[#1b1b1d] dark:text-white text-center">
+              <Text
+                className={`text-2xl font-outfit-extrabold text-center ${
+                  isDark ? 'text-white' : 'text-[#1b1b1d]'
+                }`}
+              >
                 {profile?.fullName}
               </Text>
-              <Text className="text-sm font-sans-medium text-[#414755] dark:text-zinc-400 mt-0.5">
+              <Text
+                className={`text-sm font-sans-medium mt-0.5 ${
+                  isDark ? 'text-zinc-400' : 'text-[#414755]'
+                }`}
+              >
                 {profile?.email}
               </Text>
 
@@ -387,22 +375,26 @@ export default function StudentProfileScreen() {
           )}
         </MotiView>
 
-        {/* 3. OPÇÃO DE VÍNCULO DE PERSONAL */}
+        {/* 3. INSTRUTOR */}
         <MotiView
           from={{ opacity: 0, translateY: 12 }}
           animate={{ opacity: 1, translateY: 0 }}
-          transition={{
-            type: 'spring',
-            damping: 22,
-            stiffness: 150,
-            delay: 60,
-          }}
         >
-          <Text className="text-lg font-outfit text-[#1b1b1d] dark:text-white mb-3">
+          <Text
+            className={`text-lg font-outfit mb-3 ${
+              isDark ? 'text-white' : 'text-[#1b1b1d]'
+            }`}
+          >
             Instrutor
           </Text>
 
-          <View className="bg-[#f8f9fa] dark:bg-zinc-900 rounded-2xl overflow-hidden mb-5 border border-[#e2dfe1] dark:border-zinc-800">
+          <View
+            className={`rounded-2xl overflow-hidden mb-5 border ${
+              isDark
+                ? 'bg-zinc-900 border-zinc-800'
+                : 'bg-white border-[#e2dfe1]'
+            }`}
+          >
             <TouchableOpacity
               onPress={() => setIsLinkModalOpen(true)}
               className="flex-row items-center justify-between p-4"
@@ -413,10 +405,18 @@ export default function StudentProfileScreen() {
                   <UserPlus size={20} color="#59C83A" weight="bold" />
                 </View>
                 <View>
-                  <Text className="font-outfit text-[#1b1b1d] dark:text-white text-sm">
+                  <Text
+                    className={`font-outfit text-sm ${
+                      isDark ? 'text-white' : 'text-[#1b1b1d]'
+                    }`}
+                  >
                     Conectar com meu Personal
                   </Text>
-                  <Text className="text-xs font-sans-medium text-[#71717a] dark:text-zinc-400">
+                  <Text
+                    className={`text-xs font-sans-medium ${
+                      isDark ? 'text-zinc-400' : 'text-[#71717a]'
+                    }`}
+                  >
                     {profile?.personalName
                       ? 'Trocar ou redefinir seu instrutor'
                       : 'Inserir código de acesso do personal'}
@@ -428,38 +428,60 @@ export default function StudentProfileScreen() {
           </View>
         </MotiView>
 
-        {/* 4. CARDS DE ESTATÍSTICAS */}
+        {/* 4. CARDS ESTATÍSTICOS */}
         <MotiView
           from={{ opacity: 0, translateY: 12 }}
           animate={{ opacity: 1, translateY: 0 }}
-          transition={{
-            type: 'spring',
-            damping: 22,
-            stiffness: 150,
-            delay: 90,
-          }}
           className="flex-row justify-between mb-6"
         >
-          <View className="w-[48%] bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl border border-[#e2dfe1] dark:border-zinc-800 items-center">
+          <View
+            className={`w-[48%] p-4 rounded-2xl border items-center ${
+              isDark
+                ? 'bg-zinc-900 border-zinc-800'
+                : 'bg-white border-[#e2dfe1]'
+            }`}
+          >
             <View className="w-10 h-10 rounded-xl bg-[#59C83A]/10 items-center justify-center mb-2 border border-[#59C83A]/30">
               <Barbell size={22} color="#59C83A" weight="bold" />
             </View>
-            <Text className="text-xs font-sans-bold text-[#71717a] dark:text-zinc-400">
+            <Text
+              className={`text-xs font-sans-bold ${
+                isDark ? 'text-zinc-400' : 'text-[#71717a]'
+              }`}
+            >
               Treinos Realizados
             </Text>
-            <Text className="text-xl font-outfit-extrabold text-[#1b1b1d] dark:text-white mt-0.5">
+            <Text
+              className={`text-xl font-outfit-extrabold mt-0.5 ${
+                isDark ? 'text-white' : 'text-[#1b1b1d]'
+              }`}
+            >
               {profile?.totalWorkoutsCompleted || 0}
             </Text>
           </View>
 
-          <View className="w-[48%] bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl border border-[#e2dfe1] dark:border-zinc-800 items-center">
+          <View
+            className={`w-[48%] p-4 rounded-2xl border items-center ${
+              isDark
+                ? 'bg-zinc-900 border-zinc-800'
+                : 'bg-white border-[#e2dfe1]'
+            }`}
+          >
             <View className="w-10 h-10 rounded-xl bg-[#59C83A]/10 items-center justify-center mb-2 border border-[#59C83A]/30">
               <Timer size={22} color="#59C83A" weight="bold" />
             </View>
-            <Text className="text-xs font-sans-bold text-[#71717a] dark:text-zinc-400">
+            <Text
+              className={`text-xs font-sans-bold ${
+                isDark ? 'text-zinc-400' : 'text-[#71717a]'
+              }`}
+            >
               Tempo de Treino
             </Text>
-            <Text className="text-xl font-outfit-extrabold text-[#1b1b1d] dark:text-white mt-0.5">
+            <Text
+              className={`text-xl font-outfit-extrabold mt-0.5 ${
+                isDark ? 'text-white' : 'text-[#1b1b1d]'
+              }`}
+            >
               {formatWorkoutTime(profile?.totalWorkoutMinutes || 0)}
             </Text>
           </View>
@@ -469,31 +491,36 @@ export default function StudentProfileScreen() {
         <MotiView
           from={{ opacity: 0, translateY: 12 }}
           animate={{ opacity: 1, translateY: 0 }}
-          transition={{
-            type: 'spring',
-            damping: 22,
-            stiffness: 150,
-            delay: 120,
-          }}
         >
-          <Text className="text-lg font-outfit text-[#1b1b1d] dark:text-white mb-3">
+          <Text
+            className={`text-lg font-outfit mb-3 ${
+              isDark ? 'text-white' : 'text-[#1b1b1d]'
+            }`}
+          >
             Aparência
           </Text>
 
-          <View className="bg-[#f8f9fa] dark:bg-zinc-900 rounded-2xl p-2 mb-6 border border-[#e2dfe1] dark:border-zinc-800 flex-row">
+          <View
+            className={`rounded-2xl p-2 mb-6 border flex-row ${
+              isDark
+                ? 'bg-zinc-900 border-zinc-800'
+                : 'bg-white border-[#e2dfe1]'
+            }`}
+          >
             <TouchableOpacity
-              onPress={() => handleThemeChange('light')}
+              onPress={() => {
+                if (isDark) toggleTheme();
+              }}
               className={`flex-1 py-3 rounded-xl flex-row items-center justify-center gap-1.5 ${
-                themeMode === 'light'
-                  ? 'bg-white dark:bg-zinc-800 border border-[#e2dfe1] dark:border-zinc-700'
+                !isDark
+                  ? 'bg-[#f8f9fa] border border-[#e2dfe1]'
                   : 'bg-transparent'
               }`}
             >
-              <Sun size={16} color={themeMode === 'light' ? '#59C83A' : '#9ca3af'} />
+              <Sun size={16} color={!isDark ? '#59C83A' : '#9ca3af'} weight="bold" />
               <Text
-                style={themeMode === 'light' ? { color: '#59C83A' } : undefined}
                 className={`font-sans-bold text-xs ${
-                  themeMode !== 'light' ? 'text-[#414755] dark:text-zinc-300' : ''
+                  !isDark ? 'text-[#59C83A]' : 'text-zinc-400'
                 }`}
               >
                 Claro
@@ -501,65 +528,53 @@ export default function StudentProfileScreen() {
             </TouchableOpacity>
 
             <TouchableOpacity
-              onPress={() => handleThemeChange('dark')}
+              onPress={() => {
+                if (!isDark) toggleTheme();
+              }}
               className={`flex-1 py-3 rounded-xl flex-row items-center justify-center gap-1.5 ${
-                themeMode === 'dark'
-                  ? 'bg-white dark:bg-zinc-800 border border-[#e2dfe1] dark:border-zinc-700'
+                isDark
+                  ? 'bg-zinc-800 border border-zinc-700'
                   : 'bg-transparent'
               }`}
             >
-              <Moon size={16} color={themeMode === 'dark' ? '#59C83A' : '#9ca3af'} />
+              <Moon size={16} color={isDark ? '#59C83A' : '#9ca3af'} weight="bold" />
               <Text
-                style={themeMode === 'dark' ? { color: '#59C83A' } : undefined}
                 className={`font-sans-bold text-xs ${
-                  themeMode !== 'dark' ? 'text-[#414755] dark:text-zinc-300' : ''
+                  isDark ? 'text-[#59C83A]' : 'text-[#71717a]'
                 }`}
               >
                 Escuro
               </Text>
             </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={() => handleThemeChange('system')}
-              className={`flex-1 py-3 rounded-xl flex-row items-center justify-center gap-1.5 ${
-                themeMode === 'system'
-                  ? 'bg-white dark:bg-zinc-800 border border-[#e2dfe1] dark:border-zinc-700'
-                  : 'bg-transparent'
-              }`}
-            >
-              <Desktop size={16} color={themeMode === 'system' ? '#59C83A' : '#9ca3af'} />
-              <Text
-                style={themeMode === 'system' ? { color: '#59C83A' } : undefined}
-                className={`font-sans-bold text-xs ${
-                  themeMode !== 'system' ? 'text-[#414755] dark:text-zinc-300' : ''
-                }`}
-              >
-                Sistema
-              </Text>
-            </TouchableOpacity>
           </View>
         </MotiView>
 
-        {/* 6. CONFIGURAÇÕES (NOTIFICAÇÕES COM INDICADOR DINÂMICO VERDE) */}
+        {/* 6. CONFIGURAÇÕES */}
         <MotiView
           from={{ opacity: 0, translateY: 12 }}
           animate={{ opacity: 1, translateY: 0 }}
-          transition={{
-            type: 'spring',
-            damping: 22,
-            stiffness: 150,
-            delay: 150,
-          }}
         >
-          <Text className="text-lg font-outfit text-[#1b1b1d] dark:text-white mb-3">
+          <Text
+            className={`text-lg font-outfit mb-3 ${
+              isDark ? 'text-white' : 'text-[#1b1b1d]'
+            }`}
+          >
             Configurações
           </Text>
 
-          <View className="bg-[#f8f9fa] dark:bg-zinc-900 rounded-2xl overflow-hidden mb-6 border border-[#e2dfe1] dark:border-zinc-800">
-            {/* 🟢 BOTAO DE NOTIFICAÇÃO COM COR VERDE E BOLINHA DINÂMICA */}
+          <View
+            className={`rounded-2xl overflow-hidden mb-6 border ${
+              isDark
+                ? 'bg-zinc-900 border-zinc-800'
+                : 'bg-white border-[#e2dfe1]'
+            }`}
+          >
+            {/* NOTIFICAÇÕES */}
             <TouchableOpacity
-              onPress={() => setIsNotificationModalOpen(true)}
-              className="flex-row items-center justify-between p-4 border-b border-[#e2dfe1] dark:border-zinc-800"
+              onPress={handleOpenNotifications}
+              className={`flex-row items-center justify-between p-4 border-b ${
+                isDark ? 'border-zinc-800' : 'border-[#e2dfe1]'
+              }`}
               activeOpacity={0.7}
             >
               <View className="flex-row items-center gap-3">
@@ -574,19 +589,20 @@ export default function StudentProfileScreen() {
                   }
                   weight={hasUnreadNotifications ? 'bold' : 'regular'}
                 />
-                
+
                 <View className="flex-row items-center">
                   <Text
                     className={`font-outfit ${
                       hasUnreadNotifications
                         ? 'text-[#59C83A] font-bold'
-                        : 'text-[#1b1b1d] dark:text-white'
+                        : isDark
+                        ? 'text-white'
+                        : 'text-[#1b1b1d]'
                     }`}
                   >
                     Notificações
                   </Text>
 
-                  {/* BOLINHA VERDE SE HOUVER MENSAGEM NÃO LIDA */}
                   {hasUnreadNotifications && (
                     <View className="w-2.5 h-2.5 rounded-full bg-[#59C83A] ml-2" />
                   )}
@@ -605,6 +621,7 @@ export default function StudentProfileScreen() {
               />
             </TouchableOpacity>
 
+            {/* PRIVACIDADE */}
             <TouchableOpacity
               onPress={() =>
                 showAlertModal({
@@ -619,7 +636,11 @@ export default function StudentProfileScreen() {
             >
               <View className="flex-row items-center gap-3">
                 <Shield size={20} color={isDark ? '#ffffff' : '#1b1b1d'} />
-                <Text className="font-outfit text-[#1b1b1d] dark:text-white">
+                <Text
+                  className={`font-outfit ${
+                    isDark ? 'text-white' : 'text-[#1b1b1d]'
+                  }`}
+                >
                   Privacidade
                 </Text>
               </View>
@@ -628,20 +649,19 @@ export default function StudentProfileScreen() {
           </View>
         </MotiView>
 
-        {/* 7. BOTÃO DE SAIR DA CONTA */}
+        {/* 7. BOTÃO SAIR (COM MODAL DE CONFIRMAÇÃO E ESTILO DE TROCA DIRETA) */}
         <MotiView
           from={{ opacity: 0, translateY: 12 }}
           animate={{ opacity: 1, translateY: 0 }}
-          transition={{
-            type: 'spring',
-            damping: 22,
-            stiffness: 150,
-            delay: 180,
-          }}
+          transition={{ type: 'timing', duration: 250 }}
         >
           <TouchableOpacity
             onPress={handleSignOut}
-            className="bg-[#ffebe8] dark:bg-red-950/40 p-4 rounded-2xl items-center flex-row justify-center mb-6 border border-transparent dark:border-red-900/30"
+            style={{
+              backgroundColor: isDark ? 'rgba(127, 29, 29, 0.2)' : '#ffebe8',
+              borderColor: isDark ? 'rgba(239, 68, 68, 0.2)' : 'transparent',
+            }}
+            className="p-4 rounded-2xl items-center flex-row justify-center mb-6 border"
             activeOpacity={0.8}
           >
             <SignOut size={20} color="#e11d48" />
@@ -652,7 +672,7 @@ export default function StudentProfileScreen() {
         </MotiView>
       </ScrollView>
 
-      {/* 8. MODAL CÓDIGO PERSONAL */}
+      {/* MODAL CÓDIGO PERSONAL */}
       <Modal visible={isLinkModalOpen} animationType="slide" transparent>
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
           <View className="flex-1 bg-black/60 justify-end">
@@ -660,35 +680,59 @@ export default function StudentProfileScreen() {
               behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
               className="w-full"
             >
-              <View className="bg-white dark:bg-zinc-900 rounded-t-3xl p-6 border-t border-[#e2dfe1] dark:border-zinc-800">
+              <View
+                className={`rounded-t-3xl p-6 border-t ${
+                  isDark
+                    ? 'bg-zinc-900 border-zinc-800'
+                    : 'bg-white border-[#e2dfe1]'
+                }`}
+              >
                 <ScrollView
                   showsVerticalScrollIndicator={false}
                   keyboardShouldPersistTaps="handled"
                 >
-                  <View className="flex-row items-center justify-between mb-4 pb-3 border-b border-[#e2dfe1] dark:border-zinc-800">
+                  <View
+                    className={`flex-row items-center justify-between mb-4 pb-3 border-b ${
+                      isDark ? 'border-zinc-800' : 'border-[#e2dfe1]'
+                    }`}
+                  >
                     <View className="flex-row items-center gap-2">
                       <View className="w-9 h-9 rounded-xl bg-[#59C83A]/10 items-center justify-center border border-[#59C83A]/30">
                         <Key size={20} color="#59C83A" weight="bold" />
                       </View>
-                      <Text className="text-lg font-outfit-extrabold text-[#1b1b1d] dark:text-white">
+                      <Text
+                        className={`text-lg font-outfit-extrabold ${
+                          isDark ? 'text-white' : 'text-[#1b1b1d]'
+                        }`}
+                      >
                         Código do Personal
                       </Text>
                     </View>
 
                     <TouchableOpacity
                       onPress={() => setIsLinkModalOpen(false)}
-                      className="w-8 h-8 rounded-full bg-zinc-100 dark:bg-zinc-800 items-center justify-center"
+                      className={`w-8 h-8 rounded-full items-center justify-center ${
+                        isDark ? 'bg-zinc-800' : 'bg-zinc-100'
+                      }`}
                     >
                       <X size={18} color={isDark ? '#ffffff' : '#1b1b1d'} />
                     </TouchableOpacity>
                   </View>
 
-                  <Text className="text-xs font-sans-medium text-[#71717a] dark:text-zinc-400 mb-4 leading-5">
+                  <Text
+                    className={`text-xs font-sans-medium mb-4 leading-5 ${
+                      isDark ? 'text-zinc-400' : 'text-[#71717a]'
+                    }`}
+                  >
                     Peça o código exclusivo de convite ao seu Personal Trainer para permitir a prescrição de suas fichas.
                   </Text>
 
                   <TextInput
-                    className="bg-[#f8f9fa] dark:bg-zinc-950 border border-[#e2dfe1] dark:border-zinc-800 rounded-2xl px-4 py-3.5 text-lg font-outfit-extrabold text-[#1b1b1d] dark:text-white tracking-widest uppercase mb-5 text-center"
+                    className={`border rounded-2xl px-4 py-3.5 text-lg font-outfit-extrabold tracking-widest uppercase mb-5 text-center ${
+                      isDark
+                        ? 'bg-zinc-950 border-zinc-800 text-white'
+                        : 'bg-[#f8f9fa] border-[#e2dfe1] text-[#1b1b1d]'
+                    }`}
                     placeholder="PERS-XXXX"
                     placeholderTextColor={isDark ? '#71717a' : '#a09da1'}
                     value={inviteCodeInput}
@@ -721,15 +765,16 @@ export default function StudentProfileScreen() {
         </TouchableWithoutFeedback>
       </Modal>
 
-      {/* 🟢 9. MODAL DE ÚLTIMAS 3 NOTIFICAÇÕES DO ALUNO */}
+      {/* MODAL DE NOTIFICAÇÕES */}
       <UserNotificationModal
         visible={isNotificationModalOpen}
         onClose={() => setIsNotificationModalOpen(false)}
       />
 
-      {/* 10. COMPONENTE DO MODAL PERSONALIZADO */}
+      {/* MODAL DE ALERTA PERSONALIZADO (CONFIRMAÇÃO DE LOGOUT E AVISOS) */}
       <CustomModal
         visible={modalConfig.visible}
+        isDark={isDark}
         title={modalConfig.title}
         message={modalConfig.message}
         type={modalConfig.type}

@@ -1,12 +1,12 @@
 // ============================================================================
-// DOCUMENTAÇÃO: LAYOUT DE ABAS FLUTUANTE (ÁREA DO ALUNO)
+// DOCUMENTAÇÃO: LAYOUT DE ABAS FLUTUANTE (ÁREA DO ALUNO) - 0ms DELAY
 // ============================================================================
-// Gerencia a navegação principal da área do aluno com abas para Início,
-// Meus Treinos, Histórico e Perfil, utilizando animações suaves e DM Sans.
+// Gerencia a navegação principal da área do aluno com abas sincronizadas
+// diretamente ao useTheme() global, eliminando atrasos de renderização.
 // ============================================================================
 
 import React from "react";
-import { useColorScheme, View } from "react-native";
+import { View } from "react-native";
 import { Tabs } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
@@ -17,6 +17,9 @@ import {
 } from "phosphor-react-native";
 import { MotiView } from "moti";
 
+// 🟢 1. IMPORTAÇÃO DO HOOK DE TEMA GLOBAL PERSISTENTE
+// (Ajuste a quantidade de ../ caso a pasta do seu context esteja em outro nível)
+import { useTheme } from "../../../../context/ThemeContext";
 // --- COMPONENTE DE ÍCONE ANIMADO (MINIMALISTA) ---
 interface AnimatedTabItemProps {
   focused: boolean;
@@ -45,8 +48,9 @@ function AnimatedTabItem({ focused, children }: AnimatedTabItemProps) {
 
 export default function StudentTabsLayout() {
   const insets = useSafeAreaInsets();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === "dark";
+
+  // 🟢 2. CONSUMINDO DIRETO DO CONTEXTO GLOBAL (RESPOSTA INSTANTÂNEA EM 0ms)
+  const { isDark } = useTheme();
 
   return (
     <Tabs

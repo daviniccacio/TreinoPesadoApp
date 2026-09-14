@@ -1,13 +1,14 @@
 // ============================================================================
-// DOCUMENTAÇÃO: CONTEXTO GLOBAL DE TEMA (LIGHT / DARK PERSISTENTE)
+// DOCUMENTAÇÃO: CONTEXTO GLOBAL DE TEMA COM SINCRONIZAÇÃO NATIVEWIND
 // ============================================================================
-// Gerencia a preferência de tema do aplicativo e salva no AsyncStorage para
-// manter a escolha do usuário mesmo ao trocar de tela ou reiniciar o app.
+// Gerencia a preferência de tema (Light/Dark), grava no AsyncStorage e 
+// força a atualização do esquema de cores do NativeWind.
 // ============================================================================
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { useColorScheme } from 'react-native';
+import { useColorScheme as useRNColorScheme } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useColorScheme as useNativeWindColorScheme } from 'nativewind';
 
 interface ThemeContextData {
   isDark: boolean;
@@ -18,29 +19,35 @@ const ThemeContext = createContext<ThemeContextData>({} as ThemeContextData);
 const THEME_STORAGE_KEY = '@treino_pesado:theme_preference';
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const systemColorScheme = useColorScheme();
+  const systemColorScheme = useRNColorScheme();
+  const { setColorScheme } = useNativeWindColorScheme();
   const [isDark, setIsDark] = useState<boolean>(systemColorScheme === 'dark');
 
-  // Carrega a preferência salva ao iniciar a aplicação
+  // Carrega a preferência salva ao iniciar o aplicativo
   useEffect(() => {
     async function loadThemePreference() {
       try {
         const savedTheme = await AsyncStorage.getItem(THEME_STORAGE_KEY);
         if (savedTheme !== null) {
-          setIsDark(savedTheme === 'dark');
+          const activeDark = savedTheme === 'dark';
+          setIsDark(activeDark);
+          setColorScheme(activeDark ? 'dark' : 'light');
+        } else {
+          setColorScheme(systemColorScheme === 'dark' ? 'dark' : 'light');
         }
       } catch (error) {
-        console.warn('Erro ao carregar tema salvo:', error);
+        console.warn('Erro ao carregar preferência de tema:', error);
       }
     }
     loadThemePreference();
-  }, []);
+  }, [systemColorScheme]);
 
-  // Alterna o tema e grava no armazenamento local do celular
+  // Alterna o tema globalmente e sincroniza o NativeWind + AsyncStorage
   async function toggleTheme() {
     try {
       const nextTheme = !isDark;
       setIsDark(nextTheme);
+      setColorScheme(nextTheme ? 'dark' : 'light');
       await AsyncStorage.setItem(
         THEME_STORAGE_KEY,
         nextTheme ? 'dark' : 'light'
@@ -57,9 +64,6 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
-/**
- * Hook customizado para consumir o estado do tema em qualquer tela
- */
 export function useTheme() {
   const context = useContext(ThemeContext);
   if (!context) {

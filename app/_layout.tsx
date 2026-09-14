@@ -19,10 +19,10 @@ import '../global.css';
 
 // 4. Importações do React e React Native
 import React, { useEffect, useState } from 'react';
-import { View, ActivityIndicator, Alert } from 'react-native';
+import { View, ActivityIndicator, Alert, Text, TouchableOpacity } from 'react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
-// 5. Importações do Expo Router (Com alias para evitar conflito de ThemeProvider)
+// 5. Importações do Expo Router
 import {
   Stack,
   useRouter,
@@ -83,12 +83,21 @@ const CustomLightTheme = {
   },
 };
 
+// Interface para o perfil do usuário em memória
+interface UserProfile {
+  role: string;
+  is_blocked: boolean;
+}
+
 /**
  * Componente interno que consome o contexto de tema global e gerencia a navegação
  */
 function RootLayoutContent() {
   const [session, setSession] = useState<any>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isReady, setIsReady] = useState<boolean>(false);
+  const [isProfileLoading, setIsProfileLoading] = useState<boolean>(false);
+  const [networkError, setNetworkError] = useState<boolean>(false);
 
   const [fontsLoaded, fontError] = useFonts({
     Outfit_700Bold,
@@ -110,7 +119,7 @@ function RootLayoutContent() {
     SystemUI.setBackgroundColorAsync(backgroundColor);
   }, [isDark, backgroundColor]);
 
-  // Validação inicial da sessão no Supabase
+  // 🟢 ETAPA 1: VALIDAÇÃO DA SESSÃO INICIAL
   useEffect(() => {
     async function validateAuthOnServer() {
       try {
@@ -153,6 +162,7 @@ function RootLayoutContent() {
 
         if (event === 'SIGNED_OUT' || !currentSession) {
           setSession(null);
+          setUserProfile(null);
         } else {
           setSession(currentSession);
         }
@@ -165,6 +175,43 @@ function RootLayoutContent() {
     };
   }, []);
 
+  // 🟢 ETAPA 2: BUSCA DO PERFIL NO SUPABASE (APENAS QUANDO A SESSÃO MUDAR)
+  async function fetchUserProfile() {
+    if (!session?.user?.id) {
+      setUserProfile(null);
+      return;
+    }
+
+    setIsProfileLoading(true);
+    setNetworkError(false);
+
+    try {
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('role, is_blocked')
+        .eq('id', session.user.id)
+        .single();
+
+      if (error) {
+        console.error('Erro ao verificar perfil do usuário:', error.message);
+        setNetworkError(true);
+      } else if (profile) {
+        setUserProfile(profile as UserProfile);
+      }
+    } catch (err) {
+      console.error('Erro de conexão ao buscar perfil:', err);
+      setNetworkError(true);
+    } finally {
+      setIsProfileLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (session?.user?.id) {
+      fetchUserProfile();
+    }
+  }, [session?.user?.id]);
+
   // Registro de Push Notifications para o usuário logado
   useEffect(() => {
     if (session?.user?.id) {
@@ -172,75 +219,80 @@ function RootLayoutContent() {
     }
   }, [session]);
 
-  // PROTEÇÃO GLOBAL DE ROTAS E DIRECIONAMENTO POR ROLE
+  // 🟢 ETAPA 3: PROTEÇÃO GLOBAL DE ROTAS E DIRECIONAMENTO INSTANTÂNEO
   useEffect(() => {
-    if (!isReady || (!fontsLoaded && !fontError)) return;
+    if (!isReady || (!fontsLoaded && !fontError) || isProfileLoading) return;
 
-    async function handleNavigation() {
-      const routeSegments = segments as string[];
-      const rootGroup = routeSegments[0]; // '(app)' ou '(auth)'
-      const subGroup = routeSegments[1];  // '(admin)', '(personal)', '(aluno)'
+    const routeSegments = segments as string[];
+    const rootGroup = routeSegments[0]; // '(app)' ou '(auth)'
+    const subGroup = routeSegments[1];  // '(admin)', '(personal)', '(aluno)'
 
-      if (routeSegments.includes('reset-password')) {
-        return;
-      }
-
-      // 1. CASO NÃO HAJA SESSÃO ATIVA
-      if (!session) {
-        if (rootGroup !== '(auth)') {
-          router.replace('/(auth)/login');
-        }
-        return;
-      }
-
-      // 2. CONSULTA PERFIL, ROLE E STATUS DE BLOQUEIO NO SUPABASE
-      try {
-        const { data: profile, error } = await supabase
-          .from('profiles')
-          .select('role, is_blocked')
-          .eq('id', session.user.id)
-          .single();
-
-        if (error || !profile) {
-          console.error('Erro ao verificar perfil do usuário:', error?.message);
-          return;
-        }
-
-        // 3. SE O USUÁRIO ESTIVER BLOQUEADO
-        if (profile.is_blocked) {
-          await supabase.auth.signOut();
-          setSession(null);
-          Alert.alert(
-            'Acesso Suspenso',
-            'Sua conta foi bloqueada pelo administrador do sistema.'
-          );
-          router.replace('/(auth)/login');
-          return;
-        }
-
-        // 4. DIRECIONAMENTO COM BASE NA ROLE
-        if (profile.role === 'admin') {
-          if (rootGroup !== '(app)' || subGroup !== '(admin)') {
-            router.replace('/(app)/(admin)' as any);
-          }
-        } else if (profile.role === 'personal') {
-          if (rootGroup !== '(app)' || subGroup !== '(personal)') {
-            router.replace('/(app)/(personal)' as any);
-          }
-        } else {
-          if (rootGroup !== '(app)' || subGroup !== '(aluno)') {
-            router.replace('/(app)/(aluno)' as any);
-          }
-        }
-      } catch (err) {
-        console.error('Erro ao processar redirecionamento por perfil:', err);
-      }
+    if (routeSegments.includes('reset-password')) {
+      return;
     }
 
-    handleNavigation();
-  }, [session, isReady, fontsLoaded, fontError, segments]);
+    // 1. CASO NÃO HAJA SESSÃO ATIVA
+    if (!session) {
+      if (rootGroup !== '(auth)') {
+        router.replace('/(auth)/login');
+      }
+      return;
+    }
 
-  if (!isReady || (!fontsLoaded && !fontError)) {
+    // Se o perfil ainda não foi carregado devido a erro de rede, aguarda
+    if (!userProfile) return;
+
+    // 2. SE O USUÁRIO ESTIVER BLOQUEADO
+    if (userProfile.is_blocked) {
+      supabase.auth.signOut();
+      setSession(null);
+      setUserProfile(null);
+      Alert.alert(
+        'Acesso Suspenso',
+        'Sua conta foi bloqueada pelo administrador do sistema.'
+      );
+      router.replace('/(auth)/login');
+      return;
+    }
+
+    // 3. DIRECIONAMENTO COM BASE NA ROLE SALVA EM MEMÓRIA (SEM CONSULTA REPETIDA)
+    if (userProfile.role === 'admin') {
+      if (rootGroup !== '(app)' || subGroup !== '(admin)') {
+        router.replace('/(app)/(admin)' as any);
+      }
+    } else if (userProfile.role === 'personal') {
+      if (rootGroup !== '(app)' || subGroup !== '(personal)') {
+        router.replace('/(app)/(personal)' as any);
+      }
+    } else {
+      if (rootGroup !== '(app)' || subGroup !== '(aluno)') {
+        router.replace('/(app)/(aluno)' as any);
+      }
+    }
+  }, [session, userProfile, isReady, isProfileLoading, fontsLoaded, fontError, segments]);
+
+  // TELA DE ERRO DE CONEXÃO (RETRY AMIGÁVEL EM CASO DE GATEWAY TIMEOUT)
+  if (networkError && !userProfile) {
+    return (
+      <View style={{ flex: 1, backgroundColor }} className="justify-center items-center px-6">
+        <Text className="text-base font-sans-bold text-red-500 mb-2 text-center">
+          Falha de Conexão com o Servidor
+        </Text>
+        <Text className="text-xs font-sans-medium text-zinc-400 mb-6 text-center">
+          Não foi possível verificar suas permissões devido a um tempo limite de rede (Gateway Timeout).
+        </Text>
+        <TouchableOpacity
+          onPress={fetchUserProfile}
+          className="bg-[#59C83A] px-6 py-3 rounded-2xl"
+        >
+          <Text className="text-white font-sans-bold text-sm">Tentar Novamente</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  // CARREGAMENTO INICIAL DO APLICATIVO
+  if (!isReady || (!fontsLoaded && !fontError) || (session && isProfileLoading && !userProfile)) {
     return (
       <View style={{ flex: 1, backgroundColor }} className="justify-center items-center">
         <ActivityIndicator size="large" color="#59C83A" />
