@@ -3,7 +3,7 @@
     "name": "Treino Pesado",
     "slug": "treino-pesado",
     "scheme": "treinopesado",
-    "version": "1.0.1",
+    "version": "1.2.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -51,7 +51,14 @@
       "expo-image",
       "expo-router",
       "expo-status-bar",
-      "expo-asset"
+      "expo-asset",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/logo-treino-pesado-icon.png",
+          "color": "#59C83A"
+        }
+      ]
     ]
   }
 }
