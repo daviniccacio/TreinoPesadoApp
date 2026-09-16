@@ -2,7 +2,7 @@
 // DOCUMENTAÇÃO: TELA MEUS TREINOS (ÁREA DO ALUNO)
 // ============================================================================
 // Exibe as fichas de treino prescritas pelo personal e as rotinas criadas pelo
-// próprio aluno, permitindo filtragem por categoria, execução e exclusão.
+// próprio aluno, alinhando a tag do dia da semana na extrema direita do título.
 // ============================================================================
 
 import React, { useState } from "react";
@@ -39,7 +39,7 @@ interface WorkoutCardItem {
   title: string;
   type: "personal" | "custom";
   subtitle: string;
-  day_of_week?: string;
+  day_of_week: string;
 }
 
 interface ShowAlertModalOptions {
@@ -61,6 +61,26 @@ const CATEGORY_FILTERS = [
 type FilterType = "all" | "personal" | "custom";
 
 /**
+ * Formata e padroniza o nome do dia da semana (ex: 'terca' -> 'Terça-feira')
+ */
+function formatDayOfWeek(rawDay: any): string {
+  if (!rawDay) return "Ficha Semanal";
+  const str = String(rawDay).trim();
+  if (!str) return "Ficha Semanal";
+
+  const lower = str.toLowerCase();
+  if (lower.includes("seg") || lower === "1" || lower.includes("mon")) return "Segunda-feira";
+  if (lower.includes("ter") || lower === "2" || lower.includes("tue")) return "Terça-feira";
+  if (lower.includes("qua") || lower === "3" || lower.includes("wed")) return "Quarta-feira";
+  if (lower.includes("qui") || lower === "4" || lower.includes("thu")) return "Quinta-feira";
+  if (lower.includes("sex") || lower === "5" || lower.includes("fri")) return "Sexta-feira";
+  if (lower.includes("sab") || lower.includes("sáb") || lower === "6" || lower.includes("sat")) return "Sábado";
+  if (lower.includes("dom") || lower === "7" || lower.includes("sun")) return "Domingo";
+
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+/**
  * Busca as fichas atribuídas pelo personal e os treinos personalizados do aluno no Supabase
  */
 async function fetchStudentWorkouts(): Promise<WorkoutCardItem[]> {
@@ -80,12 +100,19 @@ async function fetchStudentWorkouts(): Promise<WorkoutCardItem[]> {
 
     if (!error && prescribedData) {
       prescribedData.forEach((item: any) => {
+        const rawDay =
+          item.day_of_week ||
+          item.days_of_week ||
+          item.week_day ||
+          item.day ||
+          item.target_day;
+
         combinedList.push({
           id: item.id,
           title: item.name || item.title || "Treino do Personal",
           type: "personal",
           subtitle: item.goal || item.description || "Ficha recomendada",
-          day_of_week: item.day_of_week || "Ficha",
+          day_of_week: formatDayOfWeek(rawDay),
         });
       });
     }
@@ -104,12 +131,19 @@ async function fetchStudentWorkouts(): Promise<WorkoutCardItem[]> {
       customData.forEach((item: any) => customMap.set(item.id, item));
 
       customMap.forEach((item: any) => {
+        const rawDay =
+          item.day_of_week ||
+          item.days_of_week ||
+          item.week_day ||
+          item.day ||
+          item.target_day;
+
         combinedList.push({
           id: item.id,
           title: item.title || "Treino Personalizado",
           type: "custom",
           subtitle: item.description || "Criado por mim",
-          day_of_week: item.day_of_week || "Livre",
+          day_of_week: formatDayOfWeek(rawDay),
         });
       });
     }
@@ -260,11 +294,9 @@ export default function MyWorkoutsScreen() {
         className="flex-row items-center justify-between mb-4"
       >
         <View>
-          {/* Título Principal em Outfit ExtraBold */}
           <Text className="text-2xl font-outfit-extrabold text-[#1b1b1d] dark:text-white">
             Meus Treinos
           </Text>
-          {/* Subtítulo em DM Sans Medium */}
           <Text className="text-xs font-sans-medium text-[#71717a] dark:text-zinc-400 mt-0.5">
             Suas fichas de exercícios e rotinas
           </Text>
@@ -309,7 +341,6 @@ export default function MyWorkoutsScreen() {
                       : "bg-[#f8f9fa] dark:bg-zinc-900 border-[#e2dfe1] dark:border-zinc-800"
                   }`}
                 >
-                  {/* Texto do Filtro em DM Sans Bold */}
                   <Text
                     className={`text-xs font-sans-bold ${
                       isActive
@@ -326,10 +357,10 @@ export default function MyWorkoutsScreen() {
         </ScrollView>
       </View>
 
-      {/* 3. LISTA DE TREINOS COM ROLAGEM CONFORTÁVEL */}
+      {/* 3. LISTA DE TREINOS */}
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 120 }} // Espaço livre para a Navbar Flutuante
+        contentContainerStyle={{ paddingBottom: 120 }}
         refreshControl={
           <RefreshControl
             refreshing={isRefetching}
@@ -354,11 +385,9 @@ export default function MyWorkoutsScreen() {
             className="bg-[#f8f9fa] dark:bg-zinc-900 p-8 rounded-2xl border border-dashed border-[#e2dfe1] dark:border-zinc-800 items-center my-2"
           >
             <Barbell size={40} color={isDark ? "#71717a" : "#a1a1aa"} />
-            {/* Título de Lista Vazia em Outfit Bold */}
             <Text className="font-outfit text-[#1b1b1d] dark:text-white mt-3 text-base text-center">
               Nenhum treino encontrado
             </Text>
-            {/* Mensagem em DM Sans Medium */}
             <Text className="font-sans-medium text-[#71717a] dark:text-zinc-400 text-xs text-center mt-1 leading-5">
               {selectedFilter === "personal"
                 ? "Seu personal trainer ainda não prescreveu fichas nesta categoria."
@@ -384,9 +413,9 @@ export default function MyWorkoutsScreen() {
                 }}
                 className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl mb-3 border border-[#e2dfe1] dark:border-zinc-800"
               >
-                {/* CABEÇALHO DO CARD */}
+                {/* 🟢 CABEÇALHO DO CARD: TÍTULO À ESQUERDA E DIA DA SEMANA NA EXTREMA DIREITA */}
                 <View className="flex-row items-center justify-between mb-2">
-                  <View className="flex-row items-center flex-1 mr-2 gap-2">
+                  <View className="flex-row items-center flex-1 mr-2 gap-2.5">
                     <View
                       className={`w-9 h-9 rounded-xl items-center justify-center border ${
                         isPersonal
@@ -401,7 +430,7 @@ export default function MyWorkoutsScreen() {
                       )}
                     </View>
 
-                    {/* Nome do Treino em Outfit ExtraBold */}
+                    {/* Nome do Treino */}
                     <Text
                       className="text-base font-outfit-extrabold text-[#1b1b1d] dark:text-white flex-1"
                       numberOfLines={1}
@@ -410,11 +439,10 @@ export default function MyWorkoutsScreen() {
                     </Text>
                   </View>
 
-                  {/* TAG DO DIA DA SEMANA */}
+                  {/* 🟢 TAG DO DIA DA SEMANA NA EXTREMA DIREITA */}
                   <View className="bg-[#59C83A]/15 border border-[#59C83A]/30 px-2.5 py-1 rounded-lg flex-row items-center">
                     <Calendar size={12} color="#59C83A" weight="bold" />
-                    {/* Dia da Semana em DM Sans Bold */}
-                    <Text className="text-[11px] font-sans-bold text-[#59C83A] ml-1.5 capitalize">
+                    <Text className="text-[11px] font-sans-bold text-[#59C83A] ml-1.5">
                       {workout.day_of_week}
                     </Text>
                   </View>
@@ -423,7 +451,6 @@ export default function MyWorkoutsScreen() {
                 {/* DESCRIÇÃO / PROPÓSITO DO TREINO */}
                 <View className="flex-row items-center my-1">
                   <Target size={14} color={isDark ? "#a1a1aa" : "#71717a"} />
-                  {/* Subtítulo do Treino em DM Sans Medium */}
                   <Text
                     className="text-xs font-sans-medium text-[#71717a] dark:text-zinc-400 ml-1.5 flex-1"
                     numberOfLines={1}
@@ -434,7 +461,6 @@ export default function MyWorkoutsScreen() {
 
                 {/* RODAPÉ DO CARD */}
                 <View className="flex-row items-center justify-between mt-3 pt-3 border-t border-[#e2dfe1]/60 dark:border-zinc-800">
-                  {/* Rótulo de Origem em DM Sans Bold */}
                   <Text className="text-[10px] font-sans-bold text-[#71717a] dark:text-zinc-500 uppercase tracking-wider">
                     {isPersonal ? "Ficha do Personal" : "Criado por mim"}
                   </Text>
@@ -475,11 +501,10 @@ export default function MyWorkoutsScreen() {
 
                     <TouchableOpacity
                       onPress={() => handleOpenWorkout(workout)}
-                      className="flex-row items-center gap-1 bg-[#59C83A] px-3 py-1.5 rounded-xl ml-1"
+                      className="flex-row items-center gap-1 bg-[#59C83A] px-3.5 py-1.5 rounded-xl ml-1"
                       activeOpacity={0.8}
                     >
                       <PlayCircle size={16} color="#FFFFFF" weight="bold" />
-                      {/* Botão de Iniciar em DM Sans Bold */}
                       <Text className="text-xs font-sans-bold text-white">
                         Iniciar
                       </Text>
