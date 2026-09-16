@@ -355,7 +355,7 @@ export default function MyWorkoutsScreen() {
           >
             <Barbell size={40} color={isDark ? "#71717a" : "#a1a1aa"} />
             {/* Título de Lista Vazia em Outfit Bold */}
-            <Text className="font-outfit-bold text-[#1b1b1d] dark:text-white mt-3 text-base text-center">
+            <Text className="font-outfit text-[#1b1b1d] dark:text-white mt-3 text-base text-center">
               Nenhum treino encontrado
             </Text>
             {/* Mensagem em DM Sans Medium */}

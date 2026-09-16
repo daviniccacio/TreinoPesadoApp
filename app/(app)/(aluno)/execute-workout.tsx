@@ -1,9 +1,9 @@
 // ============================================================================
-// DOCUMENTAÇÃO: TELA DE EXECUÇÃO DE TREINO (ÁREA DO ALUNO)
+// DOCUMENTAÇÃO: TELA DE EXECUÇÃO DE TREINO (ÁREA DO ALUNO) - CORRIGIDA
 // ============================================================================
 // Gerencia a execução em tempo real do treino (cronômetro geral, checklist de
 // séries concluídas, conclusão de exercícios em fila com numeração original
-// preservada e timer de descanso).
+// preservada e timer de descanso com safe area insets ajustada para o Android).
 // ============================================================================
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
@@ -37,6 +37,7 @@ import { supabase } from "../../../lib/supabase";
 import { useThrottledCallback } from "../../../lib/useThrottle";
 import { CustomModal } from "../../../components/CustomModal";
 import { sendNotificationToUser } from "../../../lib/notifications";
+
 // --- TIPAGENS DE DADOS ---
 interface ExerciseItem {
   id: string;
@@ -238,7 +239,6 @@ export default function ExecuteWorkoutScreen() {
   const workoutName = workoutData?.workoutName || "Treino";
   const exercises = workoutData?.exercises || [];
 
-  // --- MUTAÇÃO PARA REGISTRAR TREINO CONCLUÍDO ---
   // --- MUTAÇÃO PARA REGISTRAR TREINO CONCLUÍDO ---
   const finishWorkoutMutation = useMutation({
     mutationFn: async (duration: number) => {
@@ -553,7 +553,9 @@ export default function ExecuteWorkoutScreen() {
     return aDone ? 1 : -1;
   });
 
+  // 🟢 CÁLCULOS DINÂMICOS DE SAFE AREA INSETS (TOPO E RODAPÉ DO ANDROID/IOS)
   const safeTopPadding = Math.max(insets?.top || 0, 16);
+  const safeBottomPadding = Math.max(insets?.bottom || 0, 16) + 24;
 
   if (isLoading) {
     return (
@@ -686,7 +688,7 @@ export default function ExecuteWorkoutScreen() {
         </View>
       </MotiView>
 
-      {/* 3. LISTA DE EXERCÍCIOS ANIMADA (COM PRESERVAÇÃO DA ORDEM ORIGINAL) */}
+      {/* 3. LISTA DE EXERCÍCIOS ANIMADA */}
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 100 }}
@@ -696,7 +698,6 @@ export default function ExecuteWorkoutScreen() {
           const setsArray = Array.from({ length: totalSetsCount });
           const isExerciseDone = completedExercises.has(exercise.id);
 
-          // 🟢 BUSCA A POSIÇÃO ORIGINAL NA FICHA DE TREINO
           const originalIndex =
             exercises.findIndex((e) => e.id === exercise.id) + 1;
 
@@ -720,7 +721,6 @@ export default function ExecuteWorkoutScreen() {
                 }`}
             >
               <View className="flex-row items-center justify-between mb-2">
-                {/* 🟢 TÍTULO COM NUMERAÇÃO ORIGINAL PRESERVADA (originalIndex) */}
                 <Text
                   className={`text-base font-outfit flex-1 mr-2 ${isExerciseDone
                       ? "text-[#71717a] dark:text-zinc-500 line-through"
@@ -731,7 +731,6 @@ export default function ExecuteWorkoutScreen() {
                 </Text>
 
                 <View className="flex-row items-center gap-2">
-                  {/* BOTÃO VER GIF */}
                   <TouchableOpacity
                     onPress={() =>
                       handleOpenExerciseDemo(
@@ -747,7 +746,6 @@ export default function ExecuteWorkoutScreen() {
                     </Text>
                   </TouchableOpacity>
 
-                  {/* BOTÃO DE CHECKIN DO EXERCÍCIO COMPLETO */}
                   <TouchableOpacity
                     onPress={() =>
                       toggleExerciseCompletion(exercise.id, totalSetsCount)
@@ -853,7 +851,10 @@ export default function ExecuteWorkoutScreen() {
       {/* MODAL DE DEMONSTRAÇÃO DO EXERCÍCIO (GIF) */}
       <Modal visible={demoModalVisible} transparent animationType="slide">
         <View className="flex-1 bg-black/70 justify-end">
-          <View className="bg-white dark:bg-zinc-900 rounded-t-3xl p-5 h-[75%] border-t border-[#e2dfe1] dark:border-zinc-800">
+          <View
+            className="bg-white dark:bg-zinc-900 rounded-t-3xl p-5 h-[75%] border-t border-[#e2dfe1] dark:border-zinc-800"
+            style={{ paddingBottom: safeBottomPadding }}
+          >
             <View className="flex-row items-center justify-between mb-3 border-b border-[#e2dfe1] dark:border-zinc-800 pb-3">
               <Text
                 className="text-base font-outfit text-[#1b1b1d] dark:text-white flex-1 mr-2"
@@ -915,7 +916,7 @@ export default function ExecuteWorkoutScreen() {
 
             <TouchableOpacity
               onPress={() => setDemoModalVisible(false)}
-              className="bg-[#59C83A] py-3 rounded-xl items-center mt-2"
+              className="bg-[#59C83A] py-4.5 rounded-xl items-center mt-2"
             >
               <Text className="text-xs font-sans-bold text-white">
                 Voltar para o Treino
@@ -925,10 +926,13 @@ export default function ExecuteWorkoutScreen() {
         </View>
       </Modal>
 
-      {/* MODAL DE DESCANSO AUTOMÁTICO */}
+      {/* 🟢 MODAL DE DESCANSO AUTOMÁTICO CORRIGIDO COM SAFE AREA INSETS */}
       <Modal visible={isResting} transparent animationType="slide">
         <View className="flex-1 bg-black/60 justify-end">
-          <View className="bg-white dark:bg-zinc-900 rounded-t-3xl p-6 border-t border-[#e2dfe1] dark:border-zinc-800 items-center">
+          <View
+            className="bg-white dark:bg-zinc-900 rounded-t-3xl p-6 border-t border-[#e2dfe1] dark:border-zinc-800 items-center"
+            style={{ paddingBottom: safeBottomPadding }}
+          >
             <View className="w-12 h-12 rounded-full bg-[#59C83A]/10 items-center justify-center border border-[#59C83A]/30 mb-3">
               <Timer size={28} color="#59C83A" weight="bold" />
             </View>
@@ -943,7 +947,7 @@ export default function ExecuteWorkoutScreen() {
             <View className="flex-row items-center gap-3 mt-4 w-full">
               <TouchableOpacity
                 onPress={() => addRestTime(30)}
-                className="flex-1 bg-zinc-100 dark:bg-zinc-800 py-3 rounded-xl items-center border border-zinc-200 dark:border-zinc-700"
+                className="flex-1 bg-zinc-100 dark:bg-zinc-800 py-3.5 rounded-xl items-center border border-zinc-200 dark:border-zinc-700"
               >
                 <Text className="text-xs font-sans-bold text-[#1b1b1d] dark:text-white">
                   +30 Segundos
@@ -952,7 +956,7 @@ export default function ExecuteWorkoutScreen() {
 
               <TouchableOpacity
                 onPress={skipRest}
-                className="flex-1 bg-[#59C83A] py-3 rounded-xl items-center"
+                className="flex-1 bg-[#59C83A] py-3.5 rounded-xl items-center"
               >
                 <Text className="text-xs font-sans-bold text-white">
                   Pular Descanso
