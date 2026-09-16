@@ -3,7 +3,7 @@
     "name": "Treino Pesado",
     "slug": "treino-pesado",
     "scheme": "treinopesado",
-    "version": "1.2.0",
+    "version": "1.2.3",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -23,7 +23,7 @@
     },
     "android": {
       "jsEngine": "hermes",
-      "versionCode": 5,
+      "versionCode": 6,
       "adaptiveIcon": {
         "foregroundImage": "./assets/logo-treino-pesado-icon.png",
         "backgroundColor": "#1b1b1d"

@@ -1,8 +1,9 @@
 // ============================================================================
-// DOCUMENTAÇÃO: BIBLIOTECA DE ROTINAS DA APLICAÇÃO (PERSONAL TRAINER)
+// DOCUMENTAÇÃO: BIBLIOTECA DE ROTINAS DA APLICAÇÃO (PERSONAL TRAINER) - CORRIGIDA
 // ============================================================================
 // Exibe os modelos de treinos reutilizáveis do Personal, permitindo criar,
-// editar, excluir e atribuir cópias das fichas diretamente aos alunos.
+// editar, excluir e atribuir cópias das fichas diretamente aos alunos com
+// tratamento de Modais nativos sem sobreposição ou travamentos.
 // ============================================================================
 
 import React, { useState, useCallback } from 'react';
@@ -191,6 +192,21 @@ export default function PersonalRoutinesScreen() {
     }
   }
 
+  /**
+   * 🟢 CORREÇÃO DO BUG: Fecha o modal de alunos primeiro antes de disparar a confirmação
+   */
+  function handleSelectStudentFromModal(studentId: string, studentName: string) {
+    if (!selectedRoutine) return;
+
+    // 1. Fecha o modal de seleção de alunos
+    setStudentsModalVisible(false);
+
+    // 2. Aguarda a transição de fechamento do modal nativo antes de abrir o CustomModal
+    setTimeout(() => {
+      confirmAndAssignToStudent(selectedRoutine, studentId, studentName);
+    }, 200);
+  }
+
   // --- BUSCA DAS ROTINAS ---
   const {
     data: routines = [],
@@ -304,8 +320,6 @@ export default function PersonalRoutinesScreen() {
       return studentId;
     },
     onSuccess: (studentId) => {
-      setStudentsModalVisible(false);
-
       queryClient.invalidateQueries({
         queryKey: ['personal-student-detail', studentId],
       });
@@ -378,11 +392,9 @@ export default function PersonalRoutinesScreen() {
         className="flex-row justify-between items-center mb-6 border-b border-[#f0edef] dark:border-zinc-800 pb-4"
       >
         <View className="flex-1 mr-2">
-          {/* Título com a fonte Outfit ExtraBold */}
           <Text className="text-2xl font-outfit-extrabold text-[#1b1b1d] dark:text-white">
             Biblioteca de Rotinas
           </Text>
-          {/* Subtítulo com a fonte DM Sans Medium */}
           <Text className="text-sm font-sans-medium text-[#71717a] dark:text-zinc-400 mt-1">
             Modelos de fichas reutilizáveis
           </Text>
@@ -426,7 +438,7 @@ export default function PersonalRoutinesScreen() {
           data={routines}
           keyExtractor={(item) => item.id}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: 120 }} // 🟢 Espaço de sobra para a Navbar Flutuante
+          contentContainerStyle={{ paddingBottom: 120 }}
           refreshControl={
             <RefreshControl
               refreshing={isRefetching}
@@ -449,7 +461,6 @@ export default function PersonalRoutinesScreen() {
                 }}
               >
                 <View className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl mb-3 border border-[#e2dfe1] dark:border-zinc-800 flex-row items-center justify-between">
-                  {/* ÁREA CLICÁVEL DO CARD: NAVEGA PARA OS DETALHES DO TREINO */}
                   <TouchableOpacity
                     activeOpacity={0.7}
                     onPress={() =>
@@ -465,11 +476,9 @@ export default function PersonalRoutinesScreen() {
                     </View>
 
                     <View className="flex-1">
-                      {/* Nome do modelo com Outfit SemiBold */}
                       <Text className="text-base font-outfit text-[#1b1b1d] dark:text-white">
                         {item.name}
                       </Text>
-                      {/* Detalhes do modelo com DM Sans Medium */}
                       <Text className="text-xs font-sans-medium text-[#71717a] dark:text-zinc-400 mt-0.5">
                         {exerciseCount} {exerciseCount === 1 ? 'exercício' : 'exercícios'}
                         {item.objective ? ` • ${item.objective}` : ''}
@@ -477,9 +486,7 @@ export default function PersonalRoutinesScreen() {
                     </View>
                   </TouchableOpacity>
 
-                  {/* AÇÕES DO CARTÃO */}
                   <View className="flex-row items-center gap-2">
-                    {/* 1. Botão Atribuir a Aluno */}
                     <TouchableOpacity
                       onPress={() => handleOpenAssignFlow(item)}
                       disabled={assignRoutineMutation.isPending}
@@ -488,7 +495,6 @@ export default function PersonalRoutinesScreen() {
                       <UserPlus size={18} color="#59C83A" weight="bold" />
                     </TouchableOpacity>
 
-                    {/* 2. Botão Editar Modelo */}
                     <TouchableOpacity
                       onPress={() =>
                         router.push({
@@ -501,7 +507,6 @@ export default function PersonalRoutinesScreen() {
                       <PencilSimple size={18} color={isDark ? '#ffffff' : '#1b1b1d'} weight="bold" />
                     </TouchableOpacity>
 
-                    {/* 3. Botão Excluir Modelo */}
                     <TouchableOpacity
                       onPress={() => handleDeleteRoutine(item.id, item.name)}
                       disabled={deleteRoutineMutation.isPending}
@@ -557,10 +562,7 @@ export default function PersonalRoutinesScreen() {
                 showsVerticalScrollIndicator={false}
                 renderItem={({ item }) => (
                   <TouchableOpacity
-                    onPress={() =>
-                      selectedRoutine &&
-                      confirmAndAssignToStudent(selectedRoutine, item.id, item.full_name)
-                    }
+                    onPress={() => handleSelectStudentFromModal(item.id, item.full_name)}
                     className="p-4 rounded-xl bg-[#f8f9fa] dark:bg-zinc-950 border border-[#e2dfe1] dark:border-zinc-800 mb-2.5 flex-row items-center justify-between"
                   >
                     <Text className="text-sm font-outfit-semibold text-[#1b1b1d] dark:text-white">
