@@ -173,7 +173,7 @@ async function linkStudentToPersonalByCode(inviteCode: string) {
 
 // 🟢 2. COMPONENTE DE BOTÃO DA POLÍTICA DE PRIVACIDADE CORRIGIDO
 export function PrivacyPolicyButton({
-  policyUrl = 'https://github.com/davinicacio/TreinoPesadoApp/blob/main/PRIVACY_POLICY.md',
+  policyUrl = 'https://politicadeprivacidadetreinopesadoapp.netlify.app/',
 }: PrivacyButtonProps) {
   const handleOpenLink = async () => {
     const supported = await Linking.canOpenURL(policyUrl);
