@@ -1,8 +1,8 @@
 // ============================================================================
 // DOCUMENTAÇÃO: TELA DE EXECUÇÃO DE TREINO (ÁREA DO ALUNO)
 // ============================================================================
-// Gerencia a execução do treino com suporte completo a safe area insets nos
-// modais inferiores, garantindo espaçamento adequado acima da navegação nativa.
+// Gerencia a execução do treino com descanso configurado exclusivamente para a
+// conclusão dos exercícios e suporte total a Safe Area Insets nos modais.
 // ============================================================================
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
@@ -441,6 +441,7 @@ export default function ExecuteWorkoutScreen() {
     }
   }
 
+  // 🟢 ALTERADO: Descanso removido do clique individual e movido para a conclusão do exercício
   function toggleSetCompletion(
     exerciseId: string,
     setIndex: number,
@@ -455,7 +456,6 @@ export default function ExecuteWorkoutScreen() {
       nextCompletedExercises.delete(exerciseId);
     } else {
       nextCompletedSets.add(key);
-      startRestTimer(DEFAULT_REST_TIME);
 
       let allDone = true;
       for (let i = 0; i < totalSetsCount; i++) {
@@ -465,8 +465,10 @@ export default function ExecuteWorkoutScreen() {
         }
       }
 
+      // Se todas as séries forem marcadas, conclui o exercício e dispara o descanso
       if (allDone) {
         nextCompletedExercises.add(exerciseId);
+        startRestTimer(DEFAULT_REST_TIME);
       }
     }
 
@@ -474,6 +476,7 @@ export default function ExecuteWorkoutScreen() {
     setCompletedExercises(nextCompletedExercises);
   }
 
+  // 🟢 ALTERADO: Dispara o timer de descanso ao clicar no botão "Finalizar" do exercício
   function toggleExerciseCompletion(
     exerciseId: string,
     totalSetsCount: number
@@ -493,6 +496,7 @@ export default function ExecuteWorkoutScreen() {
       for (let i = 0; i < totalSetsCount; i++) {
         nextCompletedSets.add(`${exerciseId}-${i}`);
       }
+      startRestTimer(DEFAULT_REST_TIME);
     }
 
     setCompletedExercises(nextCompletedExercises);
@@ -536,7 +540,6 @@ export default function ExecuteWorkoutScreen() {
     return aDone ? 1 : -1;
   });
 
-  // 🟢 CÁLCULO DE SAFE AREA CORRIGIDO PARA MODAIS INFERIORES
   const safeTopPadding = Math.max(insets?.top || 0, 16);
   const safeBottomPadding = Platform.OS === 'android'
     ? Math.max(insets?.bottom || 0, 24) + 20
@@ -836,7 +839,7 @@ export default function ExecuteWorkoutScreen() {
         })}
       </ScrollView>
 
-      {/* 🟢 MODAL DE DEMONSTRAÇÃO (COM ESPAÇAMENTO INFERIOR GARANTIDO) */}
+      {/* MODAL DE DEMONSTRAÇÃO */}
       <Modal visible={demoModalVisible} transparent animationType="slide">
         <View className="flex-1 bg-black/70 justify-end">
           <View
@@ -955,7 +958,7 @@ export default function ExecuteWorkoutScreen() {
         </View>
       </Modal>
 
-      {/* 🟢 MODAL DE DESCANSO AUTOMÁTICO (COM ESPAÇAMENTO INFERIOR GARANTIDO) */}
+      {/* MODAL DE DESCANSO AUTOMÁTICO */}
       <Modal visible={isResting} transparent animationType="slide">
         <View className="flex-1 bg-black/60 justify-end">
           <View
