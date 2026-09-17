@@ -1,8 +1,8 @@
 // ============================================================================
-// DOCUMENTAÇÃO: TELA DE PERFIL PROFISSIONAL (PERSONAL TRAINER) - TEMA GLOBAL
+// DOCUMENTAÇÃO: TELA DE PERFIL PROFISSIONAL (PERSONAL TRAINER) - COM EXCLUSÃO DE CONTA
 // ============================================================================
-// Exibe dados cadastrais, código de acesso exclusivo para alunos, estatísticas
-// de trabalho, alternância de tema global (0ms delay), envio de comunicados e logout.
+// Exibe dados cadastrais, código de acesso para alunos, estatísticas de trabalho,
+// alternância de tema global, política de privacidade, exclusão definitiva de conta e logout.
 // ============================================================================
 
 import React, { useState } from 'react';
@@ -12,6 +12,7 @@ import {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
+  Linking,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -22,18 +23,20 @@ import {
   Sun,
   SignOut,
   CaretRight,
-  Shield,
+  ShieldCheck,
+  ArrowSquareOut,
   Bell,
   Books,
   Key,
+  Trash,
 } from 'phosphor-react-native';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { MotiView } from 'moti';
 import { supabase } from '../../../../lib/supabase';
 import { CustomModal } from '../../../../components/CustomModal';
 import { SendNotificationModal } from '../../../../components/SendNotificationModal';
 
-// 🟢 IMPORTAÇÃO DO CONTEXTO DE TEMA GLOBAL PERSISTENTE
+// IMPORTAÇÃO DO CONTEXTO DE TEMA GLOBAL PERSISTENTE
 import { useTheme } from '../../../../context/ThemeContext';
 
 // --- TIPAGENS DE DADOS ---
@@ -56,6 +59,40 @@ interface ShowAlertModalOptions {
   onConfirm?: () => void;
 }
 
+interface PrivacyButtonProps {
+  policyUrl?: string;
+}
+
+/**
+ * Componente do botão da Política de Privacidade com abertura externa
+ */
+export function PrivacyPolicyButton({
+  policyUrl = 'https://politicadeprivacidadetreinopesadoapp.netlify.app/',
+}: PrivacyButtonProps) {
+  const handleOpenLink = async () => {
+    const supported = await Linking.canOpenURL(policyUrl);
+    if (supported) {
+      await Linking.openURL(policyUrl);
+    }
+  };
+
+  return (
+    <TouchableOpacity
+      onPress={handleOpenLink}
+      activeOpacity={0.7}
+      className="flex-row items-center justify-between p-4"
+    >
+      <View className="flex-row items-center gap-3">
+        <ShieldCheck size={20} color="#59C83A" weight="bold" />
+        <Text className="font-outfit text-sm text-[#1b1b1d] dark:text-white">
+          Política de Privacidade
+        </Text>
+      </View>
+      <ArrowSquareOut size={16} color="#a1a1aa" />
+    </TouchableOpacity>
+  );
+}
+
 /**
  * Busca os dados do perfil, código de acesso e métricas do Personal Trainer no Supabase
  */
@@ -66,7 +103,6 @@ async function fetchPersonalProfileData(): Promise<PersonalProfileData> {
 
   if (!user) throw new Error('Usuário não autenticado');
 
-  // Busca o perfil e o código exclusivo de acesso na tabela profiles
   const { data: profile } = await supabase
     .from('profiles')
     .select('full_name, invite_code')
@@ -78,14 +114,12 @@ async function fetchPersonalProfileData(): Promise<PersonalProfileData> {
     `${user.user_metadata?.first_name || ''} ${user.user_metadata?.last_name || ''}`.trim() ||
     'Personal Trainer';
 
-  // 1. Contar Modelos na Biblioteca (Planos onde student_id é nulo)
   const { count: libraryCount } = await supabase
     .from('workout_plans')
     .select('*', { count: 'exact', head: true })
     .is('student_id', null)
     .eq('personal_id', user.id);
 
-  // 2. Contar Alunos Vinculados (Usuários na tabela profiles vinculados ao personal_id)
   const { count: studentsCount } = await supabase
     .from('profiles')
     .select('*', { count: 'exact', head: true })
@@ -104,14 +138,15 @@ async function fetchPersonalProfileData(): Promise<PersonalProfileData> {
 export default function PersonalProfileScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const queryClient = useQueryClient();
 
-  // 🟢 SUBSCRITO AO TEMA GLOBAL PERSISTENTE
+  // SUBSCRITO AO TEMA GLOBAL PERSISTENTE
   const { isDark, toggleTheme } = useTheme();
 
-  // 🟢 ESTADO PARA EXIBIÇÃO DO MODAL DE ENVIAR COMUNICADOS
+  // ESTADOS DOS MODAIS
   const [modalVisible, setModalVisible] = useState(false);
 
-  // --- ESTADO DO MODAL PERSONALIZADO REUTILIZÁVEL DE ALERTA ---
+  // ESTADO DO MODAL PERSONALIZADO REUTILIZÁVEL DE ALERTA
   const [modalConfig, setModalConfig] = useState<{
     visible: boolean;
     title: string;
@@ -156,11 +191,59 @@ export default function PersonalProfileScreen() {
     });
   }
 
-  // --- CONSULTA COM TANSTACK QUERY ---
+  // CONSULTA DE PERFIL COM TANSTACK QUERY
   const { data: profile, isLoading } = useQuery({
     queryKey: ['personal-profile-data'],
     queryFn: fetchPersonalProfileData,
   });
+
+  // 🟢 MUTAÇÃO DE EXCLUSÃO DEFINITIVA DE CONTA
+  const deleteAccountMutation = useMutation({
+    mutationFn: async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) throw new Error('Sessão expirada.');
+
+      // Tenta executar a exclusão via função RPC cadastrada no Supabase
+      const { error: rpcError } = await supabase.rpc('delete_own_account');
+
+      // Se não houver RPC, remove os registros diretamente nas tabelas
+      if (rpcError) {
+        await supabase.from('workout_plans').delete().eq('personal_id', user.id);
+        await supabase.from('custom_workouts').delete().eq('user_id', user.id);
+        await supabase.from('profiles').delete().eq('id', user.id);
+      }
+
+      await supabase.auth.signOut();
+    },
+    onSuccess: () => {
+      queryClient.clear();
+      router.replace('/(auth)/login');
+    },
+    onError: (err: any) => {
+      showAlertModal({
+        title: 'Erro ao Excluir',
+        message: err.message || 'Não foi possível excluir sua conta no momento.',
+        type: 'danger',
+        showCancelButton: false,
+      });
+    },
+  });
+
+  function handleDeleteAccount() {
+    showAlertModal({
+      title: 'Excluir Minha Conta ⚠️',
+      message:
+        'Esta ação apagará permanentemente seus modelos de treinos, vínculos com alunos e dados cadastrais. Deseja continuar?',
+      type: 'danger',
+      confirmText: 'Excluir Definitivamente',
+      cancelText: 'Cancelar',
+      showCancelButton: true,
+      onConfirm: () => deleteAccountMutation.mutate(),
+    });
+  }
 
   function handleSignOut() {
     showAlertModal({
@@ -229,7 +312,7 @@ export default function PersonalProfileScreen() {
         </Text>
       </MotiView>
 
-      {/* 2. SCROLLVIEW COM ESPAÇAMENTO PARA NAVBAR FLUTUANTE */}
+      {/* 2. SCROLLVIEW */}
       <ScrollView
         className="flex-1"
         contentContainerStyle={{
@@ -239,16 +322,10 @@ export default function PersonalProfileScreen() {
         }}
         showsVerticalScrollIndicator={false}
       >
-        {/* 3. CARTÃO DO USUÁRIO ANIMADO */}
+        {/* 3. CARTÃO DO USUÁRIO */}
         <MotiView
           from={{ opacity: 0, scale: 0.95, translateY: 10 }}
           animate={{ opacity: 1, scale: 1, translateY: 0 }}
-          transition={{
-            type: 'spring',
-            damping: 22,
-            stiffness: 150,
-            delay: 20,
-          }}
           className="items-center mb-6"
         >
           <View
@@ -273,16 +350,10 @@ export default function PersonalProfileScreen() {
           </Text>
         </MotiView>
 
-        {/* 4. CARD DO CÓDIGO DE ACESSO ANIMADO */}
+        {/* 4. CARD DO CÓDIGO DE ACESSO */}
         <MotiView
           from={{ opacity: 0, translateY: 10, scale: 0.97 }}
           animate={{ opacity: 1, translateY: 0, scale: 1 }}
-          transition={{
-            type: 'spring',
-            damping: 22,
-            stiffness: 150,
-            delay: 40,
-          }}
           className="bg-[#59C83A]/10 border border-[#59C83A]/30 p-4 rounded-2xl mb-6 flex-row items-center justify-between"
         >
           <View className="flex-row items-center flex-1 mr-2">
@@ -323,16 +394,10 @@ export default function PersonalProfileScreen() {
           </TouchableOpacity>
         </MotiView>
 
-        {/* 5. RESUMO DE ATIVIDADES ANIMADO */}
+        {/* 5. RESUMO DE ATIVIDADES */}
         <MotiView
           from={{ opacity: 0, translateY: 10 }}
           animate={{ opacity: 1, translateY: 0 }}
-          transition={{
-            type: 'spring',
-            damping: 22,
-            stiffness: 150,
-            delay: 60,
-          }}
         >
           <Text
             className={`text-lg font-outfit mb-3 ${
@@ -403,16 +468,10 @@ export default function PersonalProfileScreen() {
           )}
         </MotiView>
 
-        {/* 6. SELETOR DE TEMA ANIMADO (0ms DELAY) */}
+        {/* 6. SELETOR DE TEMA */}
         <MotiView
           from={{ opacity: 0, translateY: 10 }}
           animate={{ opacity: 1, translateY: 0 }}
-          transition={{
-            type: 'spring',
-            damping: 22,
-            stiffness: 150,
-            delay: 80,
-          }}
         >
           <Text
             className={`text-lg font-outfit mb-3 ${
@@ -471,16 +530,10 @@ export default function PersonalProfileScreen() {
           </View>
         </MotiView>
 
-        {/* 7. OPÇÕES DA CONTA ANIMADAS */}
+        {/* 7. OPÇÕES DA CONTA */}
         <MotiView
           from={{ opacity: 0, translateY: 10 }}
           animate={{ opacity: 1, translateY: 0 }}
-          transition={{
-            type: 'spring',
-            damping: 22,
-            stiffness: 150,
-            delay: 100,
-          }}
         >
           <Text
             className={`text-lg font-outfit mb-3 ${
@@ -518,34 +571,34 @@ export default function PersonalProfileScreen() {
               <CaretRight size={18} color={isDark ? '#a1a1aa' : '#414755'} />
             </TouchableOpacity>
 
-            {/* PRIVACIDADE */}
+            {/* PRIVACIDADE COM LINK EXTERNO */}
+            <View className={`border-b ${isDark ? 'border-zinc-800' : 'border-[#e2dfe1]'}`}>
+              <PrivacyPolicyButton />
+            </View>
+
+            {/* 🟢 EXCLUIR MINHA CONTA */}
             <TouchableOpacity
-              onPress={() =>
-                showAlertModal({
-                  title: 'Privacidade',
-                  message: 'Seus dados estão protegidos via Supabase.',
-                  type: 'info',
-                })
-              }
+              onPress={handleDeleteAccount}
+              disabled={deleteAccountMutation.isPending}
               className="flex-row items-center justify-between p-4"
               activeOpacity={0.7}
             >
               <View className="flex-row items-center gap-3">
-                <Shield size={20} color={isDark ? '#ffffff' : '#1b1b1d'} />
-                <Text
-                  className={`font-outfit ${
-                    isDark ? 'text-white' : 'text-[#1b1b1d]'
-                  }`}
-                >
-                  Privacidade e Dados
+                <Trash size={20} color="#ef4444" weight="bold" />
+                <Text className="font-outfit text-sm text-red-500">
+                  Excluir Minha Conta
                 </Text>
               </View>
-              <CaretRight size={18} color={isDark ? '#a1a1aa' : '#414755'} />
+              {deleteAccountMutation.isPending ? (
+                <ActivityIndicator size="small" color="#ef4444" />
+              ) : (
+                <CaretRight size={18} color="#ef4444" />
+              )}
             </TouchableOpacity>
           </View>
         </MotiView>
 
-        {/* 8. BOTÃO DE SAIR ANIMADO (COM CONFIRMAÇÃO) */}
+        {/* 8. BOTÃO DE SAIR */}
         <MotiView
           from={{ opacity: 0, translateY: 10 }}
           animate={{ opacity: 1, translateY: 0 }}
@@ -568,7 +621,7 @@ export default function PersonalProfileScreen() {
         </MotiView>
       </ScrollView>
 
-      {/* 🟢 COMPONENTE DO MODAL DE ENVIAR NOTIFICAÇÕES */}
+      {/* COMPONENTE DO MODAL DE ENVIAR NOTIFICAÇÕES */}
       <SendNotificationModal
         visible={modalVisible}
         onClose={() => setModalVisible(false)}

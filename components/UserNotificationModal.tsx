@@ -1,8 +1,9 @@
 // ============================================================================
-// DOCUMENTAÇÃO: MODAL DE 3 ÚLTIMAS NOTIFICAÇÕES DO USUÁRIO
+// DOCUMENTAÇÃO: MODAL DE 3 ÚLTIMAS NOTIFICAÇÕES DO USUÁRIO (COM SAFE AREA)
 // ============================================================================
 // Exibe as 3 notificações mais recentes registradas para o usuário logado,
-// permitindo marcação de leitura individual e visualização rápida de avisos.
+// permitindo marcação de leitura individual/coletiva e garantindo espaçamento
+// seguro em relação à barra de navegação nativa do iOS e Android.
 // ============================================================================
 
 import React from 'react';
@@ -13,13 +14,15 @@ import {
   Modal,
   ScrollView,
   ActivityIndicator,
+  Platform,
   useColorScheme,
 } from 'react-native';
-// 🟢 CORREÇÃO TS2724: Importado 'CheckCircle' em vez de 'CheckCircle2'
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Bell, X, Megaphone, Barbell, CheckCircle } from 'phosphor-react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 
+// --- TIPAGENS DE DADOS ---
 interface NotificationItem {
   id: string;
   title: string;
@@ -35,7 +38,7 @@ interface UserNotificationModalProps {
 }
 
 /**
- * Busca apenas as 3 notificações mais recentes do usuário logado
+ * Busca apenas as 3 notificações mais recentes do usuário logado no Supabase.
  */
 async function fetchLatestThreeNotifications(): Promise<NotificationItem[]> {
   const {
@@ -44,7 +47,6 @@ async function fetchLatestThreeNotifications(): Promise<NotificationItem[]> {
 
   if (!user) return [];
 
-  // Consulta limitada estritamente aos 3 registros mais recentes
   const { data, error } = await supabase
     .from('notifications')
     .select('*')
@@ -64,15 +66,22 @@ export function UserNotificationModal({
   visible,
   onClose,
 }: UserNotificationModalProps) {
+  const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const queryClient = useQueryClient();
+
+  // 🟢 CÁLCULO DINÂMICO DE ESPAÇAMENTO INFERIOR (SAFE AREA)
+  const safeBottomPadding =
+    Platform.OS === 'ios'
+      ? Math.max(insets?.bottom || 0, 20) + 16
+      : Math.max(insets?.bottom || 0, 16) + 20;
 
   // --- CONSULTA COM TANSTACK QUERY ---
   const { data: notifications = [], isLoading } = useQuery({
     queryKey: ['user-latest-3-notifications'],
     queryFn: fetchLatestThreeNotifications,
-    enabled: visible, // Executa a consulta somente quando o modal estiver aberto
+    enabled: visible,
   });
 
   // --- MUTAÇÃO PARA MARCAR COMO LIDA INDIVIDUALMENTE ---
@@ -86,6 +95,7 @@ export function UserNotificationModal({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user-latest-3-notifications'] });
       queryClient.invalidateQueries({ queryKey: ['user-notifications'] });
+      queryClient.invalidateQueries({ queryKey: ['user-unread-notifications-status'] });
     },
   });
 
@@ -106,16 +116,19 @@ export function UserNotificationModal({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user-latest-3-notifications'] });
       queryClient.invalidateQueries({ queryKey: ['user-notifications'] });
+      queryClient.invalidateQueries({ queryKey: ['user-unread-notifications-status'] });
     },
   });
 
   const hasUnread = notifications.some((n) => !n.read);
 
   return (
-    <Modal visible={visible} transparent animationType="slide">
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View className="flex-1 bg-black/60 justify-end">
-        <View className="bg-white dark:bg-zinc-900 rounded-t-3xl p-5 border-t border-[#e2dfe1] dark:border-zinc-800">
-          
+        <View
+          style={{ paddingBottom: safeBottomPadding }}
+          className="bg-white dark:bg-zinc-900 rounded-t-3xl p-5 border-t border-[#e2dfe1] dark:border-zinc-800"
+        >
           {/* CABEÇALHO DO MODAL */}
           <View className="flex-row items-center justify-between pb-3 border-b border-[#e2dfe1] dark:border-zinc-800 mb-4">
             <View className="flex-row items-center">
@@ -195,7 +208,6 @@ export function UserNotificationModal({
                   disabled={markAllAsReadMutation.isPending}
                   className="mt-1 py-2.5 rounded-xl bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex-row items-center justify-center gap-1.5"
                 >
-                  {/* 🟢 CORREÇÃO: Ícone 'CheckCircle' aplicado com sucesso */}
                   <CheckCircle size={16} color={isDark ? '#a1a1aa' : '#71717a'} weight="bold" />
                   <Text className="text-xs font-sans-bold text-[#71717a] dark:text-zinc-300">
                     Marcar todas como lidas
@@ -209,6 +221,7 @@ export function UserNotificationModal({
           <TouchableOpacity
             onPress={onClose}
             className="bg-[#59C83A] py-3.5 rounded-xl items-center mt-4"
+            activeOpacity={0.8}
           >
             <Text className="text-xs font-sans-bold text-white">Fechar</Text>
           </TouchableOpacity>

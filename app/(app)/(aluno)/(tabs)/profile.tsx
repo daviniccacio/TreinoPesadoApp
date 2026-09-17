@@ -1,8 +1,9 @@
 // ============================================================================
-// DOCUMENTAÇÃO: TELA DE PERFIL DO ALUNO (COM EXCLUSÃO DE CONTA)
+// DOCUMENTAÇÃO: TELA DE PERFIL DO ALUNO (COM CORREÇÃO DE SAFE AREA NOS MODAIS)
 // ============================================================================
 // Inclui gerenciamento de perfil, estatísticas, vínculo com personal, notificações,
-// alteração de tema sem delay, links de privacidade e exclusão definitiva de conta.
+// alteração de tema sem delay, links de privacidade, exclusão de conta e
+// ajuste dinâmico de área segura (Safe Area) para modais inferiores no iOS/Android.
 // ============================================================================
 
 import React, { useState } from 'react';
@@ -18,7 +19,7 @@ import {
   Platform,
   TouchableWithoutFeedback,
   Keyboard,
-  Linking
+  Linking,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -46,6 +47,7 @@ import { CustomModal } from '../../../../components/CustomModal';
 import { UserNotificationModal } from '../../../../components/UserNotificationModal';
 import { useTheme } from '../../../../context/ThemeContext';
 
+// --- INTERFACES E TIPAGENS ---
 interface StudentProfileData {
   fullName: string;
   email: string;
@@ -68,6 +70,9 @@ interface PrivacyButtonProps {
   policyUrl?: string;
 }
 
+/**
+  Busca os dados do perfil do aluno e o resumo estatístico de treinos no Supabase.
+ */
 async function fetchStudentProfileData(): Promise<StudentProfileData> {
   const {
     data: { user },
@@ -132,6 +137,9 @@ async function fetchStudentProfileData(): Promise<StudentProfileData> {
   };
 }
 
+/**
+  Realiza o vínculo do aluno com o Personal Trainer utilizando o código de convite.
+ */
 async function linkStudentToPersonalByCode(inviteCode: string) {
   const cleanCode = inviteCode.trim().toUpperCase();
 
@@ -169,6 +177,9 @@ async function linkStudentToPersonalByCode(inviteCode: string) {
   return foundPersonalName;
 }
 
+/**
+  Botão para abertura externa da Política de Privacidade.
+ */
 export function PrivacyPolicyButton({
   policyUrl = 'https://politicadeprivacidadetreinopesadoapp.netlify.app/',
 }: PrivacyButtonProps) {
@@ -203,6 +214,7 @@ export default function StudentProfileScreen() {
 
   const { isDark, toggleTheme } = useTheme();
 
+  // --- ESTADOS DOS MODAIS ---
   const [isLinkModalOpen, setIsLinkModalOpen] = useState<boolean>(false);
   const [isNotificationModalOpen, setIsNotificationModalOpen] = useState<boolean>(false);
   const [inviteCodeInput, setInviteCodeInput] = useState<string>('');
@@ -251,6 +263,7 @@ export default function StudentProfileScreen() {
     });
   }
 
+  // --- QUERIES E MUTAÇÕES ---
   const { data: profile, isLoading } = useQuery({
     queryKey: ['student-profile-data'],
     queryFn: fetchStudentProfileData,
@@ -311,7 +324,6 @@ export default function StudentProfileScreen() {
     },
   });
 
-  // 🟢 MUTAÇÃO DE EXCLUSÃO DEFINITIVA DE CONTA
   const deleteAccountMutation = useMutation({
     mutationFn: async () => {
       const {
@@ -320,7 +332,6 @@ export default function StudentProfileScreen() {
 
       if (!user) throw new Error('Sessão expirada.');
 
-      // Executa exclusão via função RPC ou remove registros das tabelas
       const { error: rpcError } = await supabase.rpc('delete_own_account');
 
       if (rpcError) {
@@ -352,7 +363,8 @@ export default function StudentProfileScreen() {
   function handleDeleteAccount() {
     showAlertModal({
       title: 'Excluir Minha Conta ⚠️',
-      message: 'Esta ação apagará permanentemente seu histórico de treinos, fichas e dados cadastrais. Deseja continuar?',
+      message:
+        'Esta ação apagará permanentemente seu histórico de treinos, fichas e dados cadastrais. Deseja continuar?',
       type: 'danger',
       confirmText: 'Excluir Definitivamente',
       cancelText: 'Cancelar',
@@ -384,7 +396,12 @@ export default function StudentProfileScreen() {
     return `${hours}h ${String(minutes).padStart(2, '0')}m`;
   }
 
+  // 🟢 CÁLCULO DINÂMICO DE ESPAÇAMENTO DE ÁREA SEGURA (SAFE AREA INSETS)
   const safeTopPadding = Math.max(insets?.top || 0, 16);
+  const safeModalBottomPadding =
+    Platform.OS === 'ios'
+      ? Math.max(insets?.bottom || 0, 20) + 16
+      : Math.max(insets?.bottom || 0, 16) + 20;
 
   return (
     <View
@@ -707,7 +724,7 @@ export default function StudentProfileScreen() {
               <PrivacyPolicyButton />
             </View>
 
-            {/* 🟢 EXCLUIR MINHA CONTA */}
+            {/* EXCLUIR MINHA CONTA */}
             <TouchableOpacity
               onPress={handleDeleteAccount}
               disabled={deleteAccountMutation.isPending}
@@ -752,7 +769,7 @@ export default function StudentProfileScreen() {
         </MotiView>
       </ScrollView>
 
-      {/* MODAL CÓDIGO PERSONAL */}
+      {/* 🟢 MODAL CÓDIGO PERSONAL (COM ESPAÇAMENTO DE SEGURANÇA NO RODAPÉ) */}
       <Modal visible={isLinkModalOpen} animationType="slide" transparent>
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
           <View className="flex-1 bg-black/60 justify-end">
@@ -761,6 +778,7 @@ export default function StudentProfileScreen() {
               className="w-full"
             >
               <View
+                style={{ paddingBottom: safeModalBottomPadding }}
                 className={`rounded-t-3xl p-6 border-t ${
                   isDark
                     ? 'bg-zinc-900 border-zinc-800'
@@ -824,7 +842,7 @@ export default function StudentProfileScreen() {
                   <TouchableOpacity
                     onPress={() => linkMutation.mutate(inviteCodeInput)}
                     disabled={linkMutation.isPending}
-                    className="bg-[#59C83A] py-4 rounded-2xl items-center flex-row justify-center mb-2"
+                    className="bg-[#59C83A] py-4 rounded-2xl items-center flex-row justify-center mt-1"
                     activeOpacity={0.8}
                   >
                     {linkMutation.isPending ? (
