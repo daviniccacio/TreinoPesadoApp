@@ -1,3 +1,10 @@
+// ============================================================================
+// DOCUMENTAÇÃO: INDEX INICIAL DA APLICAÇÃO (VERSÃO DE PRODUÇÃO)
+// ============================================================================
+// Verifica a existência de sessão salva no Supabase e redireciona o usuário
+// instantaneamente para a rota apropriada, sem alertas ou telas de teste.
+// ============================================================================
+
 import React, { useEffect, useState } from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import { Redirect } from 'expo-router';
@@ -8,37 +15,44 @@ export default function RootIndex() {
   const [hasSession, setHasSession] = useState(false);
 
   useEffect(() => {
-    // 1. Verifica se existe sessão de usuário ativa no Supabase
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setHasSession(!!session);
-      setLoading(false);
-    });
+    let isMounted = true;
 
-    // 2. Escuta mudanças no estado de autenticação em tempo real
+    // 1. Escuta alterações no estado de autenticação (Login, Logout, Sessão Inicial)
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!isMounted) return;
       setHasSession(!!session);
       setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    // 2. Leitura direta de segurança para garantir a recuperação da sessão
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!isMounted) return;
+      setHasSession(!!session);
+      setLoading(false);
+    });
+
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
-  // Exibe a tela de carregamento com spinner enquanto verifica o banco
+  // Exibe uma tela limpa com spinner verde enquanto valida a sessão no banco
   if (loading) {
     return (
-      <View className="flex-1 justify-center items-center bg-white dark:bg-zinc-950">
+      <View className="flex-1 justify-center items-center bg-zinc-950">
         <ActivityIndicator size="large" color="#59C83A" />
       </View>
     );
   }
 
-  // Se o usuário estiver logado, redireciona para a área interna do aluno
+  // Redireciona para a área interna se o usuário estiver logado
   if (hasSession) {
     return <Redirect href="/(app)/(aluno)" />;
   }
 
-  // Se não estiver logado, redireciona para a tela de login
+  // Redireciona para a tela de login se não houver sessão ativa
   return <Redirect href="/(auth)/login" />;
 }

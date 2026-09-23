@@ -14,7 +14,6 @@ if (SafeAreaProvider) {
 import '../global.css';
 
 import React, { useEffect, useState } from 'react';
-// 🟢 1. CORREÇÃO DE SINTAXE: Removido o fragmento invalido 'react-[#1b1b1d]'
 import { View, ActivityIndicator, Alert, Text, TouchableOpacity } from 'react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
@@ -45,7 +44,6 @@ import { registerForPushNotificationsAsync } from '../lib/notifications';
 import { supabase } from '../lib/supabase';
 import { ThemeProvider as AppThemeProvider, useTheme } from '../context/ThemeContext';
 
-// 🟢 2. CORREÇÃO DE TIPAGEM: Incluídas as propriedades 'shouldShowBanner' e 'shouldShowList'
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
@@ -142,29 +140,29 @@ function RootLayoutContent() {
     };
   }, []);
 
-  // ETAPA 1: VALIDAÇÃO DA SESSÃO INICIAL
+  // ETAPA 1: VALIDAÇÃO DA SESSÃO INICIAL COM DIAGNÓSTICO
   useEffect(() => {
     async function validateAuthOnServer() {
       try {
+        // Tenta obter a sessão salva localmente no SecureStore
         const {
-          data: { user },
-          error,
-        } = await supabase.auth.getUser();
+          data: { session: cachedSession },
+        } = await supabase.auth.getSession();
 
-        if (error || !user) {
-          await supabase.auth.signOut();
-          queryClient.clear();
-          setSession(null);
+        if (cachedSession) {
+          console.log('--------------------------------------------------');
+          console.log('🔥 [BOOT DO APP] SESSÃO LOCAL RECUPERADA!');
+          console.log('👤 USUÁRIO LOGADO:', cachedSession.user.email);
+          console.log('--------------------------------------------------');
+          setSession(cachedSession);
         } else {
-          const {
-            data: { session: validSession },
-          } = await supabase.auth.getSession();
-          setSession(validSession);
+          console.log('--------------------------------------------------');
+          console.log('🔒 [BOOT DO APP] NENHUMA SESSÃO LOCAL ENCONTRADA');
+          console.log('--------------------------------------------------');
+          setSession(null);
         }
       } catch (err) {
-        console.error('Erro ao validar autenticação:', err);
-        queryClient.clear();
-        setSession(null);
+        console.error('⚠️ Erro ao verificar sessão inicial:', err);
       } finally {
         setIsReady(true);
       }
@@ -172,8 +170,11 @@ function RootLayoutContent() {
 
     validateAuthOnServer();
 
+    // Escuta alterações na autenticação (Login, Logout, Refresh, Recovery)
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, currentSession) => {
+        console.log('🔄 [AUTH EVENT]:', event, '| Usuário:', currentSession?.user?.email ?? 'Sem sessão');
+        
         queryClient.clear();
 
         if (event === 'PASSWORD_RECOVERY') {

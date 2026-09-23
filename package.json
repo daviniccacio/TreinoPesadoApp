@@ -58,7 +58,7 @@
     "zod": "^4.5.4"
   },
   "overrides": {
-    "query-string" : {
+    "query-string": {
       "decode-uri-component": "^0.2.2"
     }
   },
