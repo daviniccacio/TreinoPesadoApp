@@ -1,4 +1,8 @@
-import React, { useState, useEffect } from "react";
+// ============================================================================
+// TELA 2: VALIDAR CÓDIGO OTP E REDEFINIR SENHA (RESET PASSWORD)
+// ============================================================================
+
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -6,21 +10,26 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   useColorScheme,
+  KeyboardAvoidingView,
+  ScrollView,
+  Platform,
 } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { LockSimple, CheckCircle, Eye, EyeSlash } from "phosphor-react-native";
-import * as Linking from "expo-linking";
+import { LockSimple, CheckCircle, Eye, EyeSlash, EnvelopeSimple, Hash, ArrowLeft } from "phosphor-react-native";
 import { MotiView } from "moti";
 import { supabase } from "../../lib/supabase";
 import { CustomModal } from "../../components/CustomModal";
 
 export default function ResetPasswordScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ email?: string }>();
   const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
 
+  const [email, setEmail] = useState<string>(params.email ?? "");
+  const [code, setCode] = useState<string>("");
   const [newPassword, setNewPassword] = useState<string>("");
   const [confirmPassword, setConfirmPassword] = useState<string>("");
   const [showPassword, setShowPassword] = useState<boolean>(false);
@@ -79,48 +88,25 @@ export default function ResetPasswordScreen() {
     });
   }
 
-  useEffect(() => {
-    async function handleDeepLink() {
-      const initialUrl = await Linking.getInitialURL();
-      if (initialUrl) {
-        parseAndSetSession(initialUrl);
-      }
-    }
-
-    const subscription = Linking.addEventListener("url", (event) => {
-      parseAndSetSession(event.url);
-    });
-
-    handleDeepLink();
-
-    return () => {
-      subscription.remove();
-    };
-  }, []);
-
-  async function parseAndSetSession(url: string) {
-    try {
-      if (!url.includes("access_token")) return;
-
-      const hashParams = url.split("#")[1];
-      if (!hashParams) return;
-
-      const params = new URLSearchParams(hashParams);
-      const accessToken = params.get("access_token");
-      const refreshToken = params.get("refresh_token");
-
-      if (accessToken && refreshToken) {
-        await supabase.auth.setSession({
-          access_token: accessToken,
-          refresh_token: refreshToken,
-        });
-      }
-    } catch (error) {
-      console.error("Erro ao processar token de redefinição:", error);
-    }
-  }
-
   async function handleUpdatePassword() {
+    if (!email.trim()) {
+      showAlertModal({
+        title: "Atenção",
+        message: "Informe o e-mail cadastrado.",
+        type: "info",
+      });
+      return;
+    }
+
+    if (!code.trim() || code.trim().length < 6) {
+      showAlertModal({
+        title: "Atenção",
+        message: "O código de verificação deve ter 6 dígitos.",
+        type: "info",
+      });
+      return;
+    }
+
     if (!newPassword.trim() || newPassword.length < 6) {
       showAlertModal({
         title: "Atenção",
@@ -142,14 +128,32 @@ export default function ResetPasswordScreen() {
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.updateUser({
+      // 1. Valida o código OTP recebido por e-mail
+      const { error: otpError } = await supabase.auth.verifyOtp({
+        email: email.trim(),
+        token: code.trim(),
+        type: "recovery",
+      });
+
+      if (otpError) {
+        showAlertModal({
+          title: "Código Inválido",
+          message: "O código digitado é incorreto ou já expirou. Verifique o seu e-mail.",
+          type: "danger",
+        });
+        setLoading(false);
+        return;
+      }
+
+      // 2. Com a sessão temporária autorizada, atualiza a senha do usuário
+      const { error: updateError } = await supabase.auth.updateUser({
         password: newPassword.trim(),
       });
 
-      if (error) {
+      if (updateError) {
         showAlertModal({
           title: "Erro",
-          message: error.message || "Não foi possível atualizar a senha.",
+          message: updateError.message || "Não foi possível atualizar a senha.",
           type: "danger",
         });
       } else {
@@ -158,7 +162,7 @@ export default function ResetPasswordScreen() {
           message: "Sua senha foi redefinida com sucesso!",
           type: "success",
           confirmText: "Ir para o Login",
-          onConfirm: () => router.replace("/(auth)/login"),
+          onConfirm: () => router.replace("/login" as any),
         });
       }
     } catch (err) {
@@ -176,105 +180,161 @@ export default function ResetPasswordScreen() {
   const safeBottomPadding = Math.max(insets?.bottom || 0, 16);
 
   return (
-    <View
-      className="flex-1 bg-white dark:bg-zinc-950 px-6 justify-center"
-      style={{ paddingTop: safeTopPadding, paddingBottom: safeBottomPadding }}
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      className="bg-white dark:bg-zinc-950"
     >
-      {/* 1. CABEÇALHO ANIMADO */}
-      <MotiView
-        from={{ opacity: 0, translateY: -12 }}
-        animate={{ opacity: 1, translateY: 0 }}
-        transition={{
-          type: "spring",
-          damping: 24,
-          stiffness: 160,
+      <ScrollView
+        contentContainerStyle={{
+          paddingTop: safeTopPadding + 12,
+          paddingBottom: safeBottomPadding + 24,
+          paddingHorizontal: 24,
         }}
-        className="mb-8"
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
       >
-        <Text className="text-2xl font-black text-[#1b1b1d] dark:text-white mb-2">
-          Criar Nova Senha
-        </Text>
-        <Text className="text-xs text-[#71717a] dark:text-zinc-400 font-medium">
-          Digite e confirme a sua nova senha de acesso para atualizar a sua conta.
-        </Text>
-      </MotiView>
-
-      {/* 2. CAMPOS DO FORMULÁRIO ANIMADOS */}
-      <MotiView
-        from={{ opacity: 0, translateY: 12 }}
-        animate={{ opacity: 1, translateY: 0 }}
-        transition={{
-          type: "spring",
-          damping: 22,
-          stiffness: 150,
-          delay: 30,
-        }}
-      >
-        {/* Campo: Nova Senha */}
-        <View className="mb-4">
-          <Text className="text-xs font-bold uppercase tracking-wider text-[#71717a] dark:text-zinc-400 mb-2 ml-1">
-            Nova Senha
-          </Text>
-          <View className="flex-row items-center bg-[#f8f9fa] dark:bg-zinc-900 rounded-2xl px-4 py-3.5 border border-[#e2dfe1] dark:border-zinc-800">
-            <LockSimple size={20} color={isDark ? "#59C83A" : "#414755"} />
-            <TextInput
-              className="flex-1 ml-3 text-[#1b1b1d] dark:text-white text-base font-medium"
-              placeholder="Digite a nova senha"
-              placeholderTextColor={isDark ? "#71717a" : "#a09da1"}
-              value={newPassword}
-              onChangeText={setNewPassword}
-              secureTextEntry={!showPassword}
-            />
-            <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-              {showPassword ? (
-                <EyeSlash size={20} color={isDark ? "#71717a" : "#414755"} />
-              ) : (
-                <Eye size={20} color={isDark ? "#71717a" : "#414755"} />
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Campo: Confirmar Nova Senha */}
-        <View className="mb-6">
-          <Text className="text-xs font-bold uppercase tracking-wider text-[#71717a] dark:text-zinc-400 mb-2 ml-1">
-            Confirmar Nova Senha
-          </Text>
-          <View className="flex-row items-center bg-[#f8f9fa] dark:bg-zinc-900 rounded-2xl px-4 py-3.5 border border-[#e2dfe1] dark:border-zinc-800">
-            <LockSimple size={20} color={isDark ? "#59C83A" : "#414755"} />
-            <TextInput
-              className="flex-1 ml-3 text-[#1b1b1d] dark:text-white text-base font-medium"
-              placeholder="Confirme a nova senha"
-              placeholderTextColor={isDark ? "#71717a" : "#a09da1"}
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              secureTextEntry={!showPassword}
-            />
-          </View>
-        </View>
-
-        {/* Botão de Enviar */}
+        {/* BOTÃO VOLTAR */}
         <TouchableOpacity
-          onPress={handleUpdatePassword}
-          disabled={loading}
-          style={{ backgroundColor: "#59C83A" }}
-          className="py-4 rounded-2xl items-center flex-row justify-center shadow-md"
-          activeOpacity={0.8}
+          onPress={() => router.back()}
+          className="flex-row items-center mb-4 py-1"
+          activeOpacity={0.7}
         >
-          {loading ? (
-            <ActivityIndicator color="#ffffff" />
-          ) : (
-            <>
-              <CheckCircle size={20} color="#FFFFFF" weight="bold" />
-              <Text className="text-white font-extrabold text-base ml-2">
-                Salvar Nova Senha
-              </Text>
-            </>
-          )}
+          <ArrowLeft size={20} color={isDark ? "#a1a1aa" : "#71717a"} />
+          <Text className="text-sm font-bold text-[#71717a] dark:text-zinc-400 ml-2">
+            Voltar
+          </Text>
         </TouchableOpacity>
-      </MotiView>
 
-      {/* MODAL DE ALERTA PERSONALIZADO */}
+        {/* 1. CABEÇALHO ANIMADO */}
+        <MotiView
+          from={{ opacity: 0, translateY: -12 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{ type: "spring", damping: 24, stiffness: 160 }}
+          className="mb-6"
+        >
+          <Text className="text-2xl font-black text-[#1b1b1d] dark:text-white mb-2">
+            Criar Nova Senha
+          </Text>
+          <Text className="text-xs text-[#71717a] dark:text-zinc-400 font-medium leading-relaxed">
+            Insira o código enviado para o seu e-mail e defina a sua nova senha.
+          </Text>
+        </MotiView>
+
+        {/* 2. CAMPOS DO FORMULÁRIO ANIMADOS */}
+        <MotiView
+          from={{ opacity: 0, translateY: 12 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{ type: "spring", damping: 22, stiffness: 150, delay: 30 }}
+        >
+          {/* Campo: E-mail */}
+          <View className="mb-3.5">
+            <Text className="text-xs font-bold uppercase tracking-wider text-[#71717a] dark:text-zinc-400 mb-1.5 ml-1">
+              E-mail
+            </Text>
+            <View className="flex-row items-center h-14 bg-[#f8f9fa] dark:bg-zinc-900 rounded-2xl px-4 border border-[#e2dfe1] dark:border-zinc-800">
+              <EnvelopeSimple size={20} color={isDark ? "#59C83A" : "#414755"} />
+              <TextInput
+                style={{ textAlignVertical: "center" }}
+                className="flex-1 ml-3 text-[#1b1b1d] dark:text-white text-sm font-medium h-full py-0"
+                placeholder="seuemail@exemplo.com"
+                placeholderTextColor={isDark ? "#71717a" : "#a09da1"}
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+            </View>
+          </View>
+
+          {/* Campo: Código OTP */}
+          <View className="mb-3.5">
+            <Text className="text-xs font-bold uppercase tracking-wider text-[#59C83A] mb-1.5 ml-1">
+              Código de 6 dígitos (OTP)
+            </Text>
+            <View className="flex-row items-center h-14 bg-[#f8f9fa] dark:bg-zinc-900 rounded-2xl px-4 border border-[#59C83A]/50">
+              <Hash size={20} color="#59C83A" />
+              <TextInput
+                style={{ textAlignVertical: "center" }}
+                className="flex-1 ml-3 text-[#1b1b1d] dark:text-white text-base font-mono font-bold tracking-widest h-full py-0"
+                placeholder="123456"
+                placeholderTextColor={isDark ? "#71717a" : "#a09da1"}
+                value={code}
+                onChangeText={setCode}
+                keyboardType="number-pad"
+                maxLength={6}
+              />
+            </View>
+          </View>
+
+          {/* Campo: Nova Senha */}
+          <View className="mb-3.5">
+            <Text className="text-xs font-bold uppercase tracking-wider text-[#71717a] dark:text-zinc-400 mb-1.5 ml-1">
+              Nova Senha
+            </Text>
+            <View className="flex-row items-center h-14 bg-[#f8f9fa] dark:bg-zinc-900 rounded-2xl px-4 border border-[#e2dfe1] dark:border-zinc-800">
+              <LockSimple size={20} color={isDark ? "#59C83A" : "#414755"} />
+              <TextInput
+                style={{ textAlignVertical: "center" }}
+                className="flex-1 ml-3 text-[#1b1b1d] dark:text-white text-sm font-medium h-full py-0"
+                placeholder="Digite a nova senha"
+                placeholderTextColor={isDark ? "#71717a" : "#a09da1"}
+                value={newPassword}
+                onChangeText={setNewPassword}
+                secureTextEntry={!showPassword}
+              />
+              <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                {showPassword ? (
+                  <EyeSlash size={20} color={isDark ? "#71717a" : "#414755"} />
+                ) : (
+                  <Eye size={20} color={isDark ? "#71717a" : "#414755"} />
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Campo: Confirmar Nova Senha */}
+          <View className="mb-6">
+            <Text className="text-xs font-bold uppercase tracking-wider text-[#71717a] dark:text-zinc-400 mb-1.5 ml-1">
+              Confirmar Nova Senha
+            </Text>
+            <View className="flex-row items-center h-14 bg-[#f8f9fa] dark:bg-zinc-900 rounded-2xl px-4 border border-[#e2dfe1] dark:border-zinc-800">
+              <LockSimple size={20} color={isDark ? "#59C83A" : "#414755"} />
+              <TextInput
+                style={{ textAlignVertical: "center" }}
+                className="flex-1 ml-3 text-[#1b1b1d] dark:text-white text-sm font-medium h-full py-0"
+                placeholder="Confirme a nova senha"
+                placeholderTextColor={isDark ? "#71717a" : "#a09da1"}
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                secureTextEntry={!showPassword}
+              />
+            </View>
+          </View>
+
+          {/* Botão de Enviar */}
+          <TouchableOpacity
+            onPress={handleUpdatePassword}
+            disabled={loading}
+            style={{ backgroundColor: "#59C83A" }}
+            className="h-14 rounded-2xl items-center flex-row justify-center shadow-md"
+            activeOpacity={0.8}
+          >
+            {loading ? (
+              <ActivityIndicator color="#ffffff" />
+            ) : (
+              <>
+                <CheckCircle size={20} color="#FFFFFF" weight="bold" />
+                <Text className="text-white font-extrabold text-base ml-2">
+                  Salvar Nova Senha
+                </Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </MotiView>
+      </ScrollView>
+
+      {/* MODAL DE ALERTA */}
       <CustomModal
         visible={modalConfig.visible}
         title={modalConfig.title}
@@ -286,6 +346,6 @@ export default function ResetPasswordScreen() {
         onConfirm={modalConfig.onConfirm}
         onClose={() => setModalConfig((prev) => ({ ...prev, visible: false }))}
       />
-    </View>
+    </KeyboardAvoidingView>
   );
 }

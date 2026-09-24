@@ -561,8 +561,7 @@ export default function LoginScreen() {
             {/* Esqueci minha senha */}
             <TouchableOpacity
               onPress={() => {
-                setResetEmail(email.trim());
-                setModalVisible(true);
+                router.push('/(auth)/forgot-password' as any);
               }}
               className="items-end mb-5 py-1"
             >
