@@ -1,12 +1,13 @@
 // ============================================================================
-// DOCUMENTAÇÃO: TELA DE PERFIL DO ALUNO (COM CORREÇÃO DE SAFE AREA NOS MODAIS)
+// DOCUMENTAÇÃO: TELA DE PERFIL DO ALUNO (CORREÇÃO DE TELA EM BRANCO/ESTÁTICA)
 // ============================================================================
 // Inclui gerenciamento de perfil, estatísticas, vínculo com personal, notificações,
-// alteração de tema sem delay, links de privacidade, exclusão de conta e
-// ajuste dinâmico de área segura (Safe Area) para modais inferiores no iOS/Android.
+// alteração de tema sem delay, links de privacidade, exclusão de conta,
+// revalidação automática de dados no foco da aba (useFocusEffect) e tratamento
+// de estados de carregamento/erro para evitar telas em branco.
 // ============================================================================
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -21,7 +22,7 @@ import {
   Keyboard,
   Linking,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   User,
@@ -39,6 +40,7 @@ import {
   ShieldCheck,
   ArrowSquareOut,
   Trash,
+  WarningCircle,
 } from 'phosphor-react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { MotiView } from 'moti';
@@ -71,14 +73,15 @@ interface PrivacyButtonProps {
 }
 
 /**
-  Busca os dados do perfil do aluno e o resumo estatístico de treinos no Supabase.
+ * Busca os dados do perfil do aluno e o resumo estatístico de treinos no Supabase.
  */
 async function fetchStudentProfileData(): Promise<StudentProfileData> {
   const {
     data: { user },
+    error: authError,
   } = await supabase.auth.getUser();
 
-  if (!user) throw new Error('Usuário não autenticado');
+  if (authError || !user) throw new Error('Usuário não autenticado ou sessão expirada.');
 
   const { data: profile } = await supabase
     .from('profiles')
@@ -138,7 +141,7 @@ async function fetchStudentProfileData(): Promise<StudentProfileData> {
 }
 
 /**
-  Realiza o vínculo do aluno com o Personal Trainer utilizando o código de convite.
+ * Realiza o vínculo do aluno com o Personal Trainer utilizando o código de convite.
  */
 async function linkStudentToPersonalByCode(inviteCode: string) {
   const cleanCode = inviteCode.trim().toUpperCase();
@@ -178,7 +181,7 @@ async function linkStudentToPersonalByCode(inviteCode: string) {
 }
 
 /**
-  Botão para abertura externa da Política de Privacidade.
+ * Botão para abertura externa da Política de Privacidade.
  */
 export function PrivacyPolicyButton({
   policyUrl = 'https://politicadeprivacidadetreinopesadoapp.netlify.app/',
@@ -264,13 +267,27 @@ export default function StudentProfileScreen() {
   }
 
   // --- QUERIES E MUTAÇÕES ---
-  const { data: profile, isLoading } = useQuery({
+  // 🟢 CORREÇÃO: Ajustadas configurações do React Query para garantir sincronização
+  const {
+    data: profile,
+    isLoading,
+    isError,
+    error,
+    refetch,
+    isRefetching,
+  } = useQuery({
     queryKey: ['student-profile-data'],
     queryFn: fetchStudentProfileData,
     staleTime: 1000 * 60 * 5,
     gcTime: 1000 * 60 * 10,
-    refetchOnMount: false,
   });
+
+  // 🟢 CORREÇÃO: Dispara a revalidação sempre que a aba ganha o foco do usuário
+  useFocusEffect(
+    useCallback(() => {
+      refetch();
+    }, [refetch])
+  );
 
   const { data: hasUnreadNotifications = false } = useQuery({
     queryKey: ['user-unread-notifications-status'],
@@ -396,13 +413,78 @@ export default function StudentProfileScreen() {
     return `${hours}h ${String(minutes).padStart(2, '0')}m`;
   }
 
-  // 🟢 CÁLCULO DINÂMICO DE ESPAÇAMENTO DE ÁREA SEGURA (SAFE AREA INSETS)
+  // CÁLCULO DINÂMICO DE ESPAÇAMENTO DE ÁREA SEGURA (SAFE AREA INSETS)
   const safeTopPadding = Math.max(insets?.top || 0, 16);
   const safeModalBottomPadding =
     Platform.OS === 'ios'
       ? Math.max(insets?.bottom || 0, 20) + 16
       : Math.max(insets?.bottom || 0, 16) + 20;
 
+  // 🟢 ESTADO 1: TELA DE CARREGAMENTO (Garante visualização enquanto obtém dados)
+  if (isLoading && !isRefetching && !profile) {
+    return (
+      <View
+        className={`flex-1 justify-center items-center px-5 ${
+          isDark ? 'bg-zinc-950' : 'bg-[#f8f9fa]'
+        }`}
+        style={{ paddingTop: safeTopPadding }}
+      >
+        <ActivityIndicator size="large" color="#59C83A" />
+        <Text
+          className={`text-xs font-sans-medium mt-3 ${
+            isDark ? 'text-zinc-400' : 'text-[#71717a]'
+          }`}
+        >
+          Carregando informações do perfil...
+        </Text>
+      </View>
+    );
+  }
+
+  // 🟢 ESTADO 2: TELA DE ERRO (Evita tela em branco se houver falha de conexão/autenticação)
+  if ((isError || !profile) && !isLoading) {
+    return (
+      <View
+        className={`flex-1 justify-center items-center px-6 ${
+          isDark ? 'bg-zinc-950' : 'bg-[#f8f9fa]'
+        }`}
+        style={{ paddingTop: safeTopPadding }}
+      >
+        <MotiView
+          from={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ type: 'timing', duration: 250 }}
+          className="items-center"
+        >
+          <WarningCircle size={48} color="#ef4444" />
+          <Text
+            className={`text-base font-outfit-bold mt-3 text-center ${
+              isDark ? 'text-white' : 'text-[#1b1b1d]'
+            }`}
+          >
+            Não foi possível carregar seu perfil
+          </Text>
+          <Text
+            className={`text-xs font-sans-medium text-center mt-1 mb-5 ${
+              isDark ? 'text-zinc-400' : 'text-[#71717a]'
+            }`}
+          >
+            {(error as Error)?.message || 'Ocorreu um problema ao conectar com os serviços.'}
+          </Text>
+
+          <TouchableOpacity
+            onPress={() => refetch()}
+            style={{ backgroundColor: '#59C83A' }}
+            className="px-6 py-3 rounded-2xl active:opacity-90"
+          >
+            <Text className="text-xs font-sans-bold text-white">Tentar Novamente</Text>
+          </TouchableOpacity>
+        </MotiView>
+      </View>
+    );
+  }
+
+  // 🟢 ESTADO 3: RENDERIZAÇÃO NORMAL DO PERFIL
   return (
     <View
       className={`flex-1 px-5 pb-4 ${isDark ? 'bg-zinc-950' : 'bg-[#f8f9fa]'}`}
@@ -443,34 +525,28 @@ export default function StudentProfileScreen() {
             <User size={48} color="#ffffff" weight="bold" />
           </View>
 
-          {isLoading ? (
-            <ActivityIndicator size="small" color="#59C83A" className="my-2" />
-          ) : (
-            <>
-              <Text
-                className={`text-2xl font-outfit-extrabold text-center ${
-                  isDark ? 'text-white' : 'text-[#1b1b1d]'
-                }`}
-              >
-                {profile?.fullName}
-              </Text>
-              <Text
-                className={`text-sm font-sans-medium mt-0.5 ${
-                  isDark ? 'text-zinc-400' : 'text-[#414755]'
-                }`}
-              >
-                {profile?.email}
-              </Text>
+          <Text
+            className={`text-2xl font-outfit-extrabold text-center ${
+              isDark ? 'text-white' : 'text-[#1b1b1d]'
+            }`}
+          >
+            {profile?.fullName}
+          </Text>
+          <Text
+            className={`text-sm font-sans-medium mt-0.5 ${
+              isDark ? 'text-zinc-400' : 'text-[#414755]'
+            }`}
+          >
+            {profile?.email}
+          </Text>
 
-              <View className="mt-2 bg-[#59C83A]/10 border border-[#59C83A]/30 px-3 py-1 rounded-full flex-row items-center">
-                <Text className="text-xs font-sans-bold text-[#59C83A]">
-                  {profile?.personalName
-                    ? `Personal: ${profile.personalName}`
-                    : 'Sem Personal Vinculado'}
-                </Text>
-              </View>
-            </>
-          )}
+          <View className="mt-2 bg-[#59C83A]/10 border border-[#59C83A]/30 px-3 py-1 rounded-full flex-row items-center">
+            <Text className="text-xs font-sans-bold text-[#59C83A]">
+              {profile?.personalName
+                ? `Personal: ${profile.personalName}`
+                : 'Sem Personal Vinculado'}
+            </Text>
+          </View>
         </MotiView>
 
         {/* 3. INSTRUTOR */}
@@ -769,7 +845,7 @@ export default function StudentProfileScreen() {
         </MotiView>
       </ScrollView>
 
-      {/* 🟢 MODAL CÓDIGO PERSONAL (COM ESPAÇAMENTO DE SEGURANÇA NO RODAPÉ) */}
+      {/* MODAL CÓDIGO PERSONAL */}
       <Modal visible={isLinkModalOpen} animationType="slide" transparent>
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
           <View className="flex-1 bg-black/60 justify-end">
