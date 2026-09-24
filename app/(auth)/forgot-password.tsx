@@ -21,6 +21,39 @@ import { MotiView } from "moti";
 import { supabase } from "../../lib/supabase";
 import { CustomModal } from "../../components/CustomModal";
 
+/**
+ * Traduz mensagens de erro do Supabase Auth para Português
+ */
+function translateSupabaseError(errorMessage: string): string {
+  const msg = errorMessage.toLowerCase();
+
+  // 1. Trata o Rate Limit (Tempo de espera entre solicitações)
+  // Exemplo original: "For security purposes, you can only request this once every 60 seconds."
+  if (msg.includes("security purposes") || msg.includes("request this once every") || msg.includes("rate limit")) {
+    // Procura por números na mensagem para saber a quantidade exata de segundos
+    const secondsMatch = errorMessage.match(/(\d+)\s*seconds/i);
+    const seconds = secondsMatch ? secondsMatch[1] : "60";
+
+    return `Por motivos de segurança, você só pode solicitar um novo código daqui a ${seconds} segundos. Aguarde um momento e tente novamente.`;
+  }
+
+  // 2. Outros erros comuns do Supabase Auth
+  if (msg.includes("user not found") || msg.includes("unable to find user")) {
+    return "Não encontramos nenhuma conta cadastrada com este e-mail.";
+  }
+
+  if (msg.includes("invalid email")) {
+    return "Por favor, informe um endereço de e-mail válido.";
+  }
+
+  if (msg.includes("over_email_send_rate_limit")) {
+    return "Limite de envios atingido. Aguarde alguns minutos antes de tentar novamente.";
+  }
+
+  // Fallback para erros não mapeados
+  return "Não foi possível enviar o código no momento. Tente novamente em instantes.";
+}
+
 export default function ForgotPasswordScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -48,7 +81,7 @@ export default function ForgotPasswordScreen() {
     confirmText: "Entendi",
     cancelText: "Cancelar",
     showCancelButton: false,
-    onConfirm: () => {},
+    onConfirm: () => { },
   });
 
   function showAlertModal({
@@ -99,9 +132,12 @@ export default function ForgotPasswordScreen() {
       const { error } = await supabase.auth.resetPasswordForEmail(email.trim());
 
       if (error) {
+        // 🟢 Traduz a mensagem em inglês do Supabase para português
+        const translatedMessage = translateSupabaseError(error.message);
+
         showAlertModal({
-          title: "Erro ao Enviar",
-          message: error.message || "Não foi possível enviar o código de verificação.",
+          title: "Aguarde um Momento ⏱️",
+          message: translatedMessage,
           type: "danger",
         });
       } else {
@@ -147,49 +183,67 @@ export default function ForgotPasswordScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {/* BOTÃO VOLTAR */}
-        <TouchableOpacity
-          onPress={() => router.back()}
-          className="flex-row items-center mb-6 py-1"
-          activeOpacity={0.7}
-        >
-          <ArrowLeft size={20} color={isDark ? "#a1a1aa" : "#71717a"} />
-          <Text className="text-sm font-bold text-[#71717a] dark:text-zinc-400 ml-2">
-            Voltar para o Login
-          </Text>
-        </TouchableOpacity>
-
-        {/* 1. CABEÇALHO ANIMADO */}
+        {/* BOTÃO VOLTAR ANIMADO */}
         <MotiView
-          from={{ opacity: 0, translateY: -12 }}
+          from={{ opacity: 0, translateX: -15 }}
+          animate={{ opacity: 1, translateX: 0 }}
+          transition={{ type: "spring", damping: 20, stiffness: 150 }}
+        >
+          <TouchableOpacity
+            onPress={() => router.back()}
+            className="flex-row items-center mb-6 py-1"
+            activeOpacity={0.7}
+          >
+            <ArrowLeft size={20} color={isDark ? "#a1a1aa" : "#71717a"} />
+            <Text
+              style={{ fontFamily: "DMSans_700Bold" }}
+              className="text-sm font-sans-bold text-[#71717a] dark:text-zinc-400 ml-2"
+            >
+              Voltar para o Login
+            </Text>
+          </TouchableOpacity>
+        </MotiView>
+
+        {/* 1. CABEÇALHO ANIMADO COM FONTE OUTFIT E DM SANS */}
+        <MotiView
+          from={{ opacity: 0, translateY: -16 }}
           animate={{ opacity: 1, translateY: 0 }}
-          transition={{ type: "spring", damping: 24, stiffness: 160 }}
+          transition={{ type: "spring", damping: 22, stiffness: 160, delay: 100 }}
           className="mb-8"
         >
-          <Text className="text-2xl font-black text-[#1b1b1d] dark:text-white mb-2">
+          <Text
+            style={{ fontFamily: "Outfit_800ExtraBold" }}
+            className="text-2xl text-[#1b1b1d] dark:text-white mb-2"
+          >
             Esqueceu a Senha?
           </Text>
-          <Text className="text-xs text-[#71717a] dark:text-zinc-400 font-medium leading-relaxed">
+          <Text
+            style={{ fontFamily: "DMSans_400Regular" }}
+            className="text-xs text-[#71717a] dark:text-zinc-400 leading-relaxed"
+          >
             Informe o seu e-mail cadastrado para receber o código de verificação de 6 dígitos.
           </Text>
         </MotiView>
 
-        {/* 2. FORMULÁRIO */}
+        {/* 2. FORMULÁRIO COM ENTRADA SUAVE */}
         <MotiView
-          from={{ opacity: 0, translateY: 12 }}
+          from={{ opacity: 0, translateY: 20 }}
           animate={{ opacity: 1, translateY: 0 }}
-          transition={{ type: "spring", damping: 22, stiffness: 150, delay: 30 }}
+          transition={{ type: "spring", damping: 20, stiffness: 140, delay: 200 }}
         >
           {/* Campo: E-mail */}
           <View className="mb-6">
-            <Text className="text-xs font-bold uppercase tracking-wider text-[#71717a] dark:text-zinc-400 mb-2 ml-1">
+            <Text
+              style={{ fontFamily: "DMSans_700Bold" }}
+              className="text-xs uppercase tracking-wider text-[#71717a] dark:text-zinc-400 mb-2 ml-1"
+            >
               E-mail
             </Text>
             <View className="flex-row items-center h-14 bg-[#f8f9fa] dark:bg-zinc-900 rounded-2xl px-4 border border-[#e2dfe1] dark:border-zinc-800">
               <EnvelopeSimple size={20} color={isDark ? "#59C83A" : "#414755"} />
               <TextInput
-                style={{ textAlignVertical: "center" }}
-                className="flex-1 ml-3 text-[#1b1b1d] dark:text-white text-sm font-medium h-full py-0"
+                style={{ textAlignVertical: "center", fontFamily: "DMSans_500Medium" }}
+                className="flex-1 ml-3 text-[#1b1b1d] dark:text-white text-sm h-full py-0"
                 placeholder="seuemail@exemplo.com"
                 placeholderTextColor={isDark ? "#71717a" : "#a09da1"}
                 value={email}
@@ -205,7 +259,7 @@ export default function ForgotPasswordScreen() {
             onPress={handleSendCode}
             disabled={loading}
             style={{ backgroundColor: "#59C83A" }}
-            className="h-14 rounded-2xl items-center flex-row justify-center shadow-md"
+            className="h-14 rounded-2xl items-center flex-row justify-center shadow-md active:opacity-90"
             activeOpacity={0.8}
           >
             {loading ? (
@@ -213,8 +267,11 @@ export default function ForgotPasswordScreen() {
             ) : (
               <>
                 <PaperPlaneRight size={20} color="#FFFFFF" weight="bold" />
-                <Text className="text-white font-extrabold text-base ml-2">
-                  Enviar Código OTP
+                <Text
+                  style={{ fontFamily: "Outfit_700Bold" }}
+                  className="text-white text-base ml-2"
+                >
+                  Enviar Código de Verificação
                 </Text>
               </>
             )}

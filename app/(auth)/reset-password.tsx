@@ -194,49 +194,67 @@ export default function ResetPasswordScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {/* BOTÃO VOLTAR */}
-        <TouchableOpacity
-          onPress={() => router.back()}
-          className="flex-row items-center mb-4 py-1"
-          activeOpacity={0.7}
+        {/* BOTÃO VOLTAR ANIMADO */}
+        <MotiView
+          from={{ opacity: 0, translateX: -15 }}
+          animate={{ opacity: 1, translateX: 0 }}
+          transition={{ type: "spring", damping: 20, stiffness: 150 }}
         >
-          <ArrowLeft size={20} color={isDark ? "#a1a1aa" : "#71717a"} />
-          <Text className="text-sm font-bold text-[#71717a] dark:text-zinc-400 ml-2">
-            Voltar
-          </Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            className="flex-row items-center mb-4 py-1"
+            activeOpacity={0.7}
+          >
+            <ArrowLeft size={20} color={isDark ? "#a1a1aa" : "#71717a"} />
+            <Text
+              style={{ fontFamily: "DMSans_700Bold" }}
+              className="text-sm font-sans-bold text-[#71717a] dark:text-zinc-400 ml-2"
+            >
+              Voltar
+            </Text>
+          </TouchableOpacity>
+        </MotiView>
 
         {/* 1. CABEÇALHO ANIMADO */}
         <MotiView
-          from={{ opacity: 0, translateY: -12 }}
+          from={{ opacity: 0, translateY: -16 }}
           animate={{ opacity: 1, translateY: 0 }}
-          transition={{ type: "spring", damping: 24, stiffness: 160 }}
+          transition={{ type: "spring", damping: 22, stiffness: 160, delay: 100 }}
           className="mb-6"
         >
-          <Text className="text-2xl font-black text-[#1b1b1d] dark:text-white mb-2">
+          <Text
+            style={{ fontFamily: "Outfit_800ExtraBold" }}
+            className="text-2xl text-[#1b1b1d] dark:text-white mb-2"
+          >
             Criar Nova Senha
           </Text>
-          <Text className="text-xs text-[#71717a] dark:text-zinc-400 font-medium leading-relaxed">
+          <Text
+            style={{ fontFamily: "DMSans_400Regular" }}
+            className="text-xs text-[#71717a] dark:text-zinc-400 leading-relaxed"
+          >
             Insira o código enviado para o seu e-mail e defina a sua nova senha.
           </Text>
         </MotiView>
 
-        {/* 2. CAMPOS DO FORMULÁRIO ANIMADOS */}
+        {/* 2. FORMULÁRIO COM ANIMAÇÃO ESCALONADA (STAGGERED) */}
         <MotiView
-          from={{ opacity: 0, translateY: 12 }}
+          from={{ opacity: 0, translateY: 20 }}
           animate={{ opacity: 1, translateY: 0 }}
-          transition={{ type: "spring", damping: 22, stiffness: 150, delay: 30 }}
+          transition={{ type: "spring", damping: 20, stiffness: 140, delay: 200 }}
         >
           {/* Campo: E-mail */}
           <View className="mb-3.5">
-            <Text className="text-xs font-bold uppercase tracking-wider text-[#71717a] dark:text-zinc-400 mb-1.5 ml-1">
+            <Text
+              style={{ fontFamily: "DMSans_700Bold" }}
+              className="text-xs uppercase tracking-wider text-[#71717a] dark:text-zinc-400 mb-1.5 ml-1"
+            >
               E-mail
             </Text>
             <View className="flex-row items-center h-14 bg-[#f8f9fa] dark:bg-zinc-900 rounded-2xl px-4 border border-[#e2dfe1] dark:border-zinc-800">
               <EnvelopeSimple size={20} color={isDark ? "#59C83A" : "#414755"} />
               <TextInput
-                style={{ textAlignVertical: "center" }}
-                className="flex-1 ml-3 text-[#1b1b1d] dark:text-white text-sm font-medium h-full py-0"
+                style={{ textAlignVertical: "center", fontFamily: "DMSans_500Medium" }}
+                className="flex-1 ml-3 text-[#1b1b1d] dark:text-white text-sm h-full py-0"
                 placeholder="seuemail@exemplo.com"
                 placeholderTextColor={isDark ? "#71717a" : "#a09da1"}
                 value={email}
@@ -249,14 +267,17 @@ export default function ResetPasswordScreen() {
 
           {/* Campo: Código OTP */}
           <View className="mb-3.5">
-            <Text className="text-xs font-bold uppercase tracking-wider text-[#59C83A] mb-1.5 ml-1">
+            <Text
+              style={{ fontFamily: "DMSans_700Bold" }}
+              className="text-xs uppercase tracking-wider text-[#59C83A] mb-1.5 ml-1"
+            >
               Código de 6 dígitos (OTP)
             </Text>
             <View className="flex-row items-center h-14 bg-[#f8f9fa] dark:bg-zinc-900 rounded-2xl px-4 border border-[#59C83A]/50">
               <Hash size={20} color="#59C83A" />
               <TextInput
-                style={{ textAlignVertical: "center" }}
-                className="flex-1 ml-3 text-[#1b1b1d] dark:text-white text-base font-mono font-bold tracking-widest h-full py-0"
+                style={{ textAlignVertical: "center", fontFamily: "DMSans_700Bold" }}
+                className="flex-1 ml-3 text-[#1b1b1d] dark:text-white text-base font-mono tracking-widest h-full py-0"
                 placeholder="123456"
                 placeholderTextColor={isDark ? "#71717a" : "#a09da1"}
                 value={code}
@@ -269,14 +290,17 @@ export default function ResetPasswordScreen() {
 
           {/* Campo: Nova Senha */}
           <View className="mb-3.5">
-            <Text className="text-xs font-bold uppercase tracking-wider text-[#71717a] dark:text-zinc-400 mb-1.5 ml-1">
+            <Text
+              style={{ fontFamily: "DMSans_700Bold" }}
+              className="text-xs uppercase tracking-wider text-[#71717a] dark:text-zinc-400 mb-1.5 ml-1"
+            >
               Nova Senha
             </Text>
             <View className="flex-row items-center h-14 bg-[#f8f9fa] dark:bg-zinc-900 rounded-2xl px-4 border border-[#e2dfe1] dark:border-zinc-800">
               <LockSimple size={20} color={isDark ? "#59C83A" : "#414755"} />
               <TextInput
-                style={{ textAlignVertical: "center" }}
-                className="flex-1 ml-3 text-[#1b1b1d] dark:text-white text-sm font-medium h-full py-0"
+                style={{ textAlignVertical: "center", fontFamily: "DMSans_500Medium" }}
+                className="flex-1 ml-3 text-[#1b1b1d] dark:text-white text-sm h-full py-0"
                 placeholder="Digite a nova senha"
                 placeholderTextColor={isDark ? "#71717a" : "#a09da1"}
                 value={newPassword}
@@ -295,14 +319,17 @@ export default function ResetPasswordScreen() {
 
           {/* Campo: Confirmar Nova Senha */}
           <View className="mb-6">
-            <Text className="text-xs font-bold uppercase tracking-wider text-[#71717a] dark:text-zinc-400 mb-1.5 ml-1">
+            <Text
+              style={{ fontFamily: "DMSans_700Bold" }}
+              className="text-xs uppercase tracking-wider text-[#71717a] dark:text-zinc-400 mb-1.5 ml-1"
+            >
               Confirmar Nova Senha
             </Text>
             <View className="flex-row items-center h-14 bg-[#f8f9fa] dark:bg-zinc-900 rounded-2xl px-4 border border-[#e2dfe1] dark:border-zinc-800">
               <LockSimple size={20} color={isDark ? "#59C83A" : "#414755"} />
               <TextInput
-                style={{ textAlignVertical: "center" }}
-                className="flex-1 ml-3 text-[#1b1b1d] dark:text-white text-sm font-medium h-full py-0"
+                style={{ textAlignVertical: "center", fontFamily: "DMSans_500Medium" }}
+                className="flex-1 ml-3 text-[#1b1b1d] dark:text-white text-sm h-full py-0"
                 placeholder="Confirme a nova senha"
                 placeholderTextColor={isDark ? "#71717a" : "#a09da1"}
                 value={confirmPassword}
@@ -317,7 +344,7 @@ export default function ResetPasswordScreen() {
             onPress={handleUpdatePassword}
             disabled={loading}
             style={{ backgroundColor: "#59C83A" }}
-            className="h-14 rounded-2xl items-center flex-row justify-center shadow-md"
+            className="h-14 rounded-2xl items-center flex-row justify-center shadow-md active:opacity-90"
             activeOpacity={0.8}
           >
             {loading ? (
@@ -325,7 +352,10 @@ export default function ResetPasswordScreen() {
             ) : (
               <>
                 <CheckCircle size={20} color="#FFFFFF" weight="bold" />
-                <Text className="text-white font-extrabold text-base ml-2">
+                <Text
+                  style={{ fontFamily: "Outfit_700Bold" }}
+                  className="text-white text-base ml-2"
+                >
                   Salvar Nova Senha
                 </Text>
               </>
