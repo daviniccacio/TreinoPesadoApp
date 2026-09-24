@@ -2,7 +2,8 @@
 // DOCUMENTAÇÃO: TELA DE EXERCÍCIOS POR CATEGORIA (ÁREA DO ALUNO)
 // ============================================================================
 // Exibe a lista de exercícios cadastrados para uma categoria específica,
-// com suporte a busca local, animação de entrada e Pull-to-Refresh.
+// com suporte a busca local, animação de entrada, Pull-to-Refresh e
+// mapeamento correto de nomes formatados com acentuação.
 // ============================================================================
 
 import React, { useState } from 'react';
@@ -28,6 +29,26 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { MotiView } from 'moti';
 import { supabase } from '../../../../lib/supabase';
+
+// ============================================================================
+// DICIONÁRIO DE MAPEAMENTO DE CATEGORIAS
+// ============================================================================
+// Converte as chaves técnicas do banco de dados nos nomes formatados com acentos.
+// ============================================================================
+const CATEGORY_MAP: Record<string, string> = {
+  gluteo: 'Glúteos',
+  peito: 'Peitoral',
+  perna: 'Pernas',
+  costas: 'Costas',
+  ombro: 'Ombros',
+  biceps: 'Bíceps',
+  triceps: 'Tríceps',
+  abdomen: 'Abdômen',
+  cardio: 'Cardio',
+  alongamentos: 'Alongamentos',
+  'pernas-posterior': 'Posterior de Pernas',
+
+};
 
 interface Exercise {
   id: string;
@@ -77,7 +98,16 @@ export default function CategoryScreen() {
     enabled: !!id,
   });
 
-  const categoryTitle = id ? id.charAt(0).toUpperCase() + id.slice(1) : 'Categoria';
+  // ============================================================================
+  // TRATAMENTO DO TÍTULO DA CATEGORIA
+  // ============================================================================
+  // Busca o nome formatado no dicionário. Se não encontrar, apenas capitaliza.
+  // ============================================================================
+  const categoryTitle = React.useMemo(() => {
+    if (!id) return 'Categoria';
+    const normalizedKey = id.toLowerCase().trim();
+    return CATEGORY_MAP[normalizedKey] || (id.charAt(0).toUpperCase() + id.slice(1));
+  }, [id]);
 
   const filteredExercises = exercises.filter((item) =>
     item.name.toLowerCase().includes(searchQuery.toLowerCase().trim())
@@ -164,7 +194,7 @@ export default function CategoryScreen() {
           <ArrowLeft size={20} color={isDark ? '#59C83A' : '#1b1b1d'} />
         </TouchableOpacity>
 
-        {/* Título da Categoria em Outfit Bold */}
+        {/* Título da Categoria Formatado */}
         <Text className="text-lg font-outfit text-[#1b1b1d] dark:text-white">
           {categoryTitle}
         </Text>
@@ -176,7 +206,6 @@ export default function CategoryScreen() {
       {isLoading ? (
         <View className="flex-1 justify-center items-center">
           <ActivityIndicator size="large" color="#59C83A" />
-          {/* Mensagem em DM Sans Medium */}
           <Text className="mt-3 text-[#414755] dark:text-zinc-400 font-sans-medium text-xs">
             Carregando exercícios...
           </Text>
@@ -189,7 +218,6 @@ export default function CategoryScreen() {
           className="flex-1 justify-center items-center px-5"
         >
           <WarningCircle size={48} color="#e11d48" />
-          {/* Título de Erro em Outfit Bold */}
           <Text className="text-base font-outfit-bold text-[#1b1b1d] dark:text-white mt-2 text-center">
             Não foi possível carregar os exercícios
           </Text>
@@ -198,7 +226,6 @@ export default function CategoryScreen() {
             style={{ backgroundColor: '#59C83A' }}
             className="mt-4 px-5 py-2.5 rounded-xl"
           >
-            {/* Texto do Botão em DM Sans Bold */}
             <Text className="text-white font-sans-bold text-xs">Tentar Novamente</Text>
           </TouchableOpacity>
         </MotiView>
@@ -229,7 +256,6 @@ export default function CategoryScreen() {
               }}
               className="mb-4"
             >
-              {/* Título de Seção em Outfit ExtraBold */}
               <Text className="text-xl font-outfit-extrabold text-[#1b1b1d] dark:text-white mb-3">
                 Exercícios Disponíveis
               </Text>
@@ -237,7 +263,6 @@ export default function CategoryScreen() {
               {/* Campo de Busca por Exercício */}
               <View className="bg-[#f8f9fa] dark:bg-zinc-900 flex-row items-center px-4 py-2.5 rounded-2xl border border-[#e2dfe1] dark:border-zinc-800">
                 <MagnifyingGlass size={18} color={isDark ? '#59C83A' : '#414755'} />
-                {/* Input em DM Sans Medium */}
                 <TextInput
                   className="flex-1 ml-2.5 text-[#1b1b1d] dark:text-white text-sm font-sans-medium"
                   placeholder={`Buscar em ${categoryTitle.toLowerCase()}...`}
@@ -262,7 +287,6 @@ export default function CategoryScreen() {
               transition={{ type: 'timing', duration: 200 }}
               className="py-10 items-center"
             >
-              {/* Mensagem Vazia em DM Sans Medium */}
               <Text className="text-[#414755] dark:text-zinc-400 font-sans-medium text-center text-xs">
                 {searchQuery.trim().length > 0
                   ? `Nenhum exercício encontrado com "${searchQuery}" em ${categoryTitle}.`
