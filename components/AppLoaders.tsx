@@ -38,9 +38,9 @@ export function AppEntranceLoading({
 }: AppEntranceLoadingProps) {
   const { isDark } = useTheme();
   const [progress, setProgress] = useState(0);
-  const [statusMessage, setStatusMessage] = useState('Iniciando o Treino Pesado...');
+  const [statusMessage, setStatusMessage] = useState('Iniciando o Treino Pesado App...');
 
-  const logoImage = imageSource || require('../assets/logo-treino-pesado.png');
+  const logoImage = imageSource || require('../assets/logo-treino-pesado-icon.png');
 
   useEffect(() => {
     const interval = setInterval(() => {

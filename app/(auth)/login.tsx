@@ -1,9 +1,9 @@
 // ============================================================================
-// DOCUMENTAÇÃO: TELA DE LOGIN INTEGRADA AO TEMA GLOBAL PERSISTENTE (SDK 56+)
+// DOCUMENTAÇÃO: TELA DE LOGIN INTEGRADA AO TEMA GLOBAL E AUTH LOADING OVERLAY
 // ============================================================================
-// Tela de autenticação atualizada para utilizar o hook useTheme(), garantindo
-// que a preferência de tema (Claro/Escuro) definida pelo usuário persista
-// entre trocas de telas, login e logout.
+// Tela de autenticação atualizada para utilizar o hook useTheme() e o
+// componente AuthLoadingOverlay, garantindo feedback visual bloqueante e
+// elegante durante a validação de credenciais no Supabase.
 // ============================================================================
 
 import React, { useState } from 'react';
@@ -37,9 +37,11 @@ import { MotiView } from 'moti';
 import { supabase } from '../../lib/supabase';
 import { useThrottledCallback } from '../../lib/useThrottle';
 import { CustomModal } from '../../components/CustomModal';
-
+import { AuthLoadingOverlay } from '../../components/AppLoaders';
 // 🟢 IMPORTAÇÃO DO HOOK DE TEMA GLOBAL
 import { useTheme } from '../../context/ThemeContext';
+
+// 🟢 IMPORTAÇÃO DO CARREGAMENTO DE AUTENTICAÇÃO
 
 const BRAND_GREEN = '#59C83A';
 const BRAND_GREEN_DEEP = '#2F7A16';
@@ -585,16 +587,10 @@ export default function LoginScreen() {
               className="flex-row py-4 rounded-2xl items-center justify-center active:opacity-90"
               activeOpacity={0.85}
             >
-              {loading ? (
-                <ActivityIndicator color="#ffffff" />
-              ) : (
-                <>
-                  <Text className="font-outfit text-white text-lg tracking-wide mr-2">
-                    Entrar
-                  </Text>
-                  <ArrowRight size={20} color="#ffffff" weight="bold" />
-                </>
-              )}
+              <Text className="font-outfit text-white text-lg tracking-wide mr-2">
+                Entrar
+              </Text>
+              <ArrowRight size={20} color="#ffffff" weight="bold" />
             </TouchableOpacity>
 
             {/* Link para Cadastro */}
@@ -707,7 +703,7 @@ export default function LoginScreen() {
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* MODAL DE ALERTA PERSONALIZADO (PASSA ISDARK PARA SUCESSO DE TEMA) */}
+      {/* MODAL DE ALERTA PERSONALIZADO */}
       <CustomModal
         visible={modalConfig.visible}
         isDark={isDark}
@@ -719,6 +715,12 @@ export default function LoginScreen() {
         showCancelButton={modalConfig.showCancelButton}
         onConfirm={modalConfig.onConfirm}
         onClose={() => setModalConfig((prev) => ({ ...prev, visible: false }))}
+      />
+
+      {/* 🟢 TIPO 2: OVERLAY DE CARREGAMENTO BLOQUEANTE DURANTE O LOGIN */}
+      <AuthLoadingOverlay
+        visible={loading}
+        message="Entrando na sua conta..."
       />
     </View>
   );
