@@ -187,7 +187,7 @@ export default function PersonalCategoryScreen() {
                 {/* Texto da Busca em DM Sans Medium */}
                 <TextInput
                   className="flex-1 ml-2.5 text-[#1b1b1d] dark:text-white text-sm font-sans-medium"
-                  placeholder={`Buscar em ${categoryTitle.toLowerCase()}...`}
+                  placeholder={`Buscar em ${categoryTitle}...`}
                   placeholderTextColor={isDark ? '#71717a' : '#a09da1'}
                   value={searchQuery}
                   onChangeText={setSearchQuery}
