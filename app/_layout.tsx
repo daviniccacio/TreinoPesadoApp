@@ -1,5 +1,5 @@
 // ============================================================================
-// DOCUMENTAÇÃO: ROOT LAYOUT INTEGRADO COM TEMA PERSISTENTE, ROLE E PUSH LISTENERS
+// DOCUMENTAÇÃO: ROOT LAYOUT INTEGRADO COM LOGO VETORIAL E TEMA PERSISTENTE
 // ============================================================================
 // Gerencia autenticação via Supabase, fontes, cache TanStack Query, tema global,
 // verificação de perfil, direcionamento e escuta ativa de Push Notifications.
@@ -14,7 +14,7 @@ if (SafeAreaProvider) {
 import '../global.css';
 
 import React, { useEffect, useState } from 'react';
-import { View, ActivityIndicator, Alert, Text, TouchableOpacity } from 'react-native';
+import { View, Alert, Text, TouchableOpacity } from 'react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import {
@@ -43,6 +43,7 @@ import * as Notifications from 'expo-notifications';
 import { registerForPushNotificationsAsync } from '../lib/notifications';
 import { supabase } from '../lib/supabase';
 import { ThemeProvider as AppThemeProvider, useTheme } from '../context/ThemeContext';
+import { AppEntranceLoading } from '../components/AppLoaders';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -94,6 +95,9 @@ function RootLayoutContent() {
   const [isProfileLoading, setIsProfileLoading] = useState<boolean>(false);
   const [networkError, setNetworkError] = useState<boolean>(false);
 
+  // 🟢 CORREÇÃO 1: Declaração do estado de término do Splash Screen
+  const [isEntranceFinished, setIsEntranceFinished] = useState<boolean>(false);
+
   const [fontsLoaded, fontError] = useFonts({
     Outfit_700Bold,
     Outfit_800ExtraBold,
@@ -144,7 +148,6 @@ function RootLayoutContent() {
   useEffect(() => {
     async function validateAuthOnServer() {
       try {
-        // Tenta obter a sessão salva localmente no SecureStore
         const {
           data: { session: cachedSession },
         } = await supabase.auth.getSession();
@@ -291,6 +294,14 @@ function RootLayoutContent() {
     }
   }, [session, userProfile, isReady, isProfileLoading, fontsLoaded, fontError, segments]);
 
+  // 🟢 CORREÇÃO 2: Conversão garantida para booleano com Boolean(...)
+  const isBootFinished = Boolean(
+    isReady &&
+    (fontsLoaded || !!fontError) &&
+    (!session || !isProfileLoading || !!userProfile)
+  );
+
+  // EXIBIÇÃO DE ERRO DE REDE
   if (networkError && !userProfile) {
     return (
       <View style={{ flex: 1, backgroundColor }} className="justify-center items-center px-6">
@@ -310,11 +321,13 @@ function RootLayoutContent() {
     );
   }
 
-  if (!isReady || (!fontsLoaded && !fontError) || (session && isProfileLoading && !userProfile)) {
+  // 🟢 CORREÇÃO 3: Posicionamento do Splash Screen após os hooks
+  if (!isEntranceFinished) {
     return (
-      <View style={{ flex: 1, backgroundColor }} className="justify-center items-center">
-        <ActivityIndicator size="large" color="#59C83A" />
-      </View>
+      <AppEntranceLoading
+        isReady={isBootFinished}
+        onFinishLoading={() => setIsEntranceFinished(true)}
+      />
     );
   }
 
