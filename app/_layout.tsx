@@ -1,8 +1,9 @@
 // ============================================================================
-// DOCUMENTAÇÃO: ROOT LAYOUT INTEGRADO COM LOGO VETORIAL E TEMA PERSISTENTE
+// DOCUMENTAÇÃO: ROOT LAYOUT COMPLETO (SISTEMA ENTERPRISE E INTEGRADO)
 // ============================================================================
 // Gerencia autenticação via Supabase, fontes, cache TanStack Query, tema global,
-// verificação de perfil, direcionamento e escuta ativa de Push Notifications.
+// verificação de perfil, direcionamento de rotas, push notifications,
+// monitoramento de rede, resiliência contra erros e cronômetro em background.
 // ============================================================================
 
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -42,8 +43,13 @@ import {
 import * as Notifications from 'expo-notifications';
 import { registerForPushNotificationsAsync } from '../lib/notifications';
 import { supabase } from '../lib/supabase';
+
+// IMPORTAÇÃO DOS PROVEDORES DE CONTEXTO E RESILIÊNCIA
 import { ThemeProvider as AppThemeProvider, useTheme } from '../context/ThemeContext';
 import { AppEntranceLoading } from '../components/AppLoaders';
+import { OfflineBanner } from '../components/OfflineBanner';
+import { GlobalErrorBoundary } from '../components/ErrorBoundary';
+import { TermsAndPrivacyModal } from '../components/TermsAndPrivacyModal';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -86,6 +92,7 @@ const CustomLightTheme = {
 interface UserProfile {
   role: string;
   is_blocked: boolean;
+  accepted_terms?: boolean;
 }
 
 function RootLayoutContent() {
@@ -95,8 +102,11 @@ function RootLayoutContent() {
   const [isProfileLoading, setIsProfileLoading] = useState<boolean>(false);
   const [networkError, setNetworkError] = useState<boolean>(false);
 
-  // 🟢 CORREÇÃO 1: Declaração do estado de término do Splash Screen
+  // Estado do término do Splash Screen
   const [isEntranceFinished, setIsEntranceFinished] = useState<boolean>(false);
+
+  // 🟢 ESTADO PARA CONTROLAR O MODAL DE TERMOS E PRIVACIDADE (LGPD)
+  const [showTermsModal, setShowTermsModal] = useState<boolean>(false);
 
   const [fontsLoaded, fontError] = useFonts({
     Outfit_700Bold,
@@ -177,7 +187,7 @@ function RootLayoutContent() {
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, currentSession) => {
         console.log('🔄 [AUTH EVENT]:', event, '| Usuário:', currentSession?.user?.email ?? 'Sem sessão');
-        
+
         queryClient.clear();
 
         if (event === 'PASSWORD_RECOVERY') {
@@ -215,7 +225,7 @@ function RootLayoutContent() {
     try {
       const { data: profile, error } = await supabase
         .from('profiles')
-        .select('role, is_blocked')
+        .select('role, is_blocked, accepted_terms')
         .eq('id', session.user.id)
         .single();
 
@@ -224,12 +234,40 @@ function RootLayoutContent() {
         setNetworkError(true);
       } else if (profile) {
         setUserProfile(profile as UserProfile);
+        if (!profile.accepted_terms) {
+          setShowTermsModal(true);
+        } else {
+          setShowTermsModal(false);
+        }
       }
     } catch (err) {
       console.error('Erro de conexão ao buscar perfil:', err);
       setNetworkError(true);
     } finally {
       setIsProfileLoading(false);
+    }
+  }
+
+  async function handleAcceptTerms() {
+    if (!session?.user?.id) return;
+
+    try {
+      // Atualiza o registro do perfil no Supabase
+      const { error } = await supabase
+        .from('profiles')
+        .update({ accepted_terms: true })
+        .eq('id', session.user.id);
+
+      if (error) {
+        Alert.alert('Erro', 'Não foi possível registrar o aceite. Tente novamente.');
+        return;
+      }
+
+      // Fecha o modal e atualiza o estado local
+      setShowTermsModal(false);
+      setUserProfile((prev) => (prev ? { ...prev, accepted_terms: true } : null));
+    } catch (err) {
+      console.error('Erro ao salvar aceite dos termos:', err);
     }
   }
 
@@ -294,7 +332,6 @@ function RootLayoutContent() {
     }
   }, [session, userProfile, isReady, isProfileLoading, fontsLoaded, fontError, segments]);
 
-  // 🟢 CORREÇÃO 2: Conversão garantida para booleano com Boolean(...)
   const isBootFinished = Boolean(
     isReady &&
     (fontsLoaded || !!fontError) &&
@@ -321,7 +358,7 @@ function RootLayoutContent() {
     );
   }
 
-  // 🟢 CORREÇÃO 3: Posicionamento do Splash Screen após os hooks
+  // EXIBIÇÃO DO SPLASH SCREEN INICIAL
   if (!isEntranceFinished) {
     return (
       <AppEntranceLoading
@@ -333,6 +370,9 @@ function RootLayoutContent() {
 
   return (
     <SafeAreaProvider style={{ flex: 1, backgroundColor }}>
+      {/* 🟢 BANNER DE INTERNET MONITORA A CONEXÃO EM TEMPO REAL */}
+      <OfflineBanner />
+
       <NavigationThemeProvider value={isDark ? CustomDarkTheme : CustomLightTheme}>
         <Stack
           screenOptions={{
@@ -348,16 +388,28 @@ function RootLayoutContent() {
           <Stack.Screen name="(app)" options={{ style: { backgroundColor } } as any} />
         </Stack>
       </NavigationThemeProvider>
+
+      {/* 🟢 MODAL DE CONFORMIDADE LGPD */}
+      <TermsAndPrivacyModal
+        visible={showTermsModal}
+        isDark={isDark}
+        onAccept={handleAcceptTerms}
+      />
     </SafeAreaProvider>
   );
 }
 
+// ============================================================================
+// EXPORTAÇÃO PRINCIPAL DO ROOT LAYOUT COM TODAS AS CAMADAS DE PROTEÇÃO
+// ============================================================================
 export default function RootLayout() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <AppThemeProvider>
-        <RootLayoutContent />
-      </AppThemeProvider>
-    </QueryClientProvider>
+    <GlobalErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <AppThemeProvider>
+          <RootLayoutContent />
+        </AppThemeProvider>
+      </QueryClientProvider>
+    </GlobalErrorBoundary>
   );
 }
