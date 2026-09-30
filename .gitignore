@@ -66,3 +66,8 @@ todo.md
 .vscode/
 
 supabase/
+
+scripts/
+backup.js
+
+backups/

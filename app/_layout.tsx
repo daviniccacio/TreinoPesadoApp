@@ -286,16 +286,27 @@ function RootLayoutContent() {
 
   // ETAPA 3: PROTEÇÃO GLOBAL DE ROTAS
   useEffect(() => {
+    // Se o aplicativo ainda não carregou as fontes, sessão ou perfil, aguarda
     if (!isReady || (!fontsLoaded && !fontError) || isProfileLoading) return;
 
     const routeSegments = segments as string[];
     const rootGroup = routeSegments[0];
     const subGroup = routeSegments[1];
 
-    if (routeSegments.includes('reset-password')) {
+    // 🟢 1. VERIFICAÇÃO DAS ROTAS DE RECUPERAÇÃO DE SENHA
+    // Identifica se o usuário está em qualquer uma das telas de recuperação
+    const isRecoveryRoute =
+      routeSegments.includes('reset-password') ||
+      routeSegments.includes('verify-otp') ||
+      routeSegments.includes('forgot-password');
+
+    // Se estiver em qualquer tela de recuperação, ignora o redirecionamento automático
+    if (isRecoveryRoute) {
       return;
     }
 
+    // 🟢 2. USUÁRIO NÃO AUTENTICADO
+    // Se não existir sessão ativa e o usuário não estiver no grupo (auth), envia para o login
     if (!session) {
       if (rootGroup !== '(auth)') {
         router.replace('/(auth)/login');
@@ -303,8 +314,11 @@ function RootLayoutContent() {
       return;
     }
 
+    // Aguarda carregar as informações da tabela profiles
     if (!userProfile) return;
 
+    // 🟢 3. USUÁRIO BLOQUEADO
+    // Se a conta foi suspensa, encerra a sessão e exibe o alerta
     if (userProfile.is_blocked) {
       supabase.auth.signOut();
       setSession(null);
@@ -317,6 +331,7 @@ function RootLayoutContent() {
       return;
     }
 
+    // 🟢 4. DIRECIONAMENTO POR PAPEL DE USUÁRIO (ROLE)
     if (userProfile.role === 'admin') {
       if (rootGroup !== '(app)' || subGroup !== '(admin)') {
         router.replace('/(app)/(admin)' as any);
@@ -332,12 +347,12 @@ function RootLayoutContent() {
     }
   }, [session, userProfile, isReady, isProfileLoading, fontsLoaded, fontError, segments]);
 
+  // Declaração de inicialização concluída
   const isBootFinished = Boolean(
     isReady &&
     (fontsLoaded || !!fontError) &&
     (!session || !isProfileLoading || !!userProfile)
   );
-
   // EXIBIÇÃO DE ERRO DE REDE
   if (networkError && !userProfile) {
     return (
