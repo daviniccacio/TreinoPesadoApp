@@ -1,11 +1,11 @@
 // ============================================================================
-// DOCUMENTAÇÃO: TELA DE CRIAÇÃO / EDIÇÃO DE TREINO CUSTOMIZADO
+// DOCUMENTAÇÃO: TELA DE CRIAÇÃO / EDIÇÃO DE TREINO CUSTOMIZADO (ALUNO)
 // ============================================================================
-// Permite ao aluno criar uma nova ficha personalizada ou editar um treino existente,
-// selecionando exercícios do catálogo, definindo séries, repetições, cargas e dias.
+// Permite ao aluno criar ou editar uma ficha personalizada com categorias
+// formatadas com acentuação e letras maiúsculas/minúsculas corretas.
 // ============================================================================
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
   View,
   Text,
@@ -15,8 +15,11 @@ import {
   ActivityIndicator,
   useColorScheme,
   Modal,
+  FlatList,
+  TouchableWithoutFeedback,
+  Platform,
 } from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter, useNavigation } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   ArrowLeft,
@@ -45,6 +48,31 @@ const DAYS_OF_WEEK = [
   "Quinta",
   "Sexta",
 ];
+
+// 🟢 FUNÇÃO UTILITÁRIA PARA FORMATAR AS CATEGORIAS DE FORMA AMIGÁVEL E BONITA
+function formatCategoryLabel(rawCategory?: string): string {
+  if (!rawCategory) return "Geral";
+  const normalized = rawCategory.trim().toLowerCase();
+
+  const mapLabels: Record<string, string> = {
+    todos: "Todos",
+    biceps: "Bíceps",
+    triceps: "Tríceps",
+    abdomen: "Abdômen",
+    gluteo: "Glúteos",
+    ombros: "Ombros",
+    pernas: "Pernas",
+    costas: "Costas",
+    peito: "Peitoral",
+    cardio: "Cardio",
+    alongamento: "Alongamento",
+  };
+
+  if (mapLabels[normalized]) return mapLabels[normalized];
+
+  // Caso seja uma categoria nova no banco, coloca a primeira letra em maiúscula
+  return rawCategory.charAt(0).toUpperCase() + rawCategory.slice(1).toLowerCase();
+}
 
 interface ExerciseOption {
   id: string;
@@ -75,6 +103,7 @@ interface ShowAlertModalOptions {
 
 export default function CreateOrEditWorkoutScreen() {
   const router = useRouter();
+  const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
@@ -90,6 +119,7 @@ export default function CreateOrEditWorkoutScreen() {
   const [selectedExercises, setSelectedExercises] = useState<SelectedExercise[]>([]);
   const [isLoadingWorkout, setIsLoadingWorkout] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
 
   // ESTADOS DO MODAL DE SELEÇÃO DE EXERCÍCIOS
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -147,6 +177,38 @@ export default function CreateOrEditWorkoutScreen() {
       },
     });
   }
+
+  // AVALIA SE EXISTEM DADOS DIGITADOS OU EXERCÍCIOS SELECIONADOS
+  const isFormDirty =
+    selectedExercises.length > 0 ||
+    workoutTitle.trim().length > 0 ||
+    workoutDescription.trim().length > 0;
+
+  // PROTEÇÃO CONTRA SAÍDA ACIDENTAL DA TELA
+  useEffect(() => {
+    const unsubscribe = navigation.addListener("beforeRemove", (e) => {
+      if (!isFormDirty || isSaved) {
+        return;
+      }
+
+      e.preventDefault();
+
+      showAlertModal({
+        title: "Descartar alterações? ⚠️",
+        message:
+          "Você possui exercícios ou informações preenchidas. Se sair agora, todas as alterações serão perdidas.",
+        type: "danger",
+        confirmText: "Sair sem Salvar",
+        cancelText: "Continuar Editando",
+        showCancelButton: true,
+        onConfirm: () => {
+          navigation.dispatch(e.data.action);
+        },
+      });
+    });
+
+    return unsubscribe;
+  }, [navigation, isFormDirty, isSaved]);
 
   // 1. CARREGA OS DADOS DO TREINO SE ESTIVER NO MODO DE EDIÇÃO
   useEffect(() => {
@@ -246,8 +308,10 @@ export default function CreateOrEditWorkoutScreen() {
 
   // 3. EXTRAÇÃO DINÂMICA DE CATEGORIAS DISPONÍVEIS
   const categoriesList = useMemo(() => {
-    const rawCategories = availableExercises.map((item) => item.category_id).filter(Boolean);
-    const uniqueCategories = Array.from(new Set(rawCategories)).sort();
+    const rawCategories = availableExercises
+      .map((item) => item.category_id)
+      .filter(Boolean);
+    const uniqueCategories = Array.from(new Set(rawCategories.map((c) => c.trim()))).sort();
     return ["TODOS", ...uniqueCategories];
   }, [availableExercises]);
 
@@ -256,7 +320,7 @@ export default function CreateOrEditWorkoutScreen() {
     return availableExercises.filter((item) => {
       const matchesCategory =
         selectedCategory === "TODOS" ||
-        item.category_id?.toUpperCase() === selectedCategory.toUpperCase();
+        item.category_id?.toLowerCase().trim() === selectedCategory.toLowerCase().trim();
 
       const matchesSearch = item.name
         .toLowerCase()
@@ -313,6 +377,67 @@ export default function CreateOrEditWorkoutScreen() {
   function handleRemoveExercise(index: number) {
     setSelectedExercises((prev) => prev.filter((_, i) => i !== index));
   }
+
+  // 🟢 ITEM DO MODAL MEMORIZADO COM FORMATADOR DE CATEGORIA
+  const renderModalExerciseItem = useCallback(
+    ({ item }: { item: ExerciseOption }) => {
+      const isAdded = selectedExercises.some((e) => e.exercise_id === item.id);
+      const isGifExpanded = expandedModalExerciseId === item.id;
+
+      return (
+        <View
+          className={`p-3.5 rounded-2xl border mb-2.5 overflow-hidden ${
+            isAdded
+              ? "bg-[#59C83A]/10 border-[#59C83A]"
+              : "bg-[#f8f9fa] dark:bg-zinc-950 border-[#e2dfe1] dark:border-zinc-800"
+          }`}
+        >
+          <TouchableOpacity
+            onPress={() => handleSelectExercise(item)}
+            activeOpacity={0.7}
+            className="flex-row justify-between items-center"
+          >
+            <View className="flex-1 mr-2">
+              {/* 🟢 NOME DA CATEGORIA FORMATADO E SEM UPPERCASE */}
+              <Text className="text-xs font-sans-bold text-[#59C83A]">
+                {formatCategoryLabel(item.category_id)}
+              </Text>
+              <Text className="text-sm font-outfit text-[#1b1b1d] dark:text-white">
+                {item.name}
+              </Text>
+            </View>
+
+            {isAdded ? (
+              <View className="bg-[#59C83A] p-2 rounded-xl">
+                <Check size={16} color="#ffffff" weight="bold" />
+              </View>
+            ) : (
+              <View className="bg-[#59C83A]/10 p-2 rounded-xl border border-[#59C83A]/30">
+                <Plus size={18} color="#59C83A" weight="bold" />
+              </View>
+            )}
+          </TouchableOpacity>
+
+          {isGifExpanded && (
+            <MotiView
+              from={{ opacity: 0, scale: 0.96 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ type: "timing", duration: 200 }}
+              className="w-full h-52 bg-white dark:bg-zinc-900 rounded-xl overflow-hidden mt-3 border border-[#e2dfe1] dark:border-zinc-800 items-center justify-center"
+            >
+              <Image
+                source={getExerciseGif(item.gif_key)}
+                style={{ width: "100%", height: "100%" }}
+                contentFit="contain"
+                autoplay={true}
+              />
+            </MotiView>
+          )}
+        </View>
+      );
+    },
+    [selectedExercises, expandedModalExerciseId]
+  );
 
   // 8. SALVA OU ATUALIZA O TREINO NO SUPABASE
   async function handleSaveWorkout() {
@@ -451,6 +576,8 @@ export default function CreateOrEditWorkoutScreen() {
         });
       }
 
+      setIsSaved(true);
+
       showAlertModal({
         title: "Sucesso! 🎉",
         message: isEditing
@@ -499,7 +626,6 @@ export default function CreateOrEditWorkoutScreen() {
           <ArrowLeft size={20} color={isDark ? "#ffffff" : "#1b1b1d"} />
         </TouchableOpacity>
 
-        {/* Título Principal em Outfit ExtraBold */}
         <Text className="text-xl font-outfit-extrabold text-[#1b1b1d] dark:text-white">
           {isEditing ? "Editar Treino" : "Montar Novo Treino"}
         </Text>
@@ -510,7 +636,6 @@ export default function CreateOrEditWorkoutScreen() {
       {isLoadingWorkout ? (
         <View className="flex-1 justify-center items-center">
           <ActivityIndicator size="large" color="#59C83A" />
-          {/* Mensagem de Carregamento em DM Sans Medium */}
           <Text className="text-xs font-sans-medium text-[#71717a] dark:text-zinc-400 mt-3">
             Carregando informações do treino...
           </Text>
@@ -520,7 +645,7 @@ export default function CreateOrEditWorkoutScreen() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: 40 }}
         >
-          {/* 2. CAMPOS DO FORMULÁRIO ANIMADOS */}
+          {/* 2. CAMPOS DO FORMULÁRIO */}
           <MotiView
             from={{ opacity: 0, translateY: 10 }}
             animate={{ opacity: 1, translateY: 0 }}
@@ -531,7 +656,6 @@ export default function CreateOrEditWorkoutScreen() {
               delay: 30,
             }}
           >
-            {/* CAMPO NOME DO TREINO */}
             <Text className="text-xs font-sans-bold text-[#71717a] dark:text-zinc-400 uppercase mb-1.5">
               Nome do Treino
             </Text>
@@ -543,7 +667,6 @@ export default function CreateOrEditWorkoutScreen() {
               onChangeText={setWorkoutTitle}
             />
 
-            {/* CAMPO PROPÓSITO / PARA QUE SERVE */}
             <View className="flex-row items-center mb-1.5">
               <Target size={14} color="#59C83A" weight="bold" />
               <Text className="text-xs font-sans-bold text-[#71717a] dark:text-zinc-400 uppercase ml-1">
@@ -558,7 +681,6 @@ export default function CreateOrEditWorkoutScreen() {
               onChangeText={setWorkoutDescription}
             />
 
-            {/* SELEÇÃO DIA DA SEMANA */}
             <View className="flex-row items-center mb-2">
               <Calendar size={14} color="#59C83A" weight="bold" />
               <Text className="text-xs font-sans-bold text-[#71717a] dark:text-zinc-400 uppercase ml-1">
@@ -583,7 +705,6 @@ export default function CreateOrEditWorkoutScreen() {
                         : "bg-[#f8f9fa] dark:bg-zinc-900 border-[#e2dfe1] dark:border-zinc-800"
                     }`}
                   >
-                    {/* Dia em DM Sans Bold */}
                     <Text
                       className={`text-xs font-sans-bold ${
                         isActive ? "text-white" : "text-[#71717a] dark:text-zinc-400"
@@ -597,7 +718,7 @@ export default function CreateOrEditWorkoutScreen() {
             </ScrollView>
           </MotiView>
 
-          {/* 3. CABEÇALHO DA SEÇÃO DE EXERCÍCIOS ANIMADO */}
+          {/* 3. CABEÇALHO DA SEÇÃO DE EXERCÍCIOS */}
           <MotiView
             from={{ opacity: 0, translateY: 10 }}
             animate={{ opacity: 1, translateY: 0 }}
@@ -609,7 +730,6 @@ export default function CreateOrEditWorkoutScreen() {
             }}
             className="flex-row items-center justify-between mb-3"
           >
-            {/* Contador em Outfit ExtraBold */}
             <Text className="text-base font-outfit-extrabold text-[#1b1b1d] dark:text-white">
               Exercícios ({selectedExercises.length})
             </Text>
@@ -619,7 +739,6 @@ export default function CreateOrEditWorkoutScreen() {
               className="bg-[#59C83A]/10 border border-[#59C83A]/30 px-3 py-1.5 rounded-xl flex-row items-center"
             >
               <Plus size={16} color="#59C83A" weight="bold" />
-              {/* Botão Adicionar em DM Sans Bold */}
               <Text className="text-xs font-sans-bold text-[#59C83A] ml-1">
                 Adicionar
               </Text>
@@ -638,11 +757,9 @@ export default function CreateOrEditWorkoutScreen() {
                 className="bg-[#f8f9fa] dark:bg-zinc-900 p-8 rounded-2xl border border-dashed border-[#e2dfe1] dark:border-zinc-800 items-center mb-6"
               >
                 <Barbell size={36} color={isDark ? "#71717a" : "#a1a1aa"} />
-                {/* Título de Vazio em Outfit Bold */}
                 <Text className="font-outfit text-[#1b1b1d] dark:text-white mt-2 text-sm">
                   Nenhum exercício adicionado
                 </Text>
-                {/* Descrição em DM Sans Medium */}
                 <Text className="font-sans-medium text-[#71717a] dark:text-zinc-400 text-xs text-center mt-1">
                   Toque para escolher exercícios para o seu treino.
                 </Text>
@@ -664,11 +781,10 @@ export default function CreateOrEditWorkoutScreen() {
               >
                 <View className="flex-row items-center justify-between mb-3">
                   <View className="flex-1 mr-2">
-                    {/* Categoria em DM Sans Bold */}
-                    <Text className="text-xs font-sans-bold text-[#59C83A] uppercase">
-                      {exercise.category_id}
+                    {/* 🟢 CATEGORIA FORMATADA NO CARD SELECIONADO (SEM UPPERCASE) */}
+                    <Text className="text-xs font-sans-bold text-[#59C83A]">
+                      {formatCategoryLabel(exercise.category_id)}
                     </Text>
-                    {/* Nome do Exercício em Outfit Bold */}
                     <Text className="text-base font-outfit text-[#1b1b1d] dark:text-white">
                       {exercise.name}
                     </Text>
@@ -685,7 +801,6 @@ export default function CreateOrEditWorkoutScreen() {
                 {/* CAMPOS DE SÉRIES, REPS E CARGA */}
                 <View className="flex-row justify-between gap-2">
                   <View className="flex-1">
-                    {/* Rótulo SÉRIES em DM Sans Bold */}
                     <Text className="text-[10px] font-sans-bold text-[#71717a] dark:text-zinc-400 mb-1">
                       SÉRIES
                     </Text>
@@ -700,7 +815,6 @@ export default function CreateOrEditWorkoutScreen() {
                   </View>
 
                   <View className="flex-1">
-                    {/* Rótulo REPS em DM Sans Bold */}
                     <Text className="text-[10px] font-sans-bold text-[#71717a] dark:text-zinc-400 mb-1">
                       REPS
                     </Text>
@@ -714,7 +828,6 @@ export default function CreateOrEditWorkoutScreen() {
                   </View>
 
                   <View className="flex-1">
-                    {/* Rótulo CARGA em DM Sans Bold */}
                     <Text className="text-[10px] font-sans-bold text-[#71717a] dark:text-zinc-400 mb-1">
                       CARGA
                     </Text>
@@ -731,7 +844,7 @@ export default function CreateOrEditWorkoutScreen() {
             ))
           )}
 
-          {/* 5. BOTÃO SALVAR / ATUALIZAR ANIMADO */}
+          {/* 5. BOTÃO SALVAR / ATUALIZAR */}
           <MotiView
             from={{ opacity: 0, translateY: 12 }}
             animate={{ opacity: 1, translateY: 0 }}
@@ -753,7 +866,6 @@ export default function CreateOrEditWorkoutScreen() {
               ) : (
                 <>
                   <Check size={20} color="#FFFFFF" weight="bold" />
-                  {/* Texto do Botão em Outfit Bold */}
                   <Text className="text-white font-outfit text-base ml-2">
                     {isEditing ? "Salvar Alterações" : "Concluir e Criar Treino"}
                   </Text>
@@ -765,165 +877,117 @@ export default function CreateOrEditWorkoutScreen() {
       )}
 
       {/* MODAL PARA SELEÇÃO DE EXERCÍCIOS */}
-      <Modal visible={isModalOpen} animationType="slide" transparent>
-        <View className="flex-1 bg-black/60 justify-end">
-          <View className="bg-white dark:bg-zinc-900 rounded-t-3xl p-6 h-[85%] border-t border-[#e2dfe1] dark:border-zinc-800">
-            {/* CABEÇALHO DO MODAL DE SELEÇÃO */}
-            <View className="flex-row items-center justify-between mb-4 pb-3 border-b border-[#e2dfe1] dark:border-zinc-800">
-              <View>
-                {/* Título do Modal em Outfit ExtraBold */}
-                <Text className="text-lg font-outfit-extrabold text-[#1b1b1d] dark:text-white">
-                  Selecione o Exercício
-                </Text>
-                {/* Badge de Selecionados em DM Sans Bold */}
-                <Text className="text-xs font-sans-bold text-[#59C83A]">
-                  {selectedExercises.length} selecionado(s)
-                </Text>
-              </View>
+      <Modal
+        visible={isModalOpen}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setIsModalOpen(false)}
+      >
+        <TouchableWithoutFeedback onPress={() => setIsModalOpen(false)}>
+          <View className="flex-1 bg-black/60 justify-end">
+            <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
+              <View className="bg-white dark:bg-zinc-900 rounded-t-3xl p-6 h-[85%] border-t border-[#e2dfe1] dark:border-zinc-800">
+                {/* CABEÇALHO DO MODAL */}
+                <View className="flex-row items-center justify-between mb-4 pb-3 border-b border-[#e2dfe1] dark:border-zinc-800">
+                  <View>
+                    <Text className="text-lg font-outfit-extrabold text-[#1b1b1d] dark:text-white">
+                      Selecione o Exercício
+                    </Text>
+                    <Text className="text-xs font-sans-bold text-[#59C83A]">
+                      {selectedExercises.length} selecionado(s)
+                    </Text>
+                  </View>
 
-              <TouchableOpacity
-                onPress={() => setIsModalOpen(false)}
-                className="bg-[#59C83A] px-4 py-2 rounded-xl"
-              >
-                {/* Botão em DM Sans Bold */}
-                <Text className="text-white font-sans-bold text-xs">Concluir</Text>
-              </TouchableOpacity>
-            </View>
+                  <TouchableOpacity
+                    onPress={() => setIsModalOpen(false)}
+                    className="bg-[#59C83A] px-4 py-2 rounded-xl"
+                  >
+                    <Text className="text-white font-sans-bold text-xs">Concluir</Text>
+                  </TouchableOpacity>
+                </View>
 
-            {/* CAMPO DE BUSCA */}
-            <View className="flex-row items-center bg-[#f8f9fa] dark:bg-zinc-950 border border-[#e2dfe1] dark:border-zinc-800 rounded-xl px-3 py-2.5 mb-3">
-              <MagnifyingGlass size={18} color={isDark ? "#71717a" : "#a1a1aa"} />
-              {/* Input de Busca em DM Sans SemiBold */}
-              <TextInput
-                className="flex-1 ml-2 text-sm font-sans-medium text-[#1b1b1d] dark:text-white"
-                placeholder="Buscar exercício pelo nome..."
-                placeholderTextColor={isDark ? "#71717a" : "#a1a1aa"}
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-              />
-              {searchQuery.length > 0 && (
-                <TouchableOpacity onPress={() => setSearchQuery("")}>
-                  <X size={16} color={isDark ? "#71717a" : "#a1a1aa"} />
-                </TouchableOpacity>
-              )}
-            </View>
-
-            {/* FILTRO DE CATEGORIAS HORIZONTAL */}
-            <View className="mb-4">
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={{ gap: 8 }}
-              >
-                {categoriesList.map((cat) => {
-                  const isActive = selectedCategory === cat;
-                  return (
-                    <TouchableOpacity
-                      key={cat}
-                      onPress={() => {
-                        setSelectedCategory(cat);
-                      }}
-                      className={`px-3.5 py-1.5 rounded-xl border ${
-                        isActive
-                          ? "bg-[#59C83A] border-[#59C83A]"
-                          : "bg-[#f8f9fa] dark:bg-zinc-950 border-[#e2dfe1] dark:border-zinc-800"
-                      }`}
-                    >
-                      {/* Categoria em DM Sans Bold */}
-                      <Text
-                        className={`text-xs font-sans-bold uppercase ${
-                          isActive
-                            ? "text-white"
-                            : "text-[#71717a] dark:text-zinc-400"
-                        }`}
-                      >
-                        {cat}
-                      </Text>
+                {/* CAMPO DE BUSCA */}
+                <View className="flex-row items-center bg-[#f8f9fa] dark:bg-zinc-950 border border-[#e2dfe1] dark:border-zinc-800 rounded-xl px-3 py-2.5 mb-3">
+                  <MagnifyingGlass size={18} color={isDark ? "#71717a" : "#a1a1aa"} />
+                  <TextInput
+                    className="flex-1 ml-2 text-sm font-sans-medium text-[#1b1b1d] dark:text-white"
+                    placeholder="Buscar exercício pelo nome..."
+                    placeholderTextColor={isDark ? "#71717a" : "#a1a1aa"}
+                    value={searchQuery}
+                    onChangeText={setSearchQuery}
+                  />
+                  {searchQuery.length > 0 && (
+                    <TouchableOpacity onPress={() => setSearchQuery("")}>
+                      <X size={16} color={isDark ? "#71717a" : "#a1a1aa"} />
                     </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
-            </View>
+                  )}
+                </View>
 
-            {/* LISTA DE EXERCÍCIOS DISPONÍVEIS */}
-            {isLoadingAvailable ? (
-              <View className="flex-1 justify-center items-center">
-                <ActivityIndicator size="large" color="#59C83A" />
-              </View>
-            ) : filteredExercises.length === 0 ? (
-              <View className="flex-1 justify-center items-center py-10">
-                <Barbell size={32} color={isDark ? "#71717a" : "#a1a1aa"} />
-                {/* Aviso Vazio em DM Sans Bold */}
-                <Text className="text-[#71717a] dark:text-zinc-400 font-sans-medium text-sm mt-2">
-                  Nenhum exercício encontrado.
-                </Text>
-              </View>
-            ) : (
-              <ScrollView showsVerticalScrollIndicator={false}>
-                {filteredExercises.map((item) => {
-                  const isAdded = selectedExercises.some(
-                    (e) => e.exercise_id === item.id
-                  );
-                  const isGifExpanded = expandedModalExerciseId === item.id;
+                {/* FILTRO DE CATEGORIAS HORIZONTAL COM RÓTULOS FORMATADOS */}
+                <View className="mb-4">
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={{ gap: 8 }}
+                  >
+                    {categoriesList.map((cat) => {
+                      const isActive = selectedCategory === cat;
+                      const displayLabel = cat === "TODOS" ? "Todos" : formatCategoryLabel(cat);
 
-                  return (
-                    <View
-                      key={item.id}
-                      className={`p-3.5 rounded-2xl border mb-2.5 overflow-hidden ${
-                        isAdded
-                          ? "bg-[#59C83A]/10 border-[#59C83A]"
-                          : "bg-[#f8f9fa] dark:bg-zinc-950 border-[#e2dfe1] dark:border-zinc-800"
-                      }`}
-                    >
-                      <TouchableOpacity
-                        onPress={() => handleSelectExercise(item)}
-                        activeOpacity={0.7}
-                        className="flex-row justify-between items-center"
-                      >
-                        <View className="flex-1 mr-2">
-                          {/* Tag de Categoria em DM Sans Bold */}
-                          <Text className="text-xs font-sans-bold text-[#59C83A] uppercase">
-                            {item.category_id || "GERAL"}
-                          </Text>
-                          {/* Nome do Exercício em Outfit Bold */}
-                          <Text className="text-sm font-outfit text-[#1b1b1d] dark:text-white">
-                            {item.name}
-                          </Text>
-                        </View>
-
-                        {isAdded ? (
-                          <View className="bg-[#59C83A] p-2 rounded-xl">
-                            <Check size={16} color="#ffffff" weight="bold" />
-                          </View>
-                        ) : (
-                          <View className="bg-[#59C83A]/10 p-2 rounded-xl border border-[#59C83A]/30">
-                            <Plus size={18} color="#59C83A" weight="bold" />
-                          </View>
-                        )}
-                      </TouchableOpacity>
-
-                      {isGifExpanded && (
-                        <MotiView
-                          from={{ opacity: 0, scale: 0.96 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          transition={{ type: "timing", duration: 200 }}
-                          className="w-full h-52 bg-white dark:bg-zinc-900 rounded-xl overflow-hidden mt-3 border border-[#e2dfe1] dark:border-zinc-800 items-center justify-center"
+                      return (
+                        <TouchableOpacity
+                          key={cat}
+                          onPress={() => setSelectedCategory(cat)}
+                          className={`px-3.5 py-1.5 rounded-xl border ${
+                            isActive
+                              ? "bg-[#59C83A] border-[#59C83A]"
+                              : "bg-[#f8f9fa] dark:bg-zinc-950 border-[#e2dfe1] dark:border-zinc-800"
+                          }`}
                         >
-                          <Image
-                            source={getExerciseGif(item.gif_key)}
-                            style={{ width: "100%", height: "100%" }}
-                            contentFit="contain"
-                            autoplay={true}
-                          />
-                        </MotiView>
-                      )}
-                    </View>
-                  );
-                })}
-              </ScrollView>
-            )}
+                          {/* 🟢 RÓTULO DO FILTRO FORMATADO E SEM UPPERCASE */}
+                          <Text
+                            className={`text-xs font-sans-bold ${
+                              isActive
+                                ? "text-white"
+                                : "text-[#71717a] dark:text-zinc-400"
+                            }`}
+                          >
+                            {displayLabel}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
+                </View>
+
+                {/* LISTA DE EXERCÍCIOS DISPONÍVEIS OTIMIZADA COM FLATLIST */}
+                {isLoadingAvailable ? (
+                  <View className="flex-1 justify-center items-center">
+                    <ActivityIndicator size="large" color="#59C83A" />
+                  </View>
+                ) : filteredExercises.length === 0 ? (
+                  <View className="flex-1 justify-center items-center py-10">
+                    <Barbell size={32} color={isDark ? "#71717a" : "#a1a1aa"} />
+                    <Text className="text-[#71717a] dark:text-zinc-400 font-sans-medium text-sm mt-2">
+                      Nenhum exercício encontrado.
+                    </Text>
+                  </View>
+                ) : (
+                  <FlatList
+                    data={filteredExercises}
+                    keyExtractor={(item) => item.id}
+                    showsVerticalScrollIndicator={false}
+                    renderItem={renderModalExerciseItem}
+                    initialNumToRender={10}
+                    maxToRenderPerBatch={10}
+                    windowSize={5}
+                    removeClippedSubviews={Platform.OS === "android"}
+                  />
+                )}
+              </View>
+            </TouchableWithoutFeedback>
           </View>
-        </View>
+        </TouchableWithoutFeedback>
       </Modal>
 
       {/* COMPONENTE DO MODAL PERSONALIZADO REUTILIZÁVEL */}
