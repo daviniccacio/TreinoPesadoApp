@@ -1,9 +1,9 @@
 // ============================================================================
-// DOCUMENTAÇÃO: ROOT LAYOUT COMPLETO (SISTEMA ENTERPRISE E INTEGRADO)
+// DOCUMENTAÇÃO: ROOT LAYOUT COMPLETO (SISTEMA ENTERPRISE COM TIMER GLOBAL)
 // ============================================================================
 // Gerencia autenticação via Supabase, fontes, cache TanStack Query, tema global,
 // verificação de perfil, direcionamento de rotas, push notifications,
-// monitoramento de rede, resiliência contra erros e cronômetro em background.
+// monitoramento de rede, resiliência contra erros e temporizador flutuante.
 // ============================================================================
 
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -44,8 +44,10 @@ import * as Notifications from 'expo-notifications';
 import { registerForPushNotificationsAsync } from '../lib/notifications';
 import { supabase } from '../lib/supabase';
 
-// IMPORTAÇÃO DOS PROVEDORES DE CONTEXTO E RESILIÊNCIA
+// IMPORTAÇÃO DOS PROVEDORES DE CONTEXTO E COMPONENTES
 import { ThemeProvider as AppThemeProvider, useTheme } from '../context/ThemeContext';
+import { TimerProvider } from '../context/TimerContext'; // 🟢 CONTEXTO GLOBAL DO TIMER
+import { FloatingTimer } from '../components/FloatingTimer'; // 🟢 WIDGET FLUTUANTE
 import { AppEntranceLoading } from '../components/AppLoaders';
 import { OfflineBanner } from '../components/OfflineBanner';
 import { GlobalErrorBoundary } from '../components/ErrorBoundary';
@@ -105,7 +107,7 @@ function RootLayoutContent() {
   // Estado do término do Splash Screen
   const [isEntranceFinished, setIsEntranceFinished] = useState<boolean>(false);
 
-  // 🟢 ESTADO PARA CONTROLAR O MODAL DE TERMOS E PRIVACIDADE (LGPD)
+  // ESTADO PARA CONTROLAR O MODAL DE TERMOS E PRIVACIDADE (LGPD)
   const [showTermsModal, setShowTermsModal] = useState<boolean>(false);
 
   const [fontsLoaded, fontError] = useFonts({
@@ -252,7 +254,6 @@ function RootLayoutContent() {
     if (!session?.user?.id) return;
 
     try {
-      // Atualiza o registro do perfil no Supabase
       const { error } = await supabase
         .from('profiles')
         .update({ accepted_terms: true })
@@ -263,7 +264,6 @@ function RootLayoutContent() {
         return;
       }
 
-      // Fecha o modal e atualiza o estado local
       setShowTermsModal(false);
       setUserProfile((prev) => (prev ? { ...prev, accepted_terms: true } : null));
     } catch (err) {
@@ -286,27 +286,21 @@ function RootLayoutContent() {
 
   // ETAPA 3: PROTEÇÃO GLOBAL DE ROTAS
   useEffect(() => {
-    // Se o aplicativo ainda não carregou as fontes, sessão ou perfil, aguarda
     if (!isReady || (!fontsLoaded && !fontError) || isProfileLoading) return;
 
     const routeSegments = segments as string[];
     const rootGroup = routeSegments[0];
     const subGroup = routeSegments[1];
 
-    // 🟢 1. VERIFICAÇÃO DAS ROTAS DE RECUPERAÇÃO DE SENHA
-    // Identifica se o usuário está em qualquer uma das telas de recuperação
     const isRecoveryRoute =
       routeSegments.includes('reset-password') ||
       routeSegments.includes('verify-otp') ||
       routeSegments.includes('forgot-password');
 
-    // Se estiver em qualquer tela de recuperação, ignora o redirecionamento automático
     if (isRecoveryRoute) {
       return;
     }
 
-    // 🟢 2. USUÁRIO NÃO AUTENTICADO
-    // Se não existir sessão ativa e o usuário não estiver no grupo (auth), envia para o login
     if (!session) {
       if (rootGroup !== '(auth)') {
         router.replace('/(auth)/login');
@@ -314,11 +308,8 @@ function RootLayoutContent() {
       return;
     }
 
-    // Aguarda carregar as informações da tabela profiles
     if (!userProfile) return;
 
-    // 🟢 3. USUÁRIO BLOQUEADO
-    // Se a conta foi suspensa, encerra a sessão e exibe o alerta
     if (userProfile.is_blocked) {
       supabase.auth.signOut();
       setSession(null);
@@ -331,7 +322,6 @@ function RootLayoutContent() {
       return;
     }
 
-    // 🟢 4. DIRECIONAMENTO POR PAPEL DE USUÁRIO (ROLE)
     if (userProfile.role === 'admin') {
       if (rootGroup !== '(app)' || subGroup !== '(admin)') {
         router.replace('/(app)/(admin)' as any);
@@ -347,13 +337,12 @@ function RootLayoutContent() {
     }
   }, [session, userProfile, isReady, isProfileLoading, fontsLoaded, fontError, segments]);
 
-  // Declaração de inicialização concluída
   const isBootFinished = Boolean(
     isReady &&
     (fontsLoaded || !!fontError) &&
     (!session || !isProfileLoading || !!userProfile)
   );
-  // EXIBIÇÃO DE ERRO DE REDE
+
   if (networkError && !userProfile) {
     return (
       <View style={{ flex: 1, backgroundColor }} className="justify-center items-center px-6">
@@ -373,7 +362,6 @@ function RootLayoutContent() {
     );
   }
 
-  // EXIBIÇÃO DO SPLASH SCREEN INICIAL
   if (!isEntranceFinished) {
     return (
       <AppEntranceLoading
@@ -385,7 +373,7 @@ function RootLayoutContent() {
 
   return (
     <SafeAreaProvider style={{ flex: 1, backgroundColor }}>
-      {/* 🟢 BANNER DE INTERNET MONITORA A CONEXÃO EM TEMPO REAL */}
+      {/* BANNER DE INTERNET MONITORA A CONEXÃO EM TEMPO REAL */}
       <OfflineBanner />
 
       <NavigationThemeProvider value={isDark ? CustomDarkTheme : CustomLightTheme}>
@@ -404,7 +392,10 @@ function RootLayoutContent() {
         </Stack>
       </NavigationThemeProvider>
 
-      {/* 🟢 MODAL DE CONFORMIDADE LGPD */}
+      {/* 🟢 WIDGET FLUTUANTE DO CRONÔMETRO EXIBIDO EM QUALQUER TELA QUANDO ATIVO */}
+      <FloatingTimer />
+
+      {/* MODAL DE CONFORMIDADE LGPD */}
       <TermsAndPrivacyModal
         visible={showTermsModal}
         isDark={isDark}
@@ -415,14 +406,17 @@ function RootLayoutContent() {
 }
 
 // ============================================================================
-// EXPORTAÇÃO PRINCIPAL DO ROOT LAYOUT COM TODAS AS CAMADAS DE PROTEÇÃO
+// EXPORTAÇÃO PRINCIPAL DO ROOT LAYOUT COM O TIMERPROVIDER INTEGRADO
 // ============================================================================
 export default function RootLayout() {
   return (
     <GlobalErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <AppThemeProvider>
-          <RootLayoutContent />
+          {/* 🟢 O TIMERPROVIDER PROVE O ESTADO DO TEMPORIZADOR PARA O APP TODO */}
+          <TimerProvider>
+            <RootLayoutContent />
+          </TimerProvider>
         </AppThemeProvider>
       </QueryClientProvider>
     </GlobalErrorBoundary>
