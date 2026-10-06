@@ -1,47 +1,56 @@
 // ============================================================================
-// DOCUMENTAÇÃO: GERENCIADOR DE URLS DE GIFS NO SUPABASE STORAGE
+// DOCUMENTAÇÃO: GERENCIADOR DE GIFS REDIRECIONADO PARA A VPS ORACLE CLOUD
 // ============================================================================
-// Converte as chaves do banco de dados (ex: 'rosca_direta_na_corda') no formato
-// de nome de arquivo utilizado no bucket do Supabase ('rosca-direta-na-corda.gif').
+// Este ficheiro converte a chave do exercício (ex: 'flexao_abdominal') no
+// endereço público da VPS ('http://163.176.233.145:3000/gifs/flexao-abdominal.gif').
 // ============================================================================
 
 import { supabase } from './supabase';
 
-// Nome do Bucket público configurado no Supabase Storage
+// Endereço público da VPS na Oracle Cloud
+const VPS_API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://163.176.233.145:3000';
 const BUCKET_NAME = 'exercises';
 
-// Imagem padrão (fallback) caso o GIF não seja localizado no servidor
+// Imagem de fallback caso o exercício não tenha chave
 const FALLBACK_GIF_URL =
   'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?w=500&auto=format&fit=crop';
 
 /**
  * Converte a chave do exercício em um objeto { uri: string } compatível com o expo-image
  * 
- * @param gifKey - Chave do exercício vinda do banco de dados (ex: 'rosca_direta_na_corda')
+ * @param gifKey - Chave do exercício vinda do banco de dados (ex: 'flexao_abdominal')
+ * @param useVPS - Define se busca na VPS (true) ou no Supabase (false). Padrão: true.
  */
-export function getExerciseGif(gifKey?: string): { uri: string } {
-  // 1. Se a chave for nula ou vazia, retorna o fallback
+export function getExerciseGif(gifKey?: string, useVPS: boolean = true): { uri: string } {
+  // 1. Se nenhuma chave for fornecida, retorna a imagem padrão
   if (!gifKey) {
     console.log('⚠️ [GIF Loader] Nenhuma gifKey informada. Usando imagem de fallback.');
     return { uri: FALLBACK_GIF_URL };
   }
 
-  // 2. Limpa a string e converte underlines (_) em hífens (-) para bater com os arquivos do Supabase
+  // 2. Formata a chave: minúsculas, sem espaços e substitui underline (_) por hífen (-)
   let formattedKey = gifKey.toLowerCase().trim().replace(/_/g, '-');
 
-  // 3. Adiciona a extensão .gif caso ela não exista
+  // 3. Garante que o nome do arquivo termina em .gif
   if (!formattedKey.endsWith('.gif')) {
     formattedKey = `${formattedKey}.gif`;
   }
 
+  // 🟢 ROTA PRINCIPAL: Carregamento direto da VPS Oracle Cloud
+  if (useVPS) {
+    const vpsUrl = `${VPS_API_URL}/gifs/${formattedKey}`;
+    console.log(`🚀 [GIF Loader VPS] URL gerada via VPS: ${vpsUrl}`);
+    return { uri: vpsUrl };
+  }
+
+  // 🟢 ROTA DE BACKUP: Supabase Storage
   try {
-    // 4. Gera a URL pública do bucket 'exercises'
     const { data } = supabase.storage
       .from(BUCKET_NAME)
       .getPublicUrl(formattedKey);
 
     if (data?.publicUrl) {
-      console.log(`✅ [GIF Loader] URL gerada para: ${formattedKey}`);
+      console.log(`✅ [GIF Loader Supabase] URL gerada: ${data.publicUrl}`);
       return { uri: data.publicUrl };
     }
 
