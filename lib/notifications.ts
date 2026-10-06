@@ -1,12 +1,12 @@
 // ============================================================================
-// DOCUMENTAÇÃO: SERVIÇO DE NOTIFICAÇÕES (SUPORTE COMPATÍVEL COM EXPO GO + RETRY)
+// DOCUMENTAÇÃO: SERVIÇO DE NOTIFICAÇÕES VIA API EXPRESS (VPS ORACLE CLOUD)
 // ============================================================================
 
 import * as Device from 'expo-device';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
-import { supabase } from './supabase';
+import { api } from '../services/api';
 
 // Configuração do handler em primeiro plano
 Notifications.setNotificationHandler({
@@ -19,9 +19,12 @@ Notifications.setNotificationHandler({
 });
 
 /**
- * 🟢 FUNÇÃO AUXILIAR: Tenta salvar o token no Supabase com retentativas automáticas.
- * Resolve falhas rápidas de perda de conexão de rede no arranque do aplicativo.
+ * 🟢 FUNÇÃO AUXILIAR: Tenta salvar o token no banco PostgreSQL via VPS
  */
+// ============================================================================
+// DOCUMENTAÇÃO: FUNÇÃO DE SALVAMENTO DE TOKEN COM DIAGNÓSTICO DE REDE
+// ============================================================================
+
 async function savePushTokenWithRetry(
   userId: string,
   token: string,
@@ -30,35 +33,25 @@ async function savePushTokenWithRetry(
 ): Promise<void> {
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ push_token: token })
-        .eq('id', userId);
-
-      if (!error) {
-        console.log('[Push Notifications] Token salvo com sucesso:', token);
-        return; // Sucesso: encerra a função
-      }
-
-      console.warn(
-        `[Push Notifications] Tentativa ${attempt}/${retries} falhou (${error.message}). A tentar novamente em ${delayMs / 1000}s...`
-      );
+      const response = await api.put('/profiles/push-token', { userId, pushToken: token });
+      console.log('✅ [Push Notifications] Token salvo na VPS com sucesso:', response.data);
+      return; // Sucesso: encerra a função
     } catch (err: any) {
+      // Captura a mensagem detalhada de erro retornado pela API ou rede
+      const status = err?.response?.status ? `HTTP ${err.response.status}` : 'Sem resposta da rede';
+      const detalhe = err?.response?.data?.erro || err?.message || err;
+
       console.warn(
-        `[Push Notifications] Falha de conexão na tentativa ${attempt}/${retries}:`,
-        err?.message || err
+        `⚠️ [Push Notifications] Tentativa ${attempt}/${retries} falhou na VPS (${status}: ${detalhe}). Tentando em ${delayMs / 1000}s...`
       );
     }
 
-    // Aguarda o tempo estipulado antes da próxima tentativa
     if (attempt < retries) {
       await new Promise((resolve) => setTimeout(resolve, delayMs));
     }
   }
 
-  console.error(
-    '[Push Notifications] Não foi possível salvar o token após múltiplas tentativas de rede.'
-  );
+  console.error('❌ [Push Notifications] Não foi possível salvar o token após múltiplas tentativas.');
 }
 
 /**
@@ -95,7 +88,6 @@ export async function registerForPushNotificationsAsync(userId: string) {
     const token = pushTokenData?.data;
 
     if (token && userId) {
-      // 🟢 Chamada resiliente com o mecanismo de retry integrado
       await savePushTokenWithRetry(userId, token);
     }
 
@@ -116,7 +108,7 @@ export async function registerForPushNotificationsAsync(userId: string) {
 }
 
 /**
- * Envia notificações Push via API do Expo (Funciona em Expo Go e Build nativa)
+ * Envia notificações Push via API do Expo
  */
 export async function sendExpoPushNotification(
   pushTokens: string[],
@@ -126,7 +118,7 @@ export async function sendExpoPushNotification(
   const uniqueTokens = Array.from(
     new Set(pushTokens.filter((t) => !!t && t.trim() !== ''))
   );
-  
+
   if (uniqueTokens.length === 0) {
     console.warn('[Expo Push] Nenhum token válido fornecido para envio.');
     return;
@@ -159,7 +151,7 @@ export async function sendExpoPushNotification(
 }
 
 /**
- * Envia um Comunicado Geral (In-App + Push) apenas para Alunos e Personais Ativos
+ * Envia um Comunicado Geral (In-App + Push) chamando o backend na VPS
  */
 export async function sendBroadcastNotification(
   senderId: string,
@@ -167,49 +159,24 @@ export async function sendBroadcastNotification(
   message: string
 ) {
   try {
-    const { data: profiles, error } = await supabase
-      .from('profiles')
-      .select('id, push_token')
-      .eq('is_blocked', false)
-      .neq('role', 'admin');
-
-    if (error) {
-      console.error('Erro ao buscar perfis para broadcast:', error.message);
-      return;
-    }
-
-    if (!profiles || profiles.length === 0) {
-      console.warn('Nenhum perfil encontrado para broadcast.');
-      return;
-    }
-
-    const notificationsRecords = profiles.map((profile) => ({
-      user_id: profile.id,
-      sender_id: senderId,
+    const response = await api.post('/notifications/broadcast', {
+      senderId,
       title,
       message,
-      type: 'ANNOUNCEMENT',
-    }));
+    });
 
-    const { error: insertError } = await supabase.from('notifications').insert(notificationsRecords);
-    if (insertError) {
-      console.error('Erro ao inserir registros de notificação no banco:', insertError.message);
-      return;
+    const tokens: string[] = response.data?.tokens || [];
+    if (tokens.length > 0) {
+      console.log(`Disparando broadcast push para ${tokens.length} dispositivos.`);
+      await sendExpoPushNotification(tokens, title, message);
     }
-
-    const tokens = profiles
-      .map((p) => p.push_token)
-      .filter((token): token is string => !!token);
-
-    console.log(`Disparando broadcast push para ${tokens.length} dispositivos.`);
-    await sendExpoPushNotification(tokens, title, message);
-  } catch (err) {
-    console.error('Erro em sendBroadcastNotification:', err);
+  } catch (err: any) {
+    console.error('Erro em sendBroadcastNotification:', err?.response?.data || err.message);
   }
 }
 
 /**
- * Envia uma notificação (In-App + Push) para um usuário específico
+ * Envia uma notificação para um usuário específico chamando a VPS
  */
 export async function sendNotificationToUser({
   targetUserId,
@@ -225,32 +192,22 @@ export async function sendNotificationToUser({
   type?: string;
 }) {
   try {
-    const { error: insertError } = await supabase.from('notifications').insert({
-      user_id: targetUserId,
-      sender_id: senderId || null,
+    const response = await api.post('/notifications/send-user', {
+      targetUserId,
+      senderId: senderId || null,
       title,
       message,
       type,
     });
 
-    if (insertError) {
-      console.error('Erro ao inserir notificação individual no banco:', insertError.message);
-      return;
-    }
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('push_token')
-      .eq('id', targetUserId)
-      .single();
-
-    if (profile?.push_token) {
-      console.log(`Disparando push direto para o token: ${profile.push_token}`);
-      await sendExpoPushNotification([profile.push_token], title, message);
+    const pushToken = response.data?.pushToken;
+    if (pushToken) {
+      console.log(`Disparando push direto para o token: ${pushToken}`);
+      await sendExpoPushNotification([pushToken], title, message);
     } else {
-      console.warn(`O usuário ${targetUserId} não possui 'push_token' cadastrado no perfil.`);
+      console.warn(`O usuário ${targetUserId} não possui 'push_token' cadastrado.`);
     }
-  } catch (error) {
-    console.error('Erro ao enviar notificação para usuário:', error);
+  } catch (error: any) {
+    console.error('Erro ao enviar notificação para usuário:', error?.response?.data || error.message);
   }
 }
