@@ -1,9 +1,8 @@
 // ============================================================================
-// DOCUMENTAÇÃO: TELA DE LOGIN INTEGRADA AO TEMA GLOBAL PERSISTENTE (SDK 56+)
+// DOCUMENTAÇÃO: TELA DE LOGIN INTEGRADA AO TEMA GLOBAL E NOVO FLUXO DE AUTH
 // ============================================================================
-// Tela de autenticação atualizada para utilizar o hook useTheme(), garantindo
-// que a preferência de tema (Claro/Escuro) definida pelo usuário persista
-// entre trocas de telas, login e logout.
+// Tela de autenticação atualizada para utilizar o tema global, overlay de
+// carregamento e redirecionamento direto para a nova tela de recuperação.
 // ============================================================================
 
 import React, { useState } from 'react';
@@ -12,14 +11,10 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
   Image,
-  Modal,
-  TouchableWithoutFeedback,
-  Keyboard,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -29,7 +24,6 @@ import {
   LockSimple,
   Eye,
   EyeSlash,
-  X,
   ArrowRight,
   Lightning,
 } from 'phosphor-react-native';
@@ -37,8 +31,7 @@ import { MotiView } from 'moti';
 import { supabase } from '../../lib/supabase';
 import { useThrottledCallback } from '../../lib/useThrottle';
 import { CustomModal } from '../../components/CustomModal';
-
-// 🟢 IMPORTAÇÃO DO HOOK DE TEMA GLOBAL
+import { AuthLoadingOverlay } from '../../components/AppLoaders';
 import { useTheme } from '../../context/ThemeContext';
 
 const BRAND_GREEN = '#59C83A';
@@ -150,7 +143,7 @@ export default function LoginScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
-  // 🟢 SUBSCRITO AO TEMA GLOBAL DO APLICATIVO
+  // SUBSCRITO AO TEMA GLOBAL DO APLICATIVO
   const { isDark } = useTheme();
 
   // ESTADOS DE LOGIN
@@ -158,11 +151,6 @@ export default function LoginScreen() {
   const [password, setPassword] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [showPassword, setShowPassword] = useState<boolean>(false);
-
-  // ESTADOS DE RECUPERAÇÃO DE SENHA
-  const [modalVisible, setModalVisible] = useState<boolean>(false);
-  const [resetEmail, setResetEmail] = useState<string>('');
-  const [resetLoading, setResetLoading] = useState<boolean>(false);
 
   // ESTADO DO MODAL PERSONALIZADO DE ALERTA
   const [modalConfig, setModalConfig] = useState<{
@@ -256,6 +244,7 @@ export default function LoginScreen() {
           return;
         }
 
+        // 🟢 CORREÇÃO: REDIRECIONA DIRETO PARA A NOVA TELA DE RECUPERAÇÃO COM O E-MAIL PREENCHIDO
         showAlertModal({
           title: 'Erro ao entrar',
           message: 'E-mail ou senha incorretos. Deseja redefinir sua senha?',
@@ -264,8 +253,10 @@ export default function LoginScreen() {
           cancelText: 'Tentar novamente',
           showCancelButton: true,
           onConfirm: () => {
-            setResetEmail(cleanEmail);
-            setModalVisible(true);
+            router.push({
+              pathname: '/(auth)/forgot-password' as any,
+              params: { email: cleanEmail },
+            });
           },
         });
       }
@@ -280,112 +271,7 @@ export default function LoginScreen() {
     }
   }
 
-  async function handleResetPassword() {
-    const cleanEmail = resetEmail.trim().toLowerCase();
-
-    if (!cleanEmail) {
-      setModalVisible(false);
-      setTimeout(() => {
-        showAlertModal({
-          title: 'Atenção',
-          message: 'Informe o seu e-mail para receber o link de redefinição.',
-          type: 'info',
-        });
-      }, 350);
-      return;
-    }
-
-    if (!isValidEmail(cleanEmail)) {
-      setModalVisible(false);
-      setTimeout(() => {
-        showAlertModal({
-          title: 'E-mail Inválido ⚠️',
-          message: 'O e-mail digitado não possui uma estrutura válida (ex: nome@dominio.com).',
-          type: 'danger',
-        });
-      }, 350);
-      return;
-    }
-
-    try {
-      setResetLoading(true);
-
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('email', cleanEmail)
-        .maybeSingle();
-
-      if (profile?.role === 'admin') {
-        setModalVisible(false);
-        setResetLoading(false);
-
-        setTimeout(() => {
-          showAlertModal({
-            title: 'Acesso Restrito 🛡️',
-            message:
-              'Contas de Administrador não possuem permissão para redefinir a senha através deste formulário. Entre em contato com o suporte.',
-            type: 'danger',
-          });
-        }, 350);
-        return;
-      }
-
-      const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
-        redirectTo: 'seuapp://reset-password',
-      });
-
-      setModalVisible(false);
-      setResetLoading(false);
-
-      setTimeout(() => {
-        if (error) {
-          const isInvalid = error.message.toLowerCase().includes('invalid');
-          const isRateLimit = error.status === 429 || error.message.toLowerCase().includes('rate limit');
-
-          if (isRateLimit) {
-            showAlertModal({
-              title: 'Limite de Envios Excedido! ⏳',
-              message: 'Você solicitou a redefinição de senha muitas vezes. Aguarde alguns minutos.',
-              type: 'danger',
-            });
-          } else if (isInvalid) {
-            showAlertModal({
-              title: 'E-mail Não Encontrado ⚠️',
-              message: 'Este e-mail não está cadastrado ou o endereço digitado é inválido.',
-              type: 'danger',
-            });
-          } else {
-            showAlertModal({
-              title: 'Erro no Envio',
-              message: error.message || 'Não foi possível enviar o e-mail de recuperação.',
-              type: 'danger',
-            });
-          }
-        } else {
-          showAlertModal({
-            title: 'E-mail Enviado! 📩',
-            message: 'Enviamos um link de redefinição para o seu e-mail. Verifique sua caixa de entrada e spam.',
-            type: 'success',
-          });
-        }
-      }, 350);
-    } catch (err) {
-      setModalVisible(false);
-      setResetLoading(false);
-
-      setTimeout(() => {
-        showAlertModal({
-          title: 'Falha na Solicitação',
-          message: 'Ocorreu uma falha ao solicitar a redefinição de senha.',
-          type: 'danger',
-        });
-      }, 350);
-    }
-  }
-
   const handleLoginThrottled = useThrottledCallback(handleLogin, 2000);
-  const handleResetPasswordThrottled = useThrottledCallback(handleResetPassword, 2000);
 
   const safeTopPadding = Math.max(insets?.top || 0, 16);
   const safeBottomPadding = Math.max(insets?.bottom || 0, 16);
@@ -540,7 +426,7 @@ export default function LoginScreen() {
                 </View>
                 <TextInput
                   className={`font-sans-medium flex-1 text-base ${
-                    isDark ? 'text-white' : 'text-[#1b1b1d]'
+                    isDark ? 'text-[#ffffff]' : 'text-[#1b1b1d]'
                   }`}
                   placeholder="Sua senha secreta"
                   placeholderTextColor={isDark ? '#71717a' : '#a09da1'}
@@ -561,8 +447,10 @@ export default function LoginScreen() {
             {/* Esqueci minha senha */}
             <TouchableOpacity
               onPress={() => {
-                setResetEmail(email.trim());
-                setModalVisible(true);
+                router.push({
+                  pathname: '/(auth)/forgot-password' as any,
+                  params: { email: email.trim().toLowerCase() },
+                });
               }}
               className="items-end mb-5 py-1"
             >
@@ -586,16 +474,10 @@ export default function LoginScreen() {
               className="flex-row py-4 rounded-2xl items-center justify-center active:opacity-90"
               activeOpacity={0.85}
             >
-              {loading ? (
-                <ActivityIndicator color="#ffffff" />
-              ) : (
-                <>
-                  <Text className="font-outfit text-white text-lg tracking-wide mr-2">
-                    Entrar
-                  </Text>
-                  <ArrowRight size={20} color="#ffffff" weight="bold" />
-                </>
-              )}
+              <Text className="font-outfit text-white text-lg tracking-wide mr-2">
+                Entrar
+              </Text>
+              <ArrowRight size={20} color="#ffffff" weight="bold" />
             </TouchableOpacity>
 
             {/* Link para Cadastro */}
@@ -618,97 +500,7 @@ export default function LoginScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* MODAL DE REDEFINIÇÃO DE SENHA */}
-      <Modal
-        visible={modalVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setModalVisible(false)}
-      >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={{ flex: 1 }}
-        >
-          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-            <View className="flex-1 bg-black/60 justify-end">
-              <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
-                <View
-                  className={`rounded-t-3xl p-6 border-t ${
-                    isDark
-                      ? 'bg-zinc-900 border-zinc-800'
-                      : 'bg-white border-[#e2dfe1]'
-                  }`}
-                  style={{ paddingBottom: Math.max(safeBottomPadding + 10, 24) }}
-                >
-                  <View className="flex-row items-center justify-between mb-4">
-                    <Text
-                      className={`font-outfit text-lg ${
-                        isDark ? 'text-white' : 'text-[#1b1b1d]'
-                      }`}
-                    >
-                      Redefinir Senha
-                    </Text>
-                    <TouchableOpacity
-                      onPress={() => setModalVisible(false)}
-                      className={`w-8 h-8 rounded-full items-center justify-center ${
-                        isDark ? 'bg-zinc-800' : 'bg-zinc-100'
-                      }`}
-                    >
-                      <X size={18} color={isDark ? '#ffffff' : '#1b1b1d'} />
-                    </TouchableOpacity>
-                  </View>
-
-                  <Text
-                    className={`font-sans-medium text-xs mb-4 leading-5 ${
-                      isDark ? 'text-zinc-400' : 'text-[#71717a]'
-                    }`}
-                  >
-                    Digite o seu e-mail cadastrado. Enviaremos um link seguro para você criar uma nova senha.
-                  </Text>
-
-                  <View
-                    className={`flex-row items-center rounded-2xl px-4 py-3.5 border mb-5 ${
-                      isDark
-                        ? 'bg-zinc-950 border-zinc-800'
-                        : 'bg-[#f8f9fa] border-[#e2dfe1]'
-                    }`}
-                  >
-                    <EnvelopeSimple size={20} color={isDark ? BRAND_GREEN : '#414755'} />
-                    <TextInput
-                      className={`font-sans-medium flex-1 ml-3 text-base ${
-                        isDark ? 'text-white' : 'text-[#1b1b1d]'
-                      }`}
-                      placeholder="seu.email@exemplo.com"
-                      placeholderTextColor={isDark ? '#71717a' : '#a09da1'}
-                      value={resetEmail}
-                      onChangeText={setResetEmail}
-                      keyboardType="email-address"
-                      autoCapitalize="none"
-                    />
-                  </View>
-
-                  <TouchableOpacity
-                    onPress={handleResetPasswordThrottled}
-                    disabled={resetLoading}
-                    style={{ backgroundColor: BRAND_GREEN }}
-                    className="py-3.5 rounded-2xl items-center shadow-md mb-2"
-                  >
-                    {resetLoading ? (
-                      <ActivityIndicator color="#ffffff" />
-                    ) : (
-                      <Text className="font-outfit text-white text-base">
-                        Enviar E-mail de Recuperação
-                      </Text>
-                    )}
-                  </TouchableOpacity>
-                </View>
-              </TouchableWithoutFeedback>
-            </View>
-          </TouchableWithoutFeedback>
-        </KeyboardAvoidingView>
-      </Modal>
-
-      {/* MODAL DE ALERTA PERSONALIZADO (PASSA ISDARK PARA SUCESSO DE TEMA) */}
+      {/* MODAL DE ALERTA PERSONALIZADO */}
       <CustomModal
         visible={modalConfig.visible}
         isDark={isDark}
@@ -720,6 +512,12 @@ export default function LoginScreen() {
         showCancelButton={modalConfig.showCancelButton}
         onConfirm={modalConfig.onConfirm}
         onClose={() => setModalConfig((prev) => ({ ...prev, visible: false }))}
+      />
+
+      {/* OVERLAY DE CARREGAMENTO BLOQUEANTE DURANTE O LOGIN */}
+      <AuthLoadingOverlay
+        visible={loading}
+        message="Entrando na sua conta..."
       />
     </View>
   );

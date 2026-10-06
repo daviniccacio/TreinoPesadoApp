@@ -1,8 +1,9 @@
 // ============================================================================
-// DOCUMENTAÇÃO: ROOT LAYOUT INTEGRADO COM TEMA PERSISTENTE, ROLE E PUSH LISTENERS
+// DOCUMENTAÇÃO: ROOT LAYOUT COMPLETO (SISTEMA ENTERPRISE COM TIMER GLOBAL)
 // ============================================================================
 // Gerencia autenticação via Supabase, fontes, cache TanStack Query, tema global,
-// verificação de perfil, direcionamento e escuta ativa de Push Notifications.
+// verificação de perfil, direcionamento de rotas, push notifications,
+// monitoramento de rede, resiliência contra erros e temporizador flutuante.
 // ============================================================================
 
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -14,8 +15,7 @@ if (SafeAreaProvider) {
 import '../global.css';
 
 import React, { useEffect, useState } from 'react';
-// 🟢 1. CORREÇÃO DE SINTAXE: Removido o fragmento invalido 'react-[#1b1b1d]'
-import { View, ActivityIndicator, Alert, Text, TouchableOpacity } from 'react-native';
+import { View, Alert, Text, TouchableOpacity } from 'react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import {
@@ -43,9 +43,16 @@ import {
 import * as Notifications from 'expo-notifications';
 import { registerForPushNotificationsAsync } from '../lib/notifications';
 import { supabase } from '../lib/supabase';
-import { ThemeProvider as AppThemeProvider, useTheme } from '../context/ThemeContext';
 
-// 🟢 2. CORREÇÃO DE TIPAGEM: Incluídas as propriedades 'shouldShowBanner' e 'shouldShowList'
+// IMPORTAÇÃO DOS PROVEDORES DE CONTEXTO E COMPONENTES
+import { ThemeProvider as AppThemeProvider, useTheme } from '../context/ThemeContext';
+import { TimerProvider } from '../context/TimerContext'; // 🟢 CONTEXTO GLOBAL DO TIMER
+import { FloatingTimer } from '../components/FloatingTimer'; // 🟢 WIDGET FLUTUANTE
+import { AppEntranceLoading } from '../components/AppLoaders';
+import { OfflineBanner } from '../components/OfflineBanner';
+import { GlobalErrorBoundary } from '../components/ErrorBoundary';
+import { TermsAndPrivacyModal } from '../components/TermsAndPrivacyModal';
+
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
@@ -87,6 +94,7 @@ const CustomLightTheme = {
 interface UserProfile {
   role: string;
   is_blocked: boolean;
+  accepted_terms?: boolean;
 }
 
 function RootLayoutContent() {
@@ -95,6 +103,12 @@ function RootLayoutContent() {
   const [isReady, setIsReady] = useState<boolean>(false);
   const [isProfileLoading, setIsProfileLoading] = useState<boolean>(false);
   const [networkError, setNetworkError] = useState<boolean>(false);
+
+  // Estado do término do Splash Screen
+  const [isEntranceFinished, setIsEntranceFinished] = useState<boolean>(false);
+
+  // ESTADO PARA CONTROLAR O MODAL DE TERMOS E PRIVACIDADE (LGPD)
+  const [showTermsModal, setShowTermsModal] = useState<boolean>(false);
 
   const [fontsLoaded, fontError] = useFonts({
     Outfit_700Bold,
@@ -142,29 +156,28 @@ function RootLayoutContent() {
     };
   }, []);
 
-  // ETAPA 1: VALIDAÇÃO DA SESSÃO INICIAL
+  // ETAPA 1: VALIDAÇÃO DA SESSÃO INICIAL COM DIAGNÓSTICO
   useEffect(() => {
     async function validateAuthOnServer() {
       try {
         const {
-          data: { user },
-          error,
-        } = await supabase.auth.getUser();
+          data: { session: cachedSession },
+        } = await supabase.auth.getSession();
 
-        if (error || !user) {
-          await supabase.auth.signOut();
-          queryClient.clear();
-          setSession(null);
+        if (cachedSession) {
+          console.log('--------------------------------------------------');
+          console.log('🔥 [BOOT DO APP] SESSÃO LOCAL RECUPERADA!');
+          console.log('👤 USUÁRIO LOGADO:', cachedSession.user.email);
+          console.log('--------------------------------------------------');
+          setSession(cachedSession);
         } else {
-          const {
-            data: { session: validSession },
-          } = await supabase.auth.getSession();
-          setSession(validSession);
+          console.log('--------------------------------------------------');
+          console.log('🔒 [BOOT DO APP] NENHUMA SESSÃO LOCAL ENCONTRADA');
+          console.log('--------------------------------------------------');
+          setSession(null);
         }
       } catch (err) {
-        console.error('Erro ao validar autenticação:', err);
-        queryClient.clear();
-        setSession(null);
+        console.error('⚠️ Erro ao verificar sessão inicial:', err);
       } finally {
         setIsReady(true);
       }
@@ -172,8 +185,11 @@ function RootLayoutContent() {
 
     validateAuthOnServer();
 
+    // Escuta alterações na autenticação (Login, Logout, Refresh, Recovery)
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, currentSession) => {
+        console.log('🔄 [AUTH EVENT]:', event, '| Usuário:', currentSession?.user?.email ?? 'Sem sessão');
+
         queryClient.clear();
 
         if (event === 'PASSWORD_RECOVERY') {
@@ -211,7 +227,7 @@ function RootLayoutContent() {
     try {
       const { data: profile, error } = await supabase
         .from('profiles')
-        .select('role, is_blocked')
+        .select('role, is_blocked, accepted_terms')
         .eq('id', session.user.id)
         .single();
 
@@ -220,12 +236,38 @@ function RootLayoutContent() {
         setNetworkError(true);
       } else if (profile) {
         setUserProfile(profile as UserProfile);
+        if (!profile.accepted_terms) {
+          setShowTermsModal(true);
+        } else {
+          setShowTermsModal(false);
+        }
       }
     } catch (err) {
       console.error('Erro de conexão ao buscar perfil:', err);
       setNetworkError(true);
     } finally {
       setIsProfileLoading(false);
+    }
+  }
+
+  async function handleAcceptTerms() {
+    if (!session?.user?.id) return;
+
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ accepted_terms: true })
+        .eq('id', session.user.id);
+
+      if (error) {
+        Alert.alert('Erro', 'Não foi possível registrar o aceite. Tente novamente.');
+        return;
+      }
+
+      setShowTermsModal(false);
+      setUserProfile((prev) => (prev ? { ...prev, accepted_terms: true } : null));
+    } catch (err) {
+      console.error('Erro ao salvar aceite dos termos:', err);
     }
   }
 
@@ -250,7 +292,12 @@ function RootLayoutContent() {
     const rootGroup = routeSegments[0];
     const subGroup = routeSegments[1];
 
-    if (routeSegments.includes('reset-password')) {
+    const isRecoveryRoute =
+      routeSegments.includes('reset-password') ||
+      routeSegments.includes('verify-otp') ||
+      routeSegments.includes('forgot-password');
+
+    if (isRecoveryRoute) {
       return;
     }
 
@@ -290,6 +337,12 @@ function RootLayoutContent() {
     }
   }, [session, userProfile, isReady, isProfileLoading, fontsLoaded, fontError, segments]);
 
+  const isBootFinished = Boolean(
+    isReady &&
+    (fontsLoaded || !!fontError) &&
+    (!session || !isProfileLoading || !!userProfile)
+  );
+
   if (networkError && !userProfile) {
     return (
       <View style={{ flex: 1, backgroundColor }} className="justify-center items-center px-6">
@@ -309,16 +362,20 @@ function RootLayoutContent() {
     );
   }
 
-  if (!isReady || (!fontsLoaded && !fontError) || (session && isProfileLoading && !userProfile)) {
+  if (!isEntranceFinished) {
     return (
-      <View style={{ flex: 1, backgroundColor }} className="justify-center items-center">
-        <ActivityIndicator size="large" color="#59C83A" />
-      </View>
+      <AppEntranceLoading
+        isReady={isBootFinished}
+        onFinishLoading={() => setIsEntranceFinished(true)}
+      />
     );
   }
 
   return (
     <SafeAreaProvider style={{ flex: 1, backgroundColor }}>
+      {/* BANNER DE INTERNET MONITORA A CONEXÃO EM TEMPO REAL */}
+      <OfflineBanner />
+
       <NavigationThemeProvider value={isDark ? CustomDarkTheme : CustomLightTheme}>
         <Stack
           screenOptions={{
@@ -334,16 +391,34 @@ function RootLayoutContent() {
           <Stack.Screen name="(app)" options={{ style: { backgroundColor } } as any} />
         </Stack>
       </NavigationThemeProvider>
+
+      {/* 🟢 WIDGET FLUTUANTE DO CRONÔMETRO EXIBIDO EM QUALQUER TELA QUANDO ATIVO */}
+      <FloatingTimer />
+
+      {/* MODAL DE CONFORMIDADE LGPD */}
+      <TermsAndPrivacyModal
+        visible={showTermsModal}
+        isDark={isDark}
+        onAccept={handleAcceptTerms}
+      />
     </SafeAreaProvider>
   );
 }
 
+// ============================================================================
+// EXPORTAÇÃO PRINCIPAL DO ROOT LAYOUT COM O TIMERPROVIDER INTEGRADO
+// ============================================================================
 export default function RootLayout() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <AppThemeProvider>
-        <RootLayoutContent />
-      </AppThemeProvider>
-    </QueryClientProvider>
+    <GlobalErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <AppThemeProvider>
+          {/* 🟢 O TIMERPROVIDER PROVE O ESTADO DO TEMPORIZADOR PARA O APP TODO */}
+          <TimerProvider>
+            <RootLayoutContent />
+          </TimerProvider>
+        </AppThemeProvider>
+      </QueryClientProvider>
+    </GlobalErrorBoundary>
   );
 }

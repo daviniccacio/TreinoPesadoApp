@@ -1,4 +1,11 @@
-import React, { useState, useEffect } from "react";
+// ============================================================================
+// DOCUMENTAÇÃO: TELA DE REDEFINIÇÃO DE SENHA COM MEDIDOR ANIMADO E TELA FINAL
+// ============================================================================
+// Inclui réguas de força de senha animadas, tela dedicada de sucesso sem modais
+// e botão de retorno que faz logout antes de navegar para a tela de login.
+// ============================================================================
+
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -6,14 +13,23 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   useColorScheme,
+  KeyboardAvoidingView,
+  ScrollView,
+  Platform,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { LockSimple, CheckCircle, Eye, EyeSlash } from "phosphor-react-native";
-import * as Linking from "expo-linking";
-import { MotiView } from "moti";
+import {
+  LockSimple,
+  CheckCircle,
+  Eye,
+  EyeSlash,
+  ArrowLeft,
+  CheckCircle as SuccessIcon,
+  WarningCircle,
+} from "phosphor-react-native";
+import { MotiView, MotiText } from "moti";
 import { supabase } from "../../lib/supabase";
-import { CustomModal } from "../../components/CustomModal";
 
 export default function ResetPasswordScreen() {
   const router = useRouter();
@@ -25,117 +41,44 @@ export default function ResetPasswordScreen() {
   const [confirmPassword, setConfirmPassword] = useState<string>("");
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
+  
+  // 🟢 ESTADOS DE ERRO E DE SUCESSO DA TELA (SEM MODAIS)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isSuccess, setIsSuccess] = useState<boolean>(false);
 
-  // ESTADO DO MODAL PERSONALIZADO DE ALERTA
-  const [modalConfig, setModalConfig] = useState<{
-    visible: boolean;
-    title: string;
-    message: string;
-    type: "success" | "danger" | "info";
-    confirmText: string;
-    cancelText: string;
-    showCancelButton: boolean;
-    onConfirm: () => void;
-  }>({
-    visible: false,
-    title: "",
-    message: "",
-    type: "info",
-    confirmText: "Entendi",
-    cancelText: "Cancelar",
-    showCancelButton: false,
-    onConfirm: () => {},
-  });
+  // 🟢 ALGORITMO DE AVALIAÇÃO DE FORÇA DA SENHA
+  function getPasswordStrength(pass: string) {
+    if (!pass) return { score: 0, label: "", color: "#e2dfe1" };
 
-  function showAlertModal({
-    title,
-    message,
-    type = "info",
-    confirmText = "Entendi",
-    cancelText = "Cancelar",
-    showCancelButton = false,
-    onConfirm,
-  }: {
-    title: string;
-    message: string;
-    type?: "success" | "danger" | "info";
-    confirmText?: string;
-    cancelText?: string;
-    showCancelButton?: boolean;
-    onConfirm?: () => void;
-  }) {
-    setModalConfig({
-      visible: true,
-      title,
-      message,
-      type,
-      confirmText,
-      cancelText,
-      showCancelButton,
-      onConfirm: () => {
-        setModalConfig((prev) => ({ ...prev, visible: false }));
-        if (onConfirm) onConfirm();
-      },
-    });
-  }
+    let score = 0;
+    if (pass.length >= 6) score += 1;
+    if (pass.length >= 8 && (/[0-9]/.test(pass) || /[^A-Za-z0-9]/.test(pass))) score += 1;
+    if (pass.length >= 8 && /[A-Z]/.test(pass) && /[0-9]/.test(pass) && /[^A-Za-z0-9]/.test(pass)) score += 1;
 
-  useEffect(() => {
-    async function handleDeepLink() {
-      const initialUrl = await Linking.getInitialURL();
-      if (initialUrl) {
-        parseAndSetSession(initialUrl);
-      }
-    }
-
-    const subscription = Linking.addEventListener("url", (event) => {
-      parseAndSetSession(event.url);
-    });
-
-    handleDeepLink();
-
-    return () => {
-      subscription.remove();
-    };
-  }, []);
-
-  async function parseAndSetSession(url: string) {
-    try {
-      if (!url.includes("access_token")) return;
-
-      const hashParams = url.split("#")[1];
-      if (!hashParams) return;
-
-      const params = new URLSearchParams(hashParams);
-      const accessToken = params.get("access_token");
-      const refreshToken = params.get("refresh_token");
-
-      if (accessToken && refreshToken) {
-        await supabase.auth.setSession({
-          access_token: accessToken,
-          refresh_token: refreshToken,
-        });
-      }
-    } catch (error) {
-      console.error("Erro ao processar token de redefinição:", error);
+    switch (score) {
+      case 1:
+        return { score: 1, label: "Senha Fraca", color: "#EF4444" };
+      case 2:
+        return { score: 2, label: "Senha Moderada", color: "#F59E0B" };
+      case 3:
+        return { score: 3, label: "Senha Forte", color: "#59C83A" };
+      default:
+        return { score: 0, label: "Mínimo de 6 caracteres", color: "#EF4444" };
     }
   }
+
+  const strength = getPasswordStrength(newPassword);
 
   async function handleUpdatePassword() {
-    if (!newPassword.trim() || newPassword.length < 6) {
-      showAlertModal({
-        title: "Atenção",
-        message: "A nova senha deve ter pelo menos 6 caracteres.",
-        type: "info",
-      });
+    setErrorMessage(null);
+
+    if (newPassword.length < 6) {
+      setErrorMessage("A nova senha deve conter pelo menos 6 caracteres.");
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      showAlertModal({
-        title: "Atenção",
-        message: "As senhas digitadas não coincidem.",
-        type: "info",
-      });
+      setErrorMessage("As senhas digitadas não coincidem.");
       return;
     }
 
@@ -147,145 +90,267 @@ export default function ResetPasswordScreen() {
       });
 
       if (error) {
-        showAlertModal({
-          title: "Erro",
-          message: error.message || "Não foi possível atualizar a senha.",
-          type: "danger",
-        });
+        setErrorMessage(error.message || "Não foi possível atualizar a senha.");
       } else {
-        showAlertModal({
-          title: "Sucesso! 🎉",
-          message: "Sua senha foi redefinida com sucesso!",
-          type: "success",
-          confirmText: "Ir para o Login",
-          onConfirm: () => router.replace("/(auth)/login"),
-        });
+        // 🟢 MOSTRA A TELA DE SUCESSO DEDICADA
+        setIsSuccess(true);
       }
     } catch (err) {
-      showAlertModal({
-        title: "Erro",
-        message: "Ocorreu uma falha ao atualizar a senha.",
-        type: "danger",
-      });
+      setErrorMessage("Ocorreu uma falha ao salvar a nova senha.");
     } finally {
       setLoading(false);
+    }
+  }
+
+  // 🟢 FUNÇÃO DE RETORNO AO LOGIN COM ENCERRAMENTO EXPLÍCITO DE SESSÃO
+  async function handleGoToLogin() {
+    try {
+      await supabase.auth.signOut();
+    } catch (err) {
+      // Ignora erro ao limpar sessão
+    } finally {
+      router.replace("/(auth)/login" as any);
     }
   }
 
   const safeTopPadding = Math.max(insets?.top || 0, 16);
   const safeBottomPadding = Math.max(insets?.bottom || 0, 16);
 
-  return (
-    <View
-      className="flex-1 bg-white dark:bg-zinc-950 px-6 justify-center"
-      style={{ paddingTop: safeTopPadding, paddingBottom: safeBottomPadding }}
-    >
-      {/* 1. CABEÇALHO ANIMADO */}
-      <MotiView
-        from={{ opacity: 0, translateY: -12 }}
-        animate={{ opacity: 1, translateY: 0 }}
-        transition={{
-          type: "spring",
-          damping: 24,
-          stiffness: 160,
-        }}
-        className="mb-8"
-      >
-        <Text className="text-2xl font-black text-[#1b1b1d] dark:text-white mb-2">
-          Criar Nova Senha
-        </Text>
-        <Text className="text-xs text-[#71717a] dark:text-zinc-400 font-medium">
-          Digite e confirme a sua nova senha de acesso para atualizar a sua conta.
-        </Text>
-      </MotiView>
-
-      {/* 2. CAMPOS DO FORMULÁRIO ANIMADOS */}
-      <MotiView
-        from={{ opacity: 0, translateY: 12 }}
-        animate={{ opacity: 1, translateY: 0 }}
-        transition={{
-          type: "spring",
-          damping: 22,
-          stiffness: 150,
-          delay: 30,
-        }}
-      >
-        {/* Campo: Nova Senha */}
-        <View className="mb-4">
-          <Text className="text-xs font-bold uppercase tracking-wider text-[#71717a] dark:text-zinc-400 mb-2 ml-1">
-            Nova Senha
-          </Text>
-          <View className="flex-row items-center bg-[#f8f9fa] dark:bg-zinc-900 rounded-2xl px-4 py-3.5 border border-[#e2dfe1] dark:border-zinc-800">
-            <LockSimple size={20} color={isDark ? "#59C83A" : "#414755"} />
-            <TextInput
-              className="flex-1 ml-3 text-[#1b1b1d] dark:text-white text-base font-medium"
-              placeholder="Digite a nova senha"
-              placeholderTextColor={isDark ? "#71717a" : "#a09da1"}
-              value={newPassword}
-              onChangeText={setNewPassword}
-              secureTextEntry={!showPassword}
-            />
-            <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-              {showPassword ? (
-                <EyeSlash size={20} color={isDark ? "#71717a" : "#414755"} />
-              ) : (
-                <Eye size={20} color={isDark ? "#71717a" : "#414755"} />
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Campo: Confirmar Nova Senha */}
-        <View className="mb-6">
-          <Text className="text-xs font-bold uppercase tracking-wider text-[#71717a] dark:text-zinc-400 mb-2 ml-1">
-            Confirmar Nova Senha
-          </Text>
-          <View className="flex-row items-center bg-[#f8f9fa] dark:bg-zinc-900 rounded-2xl px-4 py-3.5 border border-[#e2dfe1] dark:border-zinc-800">
-            <LockSimple size={20} color={isDark ? "#59C83A" : "#414755"} />
-            <TextInput
-              className="flex-1 ml-3 text-[#1b1b1d] dark:text-white text-base font-medium"
-              placeholder="Confirme a nova senha"
-              placeholderTextColor={isDark ? "#71717a" : "#a09da1"}
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              secureTextEntry={!showPassword}
-            />
-          </View>
-        </View>
-
-        {/* Botão de Enviar */}
-        <TouchableOpacity
-          onPress={handleUpdatePassword}
-          disabled={loading}
-          style={{ backgroundColor: "#59C83A" }}
-          className="py-4 rounded-2xl items-center flex-row justify-center shadow-md"
-          activeOpacity={0.8}
+  // ============================================================================
+  // TELA DE CONFIRMAÇÃO DE SUCESSO (EXIBIDA APÓS A TROCA DA SENHA)
+  // ============================================================================
+  if (isSuccess) {
+    return (
+      <View className="flex-1 bg-white dark:bg-zinc-950 justify-center items-center px-6">
+        <MotiView
+          from={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ type: "spring", damping: 18, stiffness: 160 }}
+          className="w-full items-center text-center"
         >
-          {loading ? (
-            <ActivityIndicator color="#ffffff" />
-          ) : (
-            <>
-              <CheckCircle size={20} color="#FFFFFF" weight="bold" />
-              <Text className="text-white font-extrabold text-base ml-2">
-                Salvar Nova Senha
-              </Text>
-            </>
-          )}
-        </TouchableOpacity>
-      </MotiView>
+          {/* ÍCONE DE SUCESSO COM BRILHO */}
+          <MotiView
+            from={{ scale: 0.5, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: "spring", damping: 12, stiffness: 200, delay: 100 }}
+            className="w-20 h-20 rounded-3xl bg-[#59C83A]/15 border border-[#59C83A]/30 items-center justify-center mb-6"
+          >
+            <SuccessIcon size={48} color="#59C83A" weight="bold" />
+          </MotiView>
 
-      {/* MODAL DE ALERTA PERSONALIZADO */}
-      <CustomModal
-        visible={modalConfig.visible}
-        title={modalConfig.title}
-        message={modalConfig.message}
-        type={modalConfig.type}
-        confirmText={modalConfig.confirmText}
-        cancelText={modalConfig.cancelText}
-        showCancelButton={modalConfig.showCancelButton}
-        onConfirm={modalConfig.onConfirm}
-        onClose={() => setModalConfig((prev) => ({ ...prev, visible: false }))}
-      />
-    </View>
+          {/* TÍTULO */}
+          <Text className="text-2xl font-outfit-extrabold text-[#1b1b1d] dark:text-white text-center mb-2">
+            Senha Alterada com Sucesso!
+          </Text>
+
+          {/* SUBTÍTULO */}
+          <Text className="text-xs font-sans-regular text-[#71717a] dark:text-zinc-400 text-center mb-8 leading-relaxed px-4">
+            Sua senha foi atualizada. Agora você já pode acessar a sua conta com a nova credencial.
+          </Text>
+
+          {/* BOTÃO PARA IR AO LOGIN */}
+          <TouchableOpacity
+            onPress={handleGoToLogin}
+            style={{ backgroundColor: "#59C83A" }}
+            className="w-full h-14 rounded-2xl items-center justify-center shadow-md active:opacity-90"
+            activeOpacity={0.8}
+          >
+            <Text className="text-white text-base font-outfit">
+              Ir para o Login
+            </Text>
+          </TouchableOpacity>
+        </MotiView>
+      </View>
+    );
+  }
+
+  // ============================================================================
+  // FORMULÁRIO DE NOVA SENHA COM MEDIDOR ANIMADO DE FORÇA
+  // ============================================================================
+  return (
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      className="bg-white dark:bg-zinc-950"
+    >
+      <ScrollView
+        contentContainerStyle={{
+          paddingTop: safeTopPadding + 12,
+          paddingBottom: safeBottomPadding + 24,
+          paddingHorizontal: 24,
+        }}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        {/* BOTÃO VOLTAR */}
+        <MotiView
+          from={{ opacity: 0, translateX: -15 }}
+          animate={{ opacity: 1, translateX: 0 }}
+          transition={{ type: "spring", damping: 20, stiffness: 150 }}
+        >
+          <TouchableOpacity
+            onPress={handleGoToLogin}
+            className="flex-row items-center mb-6 py-1"
+            activeOpacity={0.7}
+          >
+            <ArrowLeft size={20} color={isDark ? "#a1a1aa" : "#71717a"} />
+            <Text className="text-sm font-sans-bold text-[#71717a] dark:text-zinc-400 ml-2">
+              Voltar
+            </Text>
+          </TouchableOpacity>
+        </MotiView>
+
+        {/* CABEÇALHO DA TELA */}
+        <MotiView
+          from={{ opacity: 0, translateY: -16 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{ type: "spring", damping: 22, stiffness: 160, delay: 100 }}
+          className="mb-6"
+        >
+          <Text className="text-2xl font-outfit-extrabold text-[#1b1b1d] dark:text-white mb-2">
+            Criar Nova Senha
+          </Text>
+          <Text className="text-xs font-sans-regular text-[#71717a] dark:text-zinc-400 leading-relaxed">
+            Escolha uma senha segura para proteger o seu perfil no Treino Pesado.
+          </Text>
+        </MotiView>
+
+        <MotiView
+          from={{ opacity: 0, translateY: 20 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{ type: "spring", damping: 20, stiffness: 140, delay: 200 }}
+        >
+          {/* CAMPO: NOVA SENHA */}
+          <View className="mb-2">
+            <Text className="text-xs font-sans-bold uppercase tracking-wider text-[#71717a] dark:text-zinc-400 mb-1.5 ml-1">
+              Nova Senha
+            </Text>
+            <View className="flex-row items-center h-14 bg-[#f8f9fa] dark:bg-zinc-900 rounded-2xl px-4 border border-[#e2dfe1] dark:border-zinc-800">
+              <LockSimple size={20} color={isDark ? "#59C83A" : "#414755"} />
+              <TextInput
+                className="flex-1 ml-3 text-[#1b1b1d] dark:text-white text-sm font-sans-medium h-full py-0"
+                placeholder="Digite a nova senha"
+                placeholderTextColor={isDark ? "#71717a" : "#a09da1"}
+                value={newPassword}
+                onChangeText={(text) => {
+                  setNewPassword(text);
+                  if (errorMessage) setErrorMessage(null);
+                }}
+                secureTextEntry={!showPassword}
+              />
+              <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                {showPassword ? (
+                  <EyeSlash size={20} color={isDark ? "#71717a" : "#414755"} />
+                ) : (
+                  <Eye size={20} color={isDark ? "#71717a" : "#414755"} />
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* 🟢 MEDIDOR ANIMADO DE FORÇA DE SENHA (3 BARRAS COM TRANSIÇÃO SUAVE) */}
+          {newPassword.length > 0 && (
+            <MotiView
+              from={{ opacity: 0, translateY: -4 }}
+              animate={{ opacity: 1, translateY: 0 }}
+              transition={{ type: "timing", duration: 250 }}
+              className="mb-4 px-1"
+            >
+              <View className="flex-row justify-between items-center gap-2 my-2">
+                {/* BARRA 1 */}
+                <MotiView
+                  animate={{
+                    backgroundColor: strength.score >= 1 ? strength.color : isDark ? "#27272a" : "#e4e4e7",
+                  }}
+                  transition={{ type: "timing", duration: 300 }}
+                  className="flex-1 h-1.5 rounded-full"
+                />
+                {/* BARRA 2 */}
+                <MotiView
+                  animate={{
+                    backgroundColor: strength.score >= 2 ? strength.color : isDark ? "#27272a" : "#e4e4e7",
+                  }}
+                  transition={{ type: "timing", duration: 300 }}
+                  className="flex-1 h-1.5 rounded-full"
+                />
+                {/* BARRA 3 */}
+                <MotiView
+                  animate={{
+                    backgroundColor: strength.score >= 3 ? strength.color : isDark ? "#27272a" : "#e4e4e7",
+                  }}
+                  transition={{ type: "timing", duration: 300 }}
+                  className="flex-1 h-1.5 rounded-full"
+                />
+              </View>
+
+              {/* TEXTO EXPLICATIVO ANIMADO */}
+              <MotiText
+                animate={{ color: strength.color } as any}
+                style={{ color: strength.color }}
+                transition={{ type: "timing", duration: 300 }}
+                className="text-xs font-sans-bold text-right"
+              >
+                {strength.label}
+              </MotiText>
+            </MotiView>
+          )}
+
+          {/* CAMPO: CONFIRMAR NOVA SENHA */}
+          <View className="mb-4 mt-1">
+            <Text className="text-xs font-sans-bold uppercase tracking-wider text-[#71717a] dark:text-zinc-400 mb-1.5 ml-1">
+              Confirmar Nova Senha
+            </Text>
+            <View className="flex-row items-center h-14 bg-[#f8f9fa] dark:bg-zinc-900 rounded-2xl px-4 border border-[#e2dfe1] dark:border-zinc-800">
+              <LockSimple size={20} color={isDark ? "#59C83A" : "#414755"} />
+              <TextInput
+                className="flex-1 ml-3 text-[#1b1b1d] dark:text-white text-sm font-sans-medium h-full py-0"
+                placeholder="Confirme a nova senha"
+                placeholderTextColor={isDark ? "#71717a" : "#a09da1"}
+                value={confirmPassword}
+                onChangeText={(text) => {
+                  setConfirmPassword(text);
+                  if (errorMessage) setErrorMessage(null);
+                }}
+                secureTextEntry={!showPassword}
+              />
+            </View>
+          </View>
+
+          {/* 🟢 MENSAGEM DE ERRO INLINE */}
+          {errorMessage && (
+            <MotiView
+              from={{ opacity: 0, translateY: -4 }}
+              animate={{ opacity: 1, translateY: 0 }}
+              className="flex-row items-center mb-4 ml-1"
+            >
+              <WarningCircle size={16} color="#EF4444" weight="fill" />
+              <Text className="text-xs font-sans-bold text-red-500 ml-1.5">
+                {errorMessage}
+              </Text>
+            </MotiView>
+          )}
+
+          {/* BOTÃO DE SALVAR */}
+          <TouchableOpacity
+            onPress={handleUpdatePassword}
+            disabled={loading}
+            style={{ backgroundColor: "#59C83A" }}
+            className="h-14 rounded-2xl items-center flex-row justify-center shadow-md active:opacity-90 mt-2"
+            activeOpacity={0.8}
+          >
+            {loading ? (
+              <ActivityIndicator color="#ffffff" />
+            ) : (
+              <>
+                <CheckCircle size={20} color="#FFFFFF" weight="bold" />
+                <Text className="text-white text-base font-outfit ml-2">
+                  Salvar Nova Senha
+                </Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </MotiView>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }

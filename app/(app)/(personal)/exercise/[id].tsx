@@ -176,7 +176,7 @@ export default function PersonalExerciseDetailScreen() {
             from={{ opacity: 0, scale: 0.95, translateY: 10 }}
             animate={{ opacity: 1, scale: 1, translateY: 0 }}
             transition={{ type: 'spring', damping: 22, stiffness: 150, delay: 40 }}
-            className="w-full h-72 bg-[#f8f9fa] dark:bg-zinc-900 rounded-3xl overflow-hidden mb-6 items-center justify-center p-2 border border-[#e2dfe1] dark:border-zinc-800 relative"
+            className="w-full h-72 bg-[#fffffffc] dark:bg-[#fffffffc] rounded-3xl overflow-hidden mb-6 items-center justify-center p-2 border border-[#e2dfe1] dark:border-zinc-800 relative"
           >
             {isGifLoading && (
               <View className="absolute inset-0 justify-center items-center bg-[#f8f9fa] dark:bg-zinc-900 z-10">

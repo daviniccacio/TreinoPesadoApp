@@ -1,11 +1,12 @@
 // ============================================================================
-// DOCUMENTAÇÃO: TELA DE PERFIL PROFISSIONAL (PERSONAL TRAINER) - COM EXCLUSÃO DE CONTA
+// DOCUMENTAÇÃO: TELA DE PERFIL PROFISSIONAL (PERSONAL TRAINER) - TIPAGEM CORRIGIDA
 // ============================================================================
 // Exibe dados cadastrais, código de acesso para alunos, estatísticas de trabalho,
-// alternância de tema global, política de privacidade, exclusão definitiva de conta e logout.
+// alternância de tema global, política de privacidade, exclusão definitiva de conta,
+// logout e revalidação de dados no foco da aba para prevenir telas em branco.
 // ============================================================================
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -14,7 +15,7 @@ import {
   ActivityIndicator,
   Linking,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   User,
@@ -29,6 +30,7 @@ import {
   Books,
   Key,
   Trash,
+  WarningCircle,
 } from 'phosphor-react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { MotiView } from 'moti';
@@ -99,9 +101,12 @@ export function PrivacyPolicyButton({
 async function fetchPersonalProfileData(): Promise<PersonalProfileData> {
   const {
     data: { user },
+    error: authError,
   } = await supabase.auth.getUser();
 
-  if (!user) throw new Error('Usuário não autenticado');
+  if (authError || !user) {
+    throw new Error('Sessão expirada ou usuário não autenticado.');
+  }
 
   const { data: profile } = await supabase
     .from('profiles')
@@ -191,13 +196,29 @@ export default function PersonalProfileScreen() {
     });
   }
 
-  // CONSULTA DE PERFIL COM TANSTACK QUERY
-  const { data: profile, isLoading } = useQuery({
+  // CONSULTA DE PERFIL COM TANSTACK QUERY E TRATAMENTO DE REVALIDAÇÃO
+  const {
+    data: profile,
+    isLoading,
+    isError,
+    error,
+    refetch,
+    isRefetching,
+  } = useQuery({
     queryKey: ['personal-profile-data'],
     queryFn: fetchPersonalProfileData,
+    staleTime: 1000 * 60 * 5,
+    gcTime: 1000 * 60 * 10,
   });
 
-  // 🟢 MUTAÇÃO DE EXCLUSÃO DEFINITIVA DE CONTA
+  // Força o recarregamento dos dados assim que a aba recebe o foco na tela
+  useFocusEffect(
+    useCallback(() => {
+      refetch();
+    }, [refetch])
+  );
+
+  // MUTAÇÃO DE EXCLUSÃO DEFINITIVA DE CONTA
   const deleteAccountMutation = useMutation({
     mutationFn: async () => {
       const {
@@ -206,10 +227,8 @@ export default function PersonalProfileScreen() {
 
       if (!user) throw new Error('Sessão expirada.');
 
-      // Tenta executar a exclusão via função RPC cadastrada no Supabase
       const { error: rpcError } = await supabase.rpc('delete_own_account');
 
-      // Se não houver RPC, remove os registros diretamente nas tabelas
       if (rpcError) {
         await supabase.from('workout_plans').delete().eq('personal_id', user.id);
         await supabase.from('custom_workouts').delete().eq('user_id', user.id);
@@ -264,6 +283,7 @@ export default function PersonalProfileScreen() {
             });
             return;
           }
+          queryClient.clear();
           router.replace('/(auth)/login');
         } catch (err) {
           console.error('Erro ao processar logout:', err);
@@ -277,14 +297,81 @@ export default function PersonalProfileScreen() {
     });
   }
 
-  const fullName = profile?.fullName || 'Personal Trainer';
-  const email = profile?.email || '';
-  const inviteCode = profile?.inviteCode || 'PERS-XXXX';
-  const libraryCount = profile?.libraryTemplatesCount || 0;
-  const linkedStudentsCount = profile?.linkedStudentsCount || 0;
-
   const safeTopPadding = Math.max(insets?.top || 0, 16);
 
+  // ESTADO 1: CARREGANDO
+  if (isLoading && !isRefetching && !profile) {
+    return (
+      <View
+        className={`flex-1 justify-center items-center px-5 ${
+          isDark ? 'bg-zinc-950' : 'bg-[#f8f9fa]'
+        }`}
+        style={{ paddingTop: safeTopPadding }}
+      >
+        <ActivityIndicator size="large" color="#59C83A" />
+        <Text
+          className={`text-xs font-sans-medium mt-3 ${
+            isDark ? 'text-zinc-400' : 'text-[#71717a]'
+          }`}
+        >
+          Carregando informações do perfil...
+        </Text>
+      </View>
+    );
+  }
+
+  // ESTADO 2: ERRO NA CONEXÃO / SESSÃO
+  if ((isError || !profile) && !isLoading) {
+    return (
+      <View
+        className={`flex-1 justify-center items-center px-6 ${
+          isDark ? 'bg-zinc-950' : 'bg-[#f8f9fa]'
+        }`}
+        style={{ paddingTop: safeTopPadding }}
+      >
+        <MotiView
+          from={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ type: 'timing', duration: 250 }}
+          className="items-center"
+        >
+          <WarningCircle size={48} color="#ef4444" />
+          <Text
+            className={`text-base font-outfit-bold mt-3 text-center ${
+              isDark ? 'text-white' : 'text-[#1b1b1d]'
+            }`}
+          >
+            Não foi possível carregar o perfil
+          </Text>
+          <Text
+            className={`text-xs font-sans-medium text-center mt-1 mb-5 ${
+              isDark ? 'text-zinc-400' : 'text-[#71717a]'
+            }`}
+          >
+            {(error as Error)?.message || 'Ocorreu um problema de conexão com o banco de dados.'}
+          </Text>
+
+          <TouchableOpacity
+            onPress={() => refetch()}
+            style={{ backgroundColor: '#59C83A' }}
+            className="px-6 py-3 rounded-2xl active:opacity-90"
+          >
+            <Text className="text-xs font-sans-bold text-white">Tentar Novamente</Text>
+          </TouchableOpacity>
+        </MotiView>
+      </View>
+    );
+  }
+
+  // 🟢 CORREÇÃO DOS ERROS TS18048 (Linhas 369-373):
+  // Uso de Optional Chaining (`?.`) e Coalescência Nula (`??`) para garantia do TypeScript.
+  const fullName = profile?.fullName ?? 'Personal Trainer';
+  const email = profile?.email ?? '';
+  const inviteCode = profile?.inviteCode ?? 'PERS-XXXX';
+  const libraryCount = profile?.libraryTemplatesCount ?? 0;
+  const linkedStudentsCount = profile?.linkedStudentsCount ?? 0;
+
+  // ESTADO 3: EXIBIÇÃO NORMAL
   return (
     <View
       className={`flex-1 pb-4 ${isDark ? 'bg-zinc-950' : 'bg-[#f8f9fa]'}`}
@@ -365,17 +452,13 @@ export default function PersonalProfileScreen() {
                 Seu Código de Acesso para Alunos
               </Text>
 
-              {isLoading ? (
-                <ActivityIndicator size="small" color="#59C83A" className="self-start mt-1" />
-              ) : (
-                <Text
-                  className={`text-xl font-outfit-extrabold mt-0.5 tracking-wider ${
-                    isDark ? 'text-white' : 'text-[#1b1b1d]'
-                  }`}
-                >
-                  {inviteCode}
-                </Text>
-              )}
+              <Text
+                className={`text-xl font-outfit-extrabold mt-0.5 tracking-wider ${
+                  isDark ? 'text-white' : 'text-[#1b1b1d]'
+                }`}
+              >
+                {inviteCode}
+              </Text>
             </View>
           </View>
 
@@ -407,65 +490,59 @@ export default function PersonalProfileScreen() {
             Visão Geral do Trabalho
           </Text>
 
-          {isLoading ? (
-            <View className="py-6 items-center">
-              <ActivityIndicator size="small" color="#59C83A" />
-            </View>
-          ) : (
-            <View className="flex-row justify-between gap-3 mb-6">
-              <TouchableOpacity
-                onPress={() => router.push('/(personal)')}
-                className={`flex-1 p-4 rounded-2xl items-center border ${
-                  isDark
-                    ? 'bg-zinc-900 border-zinc-800'
-                    : 'bg-white border-[#e2dfe1]'
+          <View className="flex-row justify-between gap-3 mb-6">
+            <TouchableOpacity
+              onPress={() => router.push('/(personal)')}
+              className={`flex-1 p-4 rounded-2xl items-center border ${
+                isDark
+                  ? 'bg-zinc-900 border-zinc-800'
+                  : 'bg-white border-[#e2dfe1]'
+              }`}
+              activeOpacity={0.8}
+            >
+              <Users size={28} color="#59C83A" weight="bold" />
+              <Text
+                className={`text-2xl font-outfit-extrabold mt-1 ${
+                  isDark ? 'text-white' : 'text-[#1b1b1d]'
                 }`}
-                activeOpacity={0.8}
               >
-                <Users size={28} color="#59C83A" weight="bold" />
-                <Text
-                  className={`text-2xl font-outfit-extrabold mt-1 ${
-                    isDark ? 'text-white' : 'text-[#1b1b1d]'
-                  }`}
-                >
-                  {linkedStudentsCount}
-                </Text>
-                <Text
-                  className={`text-xs font-sans-medium mt-1 text-center ${
-                    isDark ? 'text-zinc-400' : 'text-[#414755]'
-                  }`}
-                >
-                  Alunos Vinculados
-                </Text>
-              </TouchableOpacity>
+                {linkedStudentsCount}
+              </Text>
+              <Text
+                className={`text-xs font-sans-medium mt-1 text-center ${
+                  isDark ? 'text-zinc-400' : 'text-[#414755]'
+                }`}
+              >
+                Alunos Vinculados
+              </Text>
+            </TouchableOpacity>
 
-              <TouchableOpacity
-                onPress={() => router.push('/(personal)/routines')}
-                className={`flex-1 p-4 rounded-2xl items-center border ${
-                  isDark
-                    ? 'bg-zinc-900 border-zinc-800'
-                    : 'bg-white border-[#e2dfe1]'
+            <TouchableOpacity
+              onPress={() => router.push('/(personal)/routines')}
+              className={`flex-1 p-4 rounded-2xl items-center border ${
+                isDark
+                  ? 'bg-zinc-900 border-zinc-800'
+                  : 'bg-white border-[#e2dfe1]'
+              }`}
+              activeOpacity={0.8}
+            >
+              <Books size={28} color="#59C83A" weight="bold" />
+              <Text
+                className={`text-2xl font-outfit-extrabold mt-1 ${
+                  isDark ? 'text-white' : 'text-[#1b1b1d]'
                 }`}
-                activeOpacity={0.8}
               >
-                <Books size={28} color="#59C83A" weight="bold" />
-                <Text
-                  className={`text-2xl font-outfit-extrabold mt-1 ${
-                    isDark ? 'text-white' : 'text-[#1b1b1d]'
-                  }`}
-                >
-                  {libraryCount}
-                </Text>
-                <Text
-                  className={`text-xs font-sans-medium mt-1 text-center ${
-                    isDark ? 'text-zinc-400' : 'text-[#414755]'
-                  }`}
-                >
-                  Modelos Salvos
-                </Text>
-              </TouchableOpacity>
-            </View>
-          )}
+                {libraryCount}
+              </Text>
+              <Text
+                className={`text-xs font-sans-medium mt-1 text-center ${
+                  isDark ? 'text-zinc-400' : 'text-[#414755]'
+                }`}
+              >
+                Modelos Salvos
+              </Text>
+            </TouchableOpacity>
+          </View>
         </MotiView>
 
         {/* 6. SELETOR DE TEMA */}
@@ -576,7 +653,7 @@ export default function PersonalProfileScreen() {
               <PrivacyPolicyButton />
             </View>
 
-            {/* 🟢 EXCLUIR MINHA CONTA */}
+            {/* EXCLUIR MINHA CONTA */}
             <TouchableOpacity
               onPress={handleDeleteAccount}
               disabled={deleteAccountMutation.isPending}
