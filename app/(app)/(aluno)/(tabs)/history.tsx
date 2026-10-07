@@ -1,8 +1,8 @@
 // ============================================================================
-// DOCUMENTAÇÃO: TELA DE HISTÓRICO DE TREINOS (ÁREA DO ALUNO)
+// DOCUMENTAÇÃO: TELA DE HISTÓRICO DE TREINOS (ÁREA DO ALUNO - INTEGRADA À VPS)
 // ============================================================================
 // Exibe o registro de treinos concluídos pelo aluno, calculando total de
-// sessões e tempo total acumulado em tela com suporte a pull-to-refresh.
+// sessões e tempo acumulado, obtendo os dados diretamente da API na VPS.
 // ============================================================================
 
 import React from 'react';
@@ -28,7 +28,10 @@ import {
 } from 'phosphor-react-native';
 import { useQuery } from '@tanstack/react-query';
 import { MotiView } from 'moti';
-import { supabase } from '../../../../lib/supabase';
+
+// IMPORTAÇÃO DA API DA VPS E DO CONTEXTO DE AUTENTICAÇÃO
+import { api } from '../../../../services/api';
+import { useAuth } from '../../../../context/AuthContext';
 
 // --- TIPAGEM DE DADOS ---
 interface WorkoutLog {
@@ -39,30 +42,17 @@ interface WorkoutLog {
 }
 
 /**
- * Busca os logs de treino do aluno autenticado no Supabase.
+ * Busca os logs de treino do aluno autenticado diretamente na API da VPS.
  */
-async function fetchWorkoutHistory(): Promise<WorkoutLog[]> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+async function fetchWorkoutHistory(userId?: string): Promise<WorkoutLog[]> {
+  if (!userId) throw new Error('Usuário não autenticado');
 
-  if (!user) throw new Error('Usuário não autenticado');
-
-  const { data, error } = await supabase
-    .from('workout_logs')
-    .select('id, workout_title, duration_seconds, created_at')
-    .eq('student_id', user.id)
-    .order('created_at', { ascending: false });
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return (data || []) as WorkoutLog[];
+  const response = await api.get(`/api/workout-history/${userId}`);
+  return (response.data || []) as WorkoutLog[];
 }
 
 /**
- * Converte segundos para um formato legível (Ex: "0 min", "2s", "5 min", "1h 02m")
+ * Converte segundos para um formato legível (Ex: "0 min", "45s", "5 min", "1h 02m")
  */
 function formatDuration(totalSeconds: number): string {
   if (!totalSeconds || totalSeconds <= 0) return '0 min';
@@ -104,16 +94,18 @@ export default function StudentWorkoutHistoryScreen() {
   const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
+  const { user } = useAuth();
 
-  // --- REQUISIÇÃO COM TANSTACK QUERY ---
+  // --- REQUISIÇÃO COM TANSTACK QUERY CONECTADA À VPS ---
   const {
     data: logs = [],
     isLoading,
     isRefetching,
     refetch,
   } = useQuery({
-    queryKey: ['workout-history'],
-    queryFn: fetchWorkoutHistory,
+    queryKey: ['workout-history', user?.id],
+    queryFn: () => fetchWorkoutHistory(user?.id),
+    enabled: !!user?.id,
   });
 
   // --- CÁLCULO DAS ESTATÍSTICAS TOTAIS ---
@@ -150,11 +142,9 @@ export default function StudentWorkoutHistoryScreen() {
         </TouchableOpacity>
 
         <View className="flex-1">
-          {/* Título da tela em Outfit ExtraBold */}
           <Text className="text-xl font-outfit-extrabold text-[#1b1b1d] dark:text-white">
             Histórico de Treinos
           </Text>
-          {/* Subtítulo em DM Sans Medium */}
           <Text className="text-xs font-sans-medium text-[#71717a] dark:text-zinc-400">
             Seu registro de constância e evolução
           </Text>
@@ -163,7 +153,7 @@ export default function StudentWorkoutHistoryScreen() {
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 120 }} // Espaço livre para a Navbar Flutuante
+        contentContainerStyle={{ paddingBottom: 120 }}
         refreshControl={
           <RefreshControl
             refreshing={isRefetching}
@@ -190,11 +180,9 @@ export default function StudentWorkoutHistoryScreen() {
             <View className="w-8 h-8 rounded-lg bg-[#59C83A]/10 items-center justify-center mb-2">
               <Trophy size={18} color="#59C83A" weight="bold" />
             </View>
-            {/* Métrica em Outfit ExtraBold */}
             <Text className="text-2xl font-outfit-extrabold text-[#1b1b1d] dark:text-white">
               {totalWorkouts}
             </Text>
-            {/* Rótulo em DM Sans Bold */}
             <Text className="text-xs font-sans-bold text-[#71717a] dark:text-zinc-400 mt-0.5">
               Treinos Feitos
             </Text>
@@ -205,11 +193,9 @@ export default function StudentWorkoutHistoryScreen() {
             <View className="w-8 h-8 rounded-lg bg-orange-500/10 items-center justify-center mb-2">
               <Flame size={18} color="#f97316" weight="bold" />
             </View>
-            {/* Métrica em Outfit ExtraBold */}
             <Text className="text-2xl font-outfit-extrabold text-[#1b1b1d] dark:text-white">
               {formatDuration(totalSecondsTrained)}
             </Text>
-            {/* Rótulo em DM Sans Bold */}
             <Text className="text-xs font-sans-bold text-[#71717a] dark:text-zinc-400 mt-0.5">
               Tempo Dedicado
             </Text>
@@ -227,7 +213,6 @@ export default function StudentWorkoutHistoryScreen() {
             delay: 80,
           }}
         >
-          {/* Título da seção em Outfit ExtraBold */}
           <Text className="text-base font-outfit-extrabold text-[#1b1b1d] dark:text-white mb-3">
             Sessões Concluídas
           </Text>
@@ -273,7 +258,6 @@ export default function StudentWorkoutHistoryScreen() {
               <View className="flex-1 mr-3">
                 <View className="flex-row items-center mb-1">
                   <CheckCircle size={16} color="#59C83A" weight="bold" />
-                  {/* Nome do Treino em Outfit Bold */}
                   <Text className="text-sm font-outfit text-[#1b1b1d] dark:text-white ml-1.5 flex-1" numberOfLines={1}>
                     {log.workout_title || 'Treino Concluído'}
                   </Text>
@@ -281,17 +265,14 @@ export default function StudentWorkoutHistoryScreen() {
 
                 <View className="flex-row items-center mt-1">
                   <CalendarBlank size={12} color={isDark ? '#a1a1aa' : '#71717a'} />
-                  {/* Data formatada em DM Sans Medium */}
                   <Text className="text-xs font-sans-medium text-[#71717a] dark:text-zinc-400 ml-1">
                     {formatDate(log.created_at)}
                   </Text>
                 </View>
               </View>
 
-              {/* Pill do Tempo de Duração */}
               <View className="bg-[#59C83A]/10 border border-[#59C83A]/30 px-3 py-1.5 rounded-xl flex-row items-center">
                 <Clock size={13} color="#59C83A" weight="bold" />
-                {/* Tempo de duração em DM Sans Bold */}
                 <Text className="text-xs font-sans-bold text-[#59C83A] ml-1">
                   {formatDuration(log.duration_seconds)}
                 </Text>

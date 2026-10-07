@@ -1,6 +1,9 @@
 // ============================================================================
 // DOCUMENTAÇÃO: TELA DE CRIAÇÃO / EDIÇÃO DE TREINO CUSTOMIZADO (ALUNO - VPS)
 // ============================================================================
+// Permite criar ou editar fichas de treino personalizadas do aluno, obtendo
+// o ID do usuário via AuthContext e comunicando-se com a API na VPS.
+// ============================================================================
 
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
@@ -33,8 +36,9 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Image } from "expo-image";
 import { MotiView } from "moti";
 
-import { supabase } from "../../../lib/supabase";
+// IMPORTAÇÃO DA API DA VPS E DO CONTEXTO DE AUTENTICAÇÃO
 import { api } from "../../../services/api";
+import { useAuth } from "../../../context/AuthContext";
 import { getExerciseGif } from "../../../lib/exerciseGifs";
 import { CustomModal } from "../../../components/CustomModal";
 
@@ -103,6 +107,7 @@ export default function CreateOrEditWorkoutScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
   const queryClient = useQueryClient();
+  const { user } = useAuth(); // 🟢 OBTENDO O USUÁRIO DO CONTEXTO GLOBAL
 
   const { planId } = useLocalSearchParams<{ planId?: string }>();
   const isEditing = !!planId;
@@ -207,7 +212,7 @@ export default function CreateOrEditWorkoutScreen() {
       try {
         setIsLoadingWorkout(true);
 
-        const response = await api.get(`/custom-workouts/detail/${planId}`);
+        const response = await api.get(`/api/custom-workouts/detail/${planId}`);
         const data = response.data;
 
         if (data) {
@@ -254,7 +259,7 @@ export default function CreateOrEditWorkoutScreen() {
 
     try {
       setIsLoadingAvailable(true);
-      const response = await api.get("/exercises");
+      const response = await api.get("/api/exercises");
       setAvailableExercises(response.data || []);
     } catch (err: any) {
       showAlertModal({
@@ -393,7 +398,7 @@ export default function CreateOrEditWorkoutScreen() {
     [selectedExercises, expandedModalExerciseId]
   );
 
-  // 3. SALVA OU ATUALIZA O TREINO VIA API DA VPS
+  // 3. SALVA OU ATUALIZA O TREINO VIA API DA VPS UTILIZANDO O USEAUTH
   async function handleSaveWorkout() {
     if (!workoutTitle.trim()) {
       showAlertModal({
@@ -413,13 +418,17 @@ export default function CreateOrEditWorkoutScreen() {
       return;
     }
 
+    if (!user?.id) {
+      showAlertModal({
+        title: "Sessão Expirada",
+        message: "Faça login novamente para salvar o treino.",
+        type: "danger",
+      });
+      return;
+    }
+
     try {
       setIsSaving(true);
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user) throw new Error("Sessão expirada. Faça login novamente.");
 
       const payload = {
         userId: user.id,
@@ -430,9 +439,9 @@ export default function CreateOrEditWorkoutScreen() {
       };
 
       if (isEditing && planId) {
-        await api.put(`/custom-workouts/${planId}`, payload);
+        await api.put(`/api/custom-workouts/${planId}`, payload);
       } else {
-        await api.post("/custom-workouts", payload);
+        await api.post("/api/custom-workouts", payload);
       }
 
       queryClient.invalidateQueries({ queryKey: ["student-workouts"] });

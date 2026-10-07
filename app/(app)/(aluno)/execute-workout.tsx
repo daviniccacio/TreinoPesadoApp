@@ -1,8 +1,8 @@
 // ============================================================================
-// DOCUMENTAÇÃO: TELA DE EXECUÇÃO DE TREINO (ÁREA DO ALUNO)
+// DOCUMENTAÇÃO: TELA DE EXECUÇÃO DE TREINO (ÁREA DO ALUNO - VPS)
 // ============================================================================
-// Gerencia a execução do treino com descanso configurado exclusivamente para a
-// conclusão dos exercícios e suporte total a Safe Area Insets nos modais.
+// Gerencia a execução do treino, contagem de tempo, marcação de séries e
+// registo de conclusão diretamente através da API na VPS, utilizando o useAuth().
 // ============================================================================
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
@@ -35,11 +35,13 @@ import {
 } from "phosphor-react-native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { MotiView } from "moti";
-import { supabase } from "../../../lib/supabase";
+
+// IMPORTAÇÃO DA API DA VPS E DO CONTEXTO DE AUTENTICAÇÃO
+import { api } from "../../../services/api";
+import { useAuth } from "../../../context/AuthContext";
 import { getExerciseGif } from "../../../lib/exerciseGifs";
 import { useThrottledCallback } from "../../../lib/useThrottle";
 import { CustomModal } from "../../../components/CustomModal";
-import { sendNotificationToUser } from "../../../lib/notifications";
 
 // --- TIPAGENS DE DADOS ---
 interface ExerciseItem {
@@ -76,7 +78,7 @@ interface ShowAlertModalOptions {
 }
 
 /**
- * Busca os dados da ficha de treino no Supabase (Customizada ou Prescrita)
+ * Busca os dados da ficha de treino diretamente na API da VPS (Customizada ou Prescrita)
  */
 async function fetchWorkoutExecutionData(
   id?: string,
@@ -84,32 +86,19 @@ async function fetchWorkoutExecutionData(
 ): Promise<WorkoutExecutionData> {
   if (!id) throw new Error("ID do treino não fornecido");
 
+  const endpoint = type === "custom" 
+    ? `/api/custom-workouts/detail/${id}` 
+    : `/api/workout-plans/detail/${id}`;
+
+  const response = await api.get(endpoint);
+  const data = response.data;
+
   if (type === "custom") {
-    const { data, error } = await supabase
-      .from("custom_workouts")
-      .select(
-        `
-        title,
-        custom_workout_exercises (
-          id,
-          exercise_id,
-          sets,
-          reps,
-          weight,
-          exercises ( name )
-        )
-      `
-      )
-      .eq("id", id)
-      .single();
-
-    if (error) throw new Error(error.message);
-
     const formatted: ExerciseItem[] = (
       data.custom_workout_exercises || []
     ).map((item: any) => ({
       id: item.id,
-      exercise_id: item.exercise_id,
+      exercise_id: item.exercise_id || item.exercises?.id,
       name: item.exercises?.name || "Exercício",
       sets: String(item.sets || 3),
       reps: String(item.reps || 10),
@@ -121,34 +110,22 @@ async function fetchWorkoutExecutionData(
       exercises: formatted,
     };
   } else {
-    const { data, error } = await supabase
-      .from("workout_plans")
-      .select(
-        `
-        name,
-        plan_exercises (
-          id,
-          exercise_id,
-          name,
-          sets,
-          reps,
-          notes,
-          order_index
-        )
-      `
-      )
-      .eq("id", id)
-      .single();
-
-    if (error) throw new Error(error.message);
-
     const sorted = (data.plan_exercises || []).sort(
-      (a: any, b: any) => a.order_index - b.order_index
+      (a: any, b: any) => (a.order_index || 0) - (b.order_index || 0)
     );
+
+    const formatted: ExerciseItem[] = sorted.map((item: any) => ({
+      id: item.id,
+      exercise_id: item.exercise_id,
+      name: item.name || item.exercises?.name || "Exercício",
+      sets: String(item.sets || 3),
+      reps: String(item.reps || 10),
+      notes: item.notes || null,
+    }));
 
     return {
       workoutName: data.name || "Ficha Prescrita",
-      exercises: sorted,
+      exercises: formatted,
     };
   }
 }
@@ -159,6 +136,7 @@ export default function ExecuteWorkoutScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
   const queryClient = useQueryClient();
+  const { user } = useAuth(); // OBTENDO O UTILIZADOR DO CONTEXTO GLOBAL
 
   const { id, type } = useLocalSearchParams<{ id?: string; type?: string }>();
 
@@ -233,8 +211,6 @@ export default function ExecuteWorkoutScreen() {
     });
   }
 
-  const handleFinishThrottled = useThrottledCallback(handleFinishWorkout, 2000);
-
   const { data: workoutData, isLoading } = useQuery({
     queryKey: ["workout-execution", type, id],
     queryFn: () => fetchWorkoutExecutionData(id, type),
@@ -244,43 +220,21 @@ export default function ExecuteWorkoutScreen() {
   const workoutName = workoutData?.workoutName || "Treino";
   const exercises = workoutData?.exercises || [];
 
+  // --- MUTAÇÃO PARA SALVAR O HISTÓRICO NA VPS ---
   const finishWorkoutMutation = useMutation({
     mutationFn: async (duration: number) => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      if (!user?.id) throw new Error("Usuário não autenticado.");
 
-      if (!user) throw new Error("Usuário não autenticado.");
+      const payload = {
+        studentId: user.id,
+        workoutTitle: workoutName,
+        durationSeconds: duration,
+      };
 
-      const { error } = await supabase.from("workout_logs").insert({
-        student_id: user.id,
-        workout_title: workoutName,
-        duration_seconds: duration,
-      });
-
-      if (error) throw new Error(error.message);
-
-      const { data: studentProfile } = await supabase
-        .from("profiles")
-        .select("name, personal_id")
-        .eq("id", user.id)
-        .single();
-
-      if (studentProfile?.personal_id) {
-        const studentName = studentProfile.name || "Seu aluno";
-
-        await sendNotificationToUser({
-          targetUserId: studentProfile.personal_id,
-          senderId: user.id,
-          title: "Treino Finalizado! 🏋️‍♂️",
-          message: `${studentName} acabou de concluir o treino "${workoutName}".`,
-          type: "WORKOUT_COMPLETED",
-        });
-      }
-
-      return duration;
+      const response = await api.post("/api/workout-logs", payload);
+      return response.data;
     },
-    onSuccess: (finalTime) => {
+    onSuccess: (data, finalTime) => {
       queryClient.invalidateQueries({ queryKey: ["workout-history"] });
       queryClient.invalidateQueries({ queryKey: ["student-profile-stats"] });
       queryClient.invalidateQueries({ queryKey: ["student-home-data"] });
@@ -301,12 +255,18 @@ export default function ExecuteWorkoutScreen() {
     onError: (error: any) => {
       showAlertModal({
         title: "Erro ao Salvar",
-        message: error.message || "Não foi possível registrar o treino.",
+        message: error?.response?.data?.erro || error.message || "Não foi possível registrar o treino.",
         type: "danger",
         showCancelButton: false,
       });
     },
   });
+
+  const handleFinishWorkout = useCallback(() => {
+    finishWorkoutMutation.mutate(elapsedSeconds);
+  }, [elapsedSeconds, finishWorkoutMutation]);
+
+  const handleFinishThrottled = useThrottledCallback(handleFinishWorkout, 2000);
 
   const handleNavigateBack = useCallback(() => {
     if (router.canGoBack()) {
@@ -417,22 +377,22 @@ export default function ExecuteWorkoutScreen() {
         return;
       }
 
-      const { data, error } = await supabase
-        .from("exercises")
-        .select("name, gif_key")
-        .eq("id", item.exercise_id)
-        .single();
+      // Busca os detalhes do exercício diretamente na API da VPS
+      const response = await api.get("/api/exercises");
+      const allExercises = response.data || [];
+      const found = allExercises.find(
+        (ex: any) => String(ex.id) === String(item.exercise_id)
+      );
 
-      if (!error && data) {
-        setDemoExercise((prev) => ({
-          ...prev,
-          name: data.name || item.name,
-          gif_key: data.gif_key || null,
-          description: null,
+      if (found) {
+        setDemoExercise({
+          name: found.name || found.exercise_name || item.name,
+          gif_key: found.gif_key || null,
+          description: found.description || null,
           sets: item.sets,
           reps: item.reps,
           notes: item.notes,
-        }));
+        });
       }
     } catch (err) {
       console.error("Erro ao buscar exercício:", err);
@@ -441,7 +401,6 @@ export default function ExecuteWorkoutScreen() {
     }
   }
 
-  // 🟢 ALTERADO: Descanso removido do clique individual e movido para a conclusão do exercício
   function toggleSetCompletion(
     exerciseId: string,
     setIndex: number,
@@ -465,7 +424,6 @@ export default function ExecuteWorkoutScreen() {
         }
       }
 
-      // Se todas as séries forem marcadas, conclui o exercício e dispara o descanso
       if (allDone) {
         nextCompletedExercises.add(exerciseId);
         startRestTimer(DEFAULT_REST_TIME);
@@ -476,7 +434,6 @@ export default function ExecuteWorkoutScreen() {
     setCompletedExercises(nextCompletedExercises);
   }
 
-  // 🟢 ALTERADO: Dispara o timer de descanso ao clicar no botão "Finalizar" do exercício
   function toggleExerciseCompletion(
     exerciseId: string,
     totalSetsCount: number
@@ -527,10 +484,6 @@ export default function ExecuteWorkoutScreen() {
       return `${pad(hrs)}:${pad(mins)}:${pad(secs)}`;
     }
     return `${pad(mins)}:${pad(secs)}`;
-  }
-
-  function handleFinishWorkout() {
-    finishWorkoutMutation.mutate(elapsedSeconds);
   }
 
   const sortedExercises = [...exercises].sort((a, b) => {

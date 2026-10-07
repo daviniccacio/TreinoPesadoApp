@@ -1,8 +1,8 @@
 // ============================================================================
-// DOCUMENTAÇÃO: TELA DE DETALHES DA FICHA DE TREINO (ÁREA DO ALUNO)
+// DOCUMENTAÇÃO: TELA DE DETALHES DA FICHA DE TREINO (ÁREA DO ALUNO - VPS)
 // ============================================================================
 // Exibe os detalhes completos de uma ficha prescrita pelo Personal Trainer,
-// incluindo resumo, objetivo, lista de exercícios ordenados e atalho de execução.
+// obtendo os dados diretamente da API na VPS através do TanStack Query.
 // ============================================================================
 
 import React, { useCallback } from 'react';
@@ -28,7 +28,9 @@ import {
 } from 'phosphor-react-native';
 import { useQuery } from '@tanstack/react-query';
 import { MotiView } from 'moti';
-import { supabase } from '../../../lib/supabase';
+
+// IMPORTAÇÃO DA API DA VPS
+import { api } from '../../../services/api';
 
 // --- TIPAGENS DE DADOS ---
 interface PlanExercise {
@@ -51,44 +53,13 @@ interface WorkoutPlanDetail {
 }
 
 /**
- * Função responsável por buscar a ficha prescrita e ordenar seus exercícios no Supabase
+ * Função responsável por buscar os detalhes da ficha prescrita diretamente na VPS
  */
 async function fetchWorkoutPlanDetail(id?: string): Promise<WorkoutPlanDetail> {
   if (!id) throw new Error('Identificador do treino não encontrado.');
 
-  const { data, error } = await supabase
-    .from('workout_plans')
-    .select(`
-      id,
-      name,
-      description,
-      objective,
-      days_of_week,
-      plan_exercises (
-        id,
-        exercise_id,
-        name,
-        sets,
-        reps,
-        notes,
-        order_index
-      )
-    `)
-    .eq('id', id)
-    .single();
-
-  if (error) {
-    throw new Error('Não foi possível carregar os detalhes desta ficha.');
-  }
-
-  const sortedExercises = (data.plan_exercises || []).sort(
-    (a: PlanExercise, b: PlanExercise) => a.order_index - b.order_index
-  );
-
-  return {
-    ...data,
-    plan_exercises: sortedExercises,
-  };
+  const response = await api.get(`/api/workout-plans/detail/${id}`);
+  return response.data as WorkoutPlanDetail;
 }
 
 export default function StudentWorkoutDetailScreen() {
@@ -99,7 +70,7 @@ export default function StudentWorkoutDetailScreen() {
 
   const { id } = useLocalSearchParams<{ id?: string }>();
 
-  // --- BUSCA REATIVA COM TANSTACK QUERY ---
+  // --- BUSCA REATIVA COM TANSTACK QUERY CONECTADA À VPS ---
   const {
     data: workoutPlan,
     isLoading,
@@ -146,11 +117,9 @@ export default function StudentWorkoutDetailScreen() {
         </TouchableOpacity>
 
         <View className="flex-1">
-          {/* Título Principal em Outfit ExtraBold */}
           <Text className="text-xl font-outfit-extrabold text-[#1b1b1d] dark:text-white" numberOfLines={1}>
             Ficha de Treino
           </Text>
-          {/* Subtítulo em DM Sans Bold */}
           <Text className="text-xs font-sans-bold text-[#59C83A]">
             Prescrição Profissional
           </Text>
@@ -161,7 +130,6 @@ export default function StudentWorkoutDetailScreen() {
       {isLoading ? (
         <View className="flex-1 justify-center items-center">
           <ActivityIndicator size="large" color="#59C83A" />
-          {/* Mensagem em DM Sans Medium */}
           <Text className="text-xs font-sans-medium text-[#71717a] dark:text-zinc-400 mt-3">
             Carregando exercícios da ficha...
           </Text>
@@ -174,7 +142,6 @@ export default function StudentWorkoutDetailScreen() {
           className="flex-1 justify-center items-center px-6"
         >
           <Info size={40} color="#ef4444" />
-          {/* Mensagem de Erro em Outfit Bold */}
           <Text className="text-[#1b1b1d] dark:text-white font-outfit-bold text-base mt-3 text-center">
             {error?.message || 'Ficha de treino não encontrada.'}
           </Text>
@@ -182,7 +149,6 @@ export default function StudentWorkoutDetailScreen() {
             onPress={handleNavigateBack}
             className="mt-4 bg-[#59C83A] px-5 py-2.5 rounded-xl"
           >
-            {/* Botão Voltar em DM Sans Bold */}
             <Text className="text-white font-sans-bold text-xs">Voltar para Meus Treinos</Text>
           </TouchableOpacity>
         </MotiView>
@@ -203,25 +169,21 @@ export default function StudentWorkoutDetailScreen() {
             <View className="flex-row items-center justify-between mb-3">
               <View className="bg-[#59C83A]/10 px-3 py-1 rounded-full border border-[#59C83A]/30 flex-row items-center">
                 <UserCheck size={14} color="#59C83A" weight="bold" />
-                {/* Rótulo Personal Trainer em DM Sans Bold */}
                 <Text className="text-xs font-sans-bold text-[#59C83A] ml-1.5">
                   Personal Trainer
                 </Text>
               </View>
 
-              {/* Quantidade de Exercícios em DM Sans Bold */}
               <Text className="text-xs font-sans-bold text-[#71717a] dark:text-zinc-400">
                 {workoutPlan.plan_exercises.length} Exercício(s)
               </Text>
             </View>
 
-            {/* Nome da Ficha em Outfit ExtraBold */}
             <Text className="text-2xl font-outfit-extrabold text-[#1b1b1d] dark:text-white mb-2">
               {workoutPlan.name}
             </Text>
 
             {workoutPlan.description && (
-              /* Descrição em DM Sans Medium */
               <Text className="text-xs font-sans-medium text-[#71717a] dark:text-zinc-400 mb-4 leading-5">
                 {workoutPlan.description}
               </Text>
@@ -232,7 +194,6 @@ export default function StudentWorkoutDetailScreen() {
               {workoutPlan.objective && (
                 <View className="bg-[#59C83A]/10 px-3 py-1.5 rounded-xl flex-row items-center border border-[#59C83A]/30">
                   <Target size={14} color="#59C83A" weight="bold" />
-                  {/* Objetivo em DM Sans Bold */}
                   <Text className="text-xs font-sans-bold text-[#59C83A] ml-1.5">
                     {workoutPlan.objective}
                   </Text>
@@ -242,7 +203,6 @@ export default function StudentWorkoutDetailScreen() {
               {workoutPlan.days_of_week && workoutPlan.days_of_week.length > 0 && (
                 <View className="bg-white dark:bg-zinc-950 px-3 py-1.5 rounded-xl border border-[#e2dfe1] dark:border-zinc-800 flex-row items-center">
                   <CalendarBlank size={14} color={isDark ? '#a1a1aa' : '#71717a'} />
-                  {/* Dias da Semana em DM Sans Bold */}
                   <Text className="text-xs font-sans-bold text-[#71717a] dark:text-zinc-300 ml-1.5">
                     {workoutPlan.days_of_week.join(', ')}
                   </Text>
@@ -273,7 +233,6 @@ export default function StudentWorkoutDetailScreen() {
               className="bg-[#59C83A] p-4 rounded-2xl flex-row items-center justify-center mb-6 shadow-sm"
             >
               <PlayCircle size={24} color="#FFFFFF" weight="bold" />
-              {/* Botão de Iniciar em Outfit Bold */}
               <Text className="text-white font-outfit-bold text-base ml-2">
                 Iniciar Treino Agora
               </Text>
@@ -291,11 +250,9 @@ export default function StudentWorkoutDetailScreen() {
               delay: 90,
             }}
           >
-            {/* Título da Seção em Outfit ExtraBold */}
             <Text className="text-base font-outfit-extrabold text-[#1b1b1d] dark:text-white mb-1">
               Exercícios Prescritos
             </Text>
-            {/* Dica em DM Sans Medium */}
             <Text className="text-xs font-sans-medium text-[#71717a] dark:text-zinc-400 mb-3">
               Toque em qualquer exercício para ver a demonstração em vídeo/GIF.
             </Text>
@@ -309,7 +266,6 @@ export default function StudentWorkoutDetailScreen() {
               className="p-6 items-center border border-dashed border-[#e2dfe1] dark:border-zinc-800 rounded-2xl"
             >
               <Barbell size={32} color={isDark ? '#71717a' : '#a1a1aa'} />
-              {/* Texto de Lista Vazia em DM Sans Bold */}
               <Text className="text-xs font-sans-bold text-[#71717a] dark:text-zinc-400 mt-2 text-center">
                 Nenhum exercício registrado nesta ficha.
               </Text>
@@ -337,13 +293,11 @@ export default function StudentWorkoutDetailScreen() {
                   className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl mb-3 border border-[#e2dfe1] dark:border-zinc-800"
                 >
                   <View className="flex-row items-center justify-between mb-2">
-                    {/* Nome do Exercício em Outfit Bold */}
                     <Text className="text-sm font-outfit text-[#1b1b1d] dark:text-white flex-1 mr-2">
                       {index + 1}. {exercise.name}
                     </Text>
 
                     <View className="bg-[#59C83A] px-3 py-1 rounded-lg">
-                      {/* Séries e Repetições em DM Sans Bold */}
                       <Text className="text-xs font-sans-bold text-white">
                         {exercise.sets}x {exercise.reps}
                       </Text>
@@ -352,7 +306,6 @@ export default function StudentWorkoutDetailScreen() {
 
                   {exercise.notes ? (
                     <View className="mt-1 bg-white dark:bg-zinc-950 p-2.5 rounded-xl border border-[#e2dfe1] dark:border-zinc-800 mb-2">
-                      {/* Observação em DM Sans Medium/Bold */}
                       <Text className="text-xs font-sans-medium text-[#71717a] dark:text-zinc-400">
                         💬 <Text className="font-sans-bold text-[#1b1b1d] dark:text-white">Observação / Carga:</Text>{' '}
                         {exercise.notes}
@@ -363,7 +316,6 @@ export default function StudentWorkoutDetailScreen() {
                   <View className="flex-row items-center justify-between pt-2.5 border-t border-[#e2dfe1] dark:border-zinc-800/80 mt-1">
                     <View className="flex-row items-center">
                       <PlayCircle size={16} color="#59C83A" weight="bold" />
-                      {/* Texto de Ação em DM Sans Bold */}
                       <Text className="text-xs font-sans-bold text-[#59C83A] ml-1.5">
                         Ver execução e postura (GIF)
                       </Text>

@@ -1,93 +1,100 @@
 // ============================================================================
-// DOCUMENTAÇÃO: LAYOUT DO GRUPO PROTEGIDO (EXPO ROUTER)
+// DOCUMENTAÇÃO: LAYOUT DO GRUPO PROTEGIDO (INTEGRADO À API DA VPS)
 // ============================================================================
-// Identifica se o usuário logado é 'aluno' ou 'personal' e redireciona
-// automaticamente para o sub-grupo correspondente com tipagem segura.
+// Identifica se o usuário logado na VPS é 'aluno', 'personal' ou 'admin' e 
+// redireciona automaticamente para o sub-grupo correspondente sem loops.
 // ============================================================================
 
 import React, { useEffect, useState } from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
-import { supabase } from '../../lib/supabase';
+
+// IMPORTAÇÃO DA API DA VPS E DO CONTEXTO DE AUTENTICAÇÃO
+import { api } from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
+
+interface UserProfileResponse {
+  role: 'aluno' | 'personal' | 'admin';
+  is_blocked: boolean;
+}
 
 export default function AppGroupLayout() {
-  const [userRole, setUserRole] = useState<'aluno' | 'personal' | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
+  const { user, isLoadingAuth } = useAuth();
+  const { isDark } = useTheme();
+
+  const [userRole, setUserRole] = useState<'aluno' | 'personal' | 'admin' | null>(null);
+  const [loadingRole, setLoadingRole] = useState<boolean>(true);
 
   const segments = useSegments();
   const router = useRouter();
 
+  const backgroundColor = isDark ? '#09090b' : '#ffffff';
+
+  // Busca o papel do usuário diretamente na API da VPS
   useEffect(() => {
-    async function fetchUserRole() {
+    async function fetchUserRoleFromVPS() {
+      if (isLoadingAuth) return;
+
+      if (!user || !user.id) {
+        setUserRole(null);
+        setLoadingRole(false);
+        router.replace('/(auth)/login');
+        return;
+      }
+
       try {
-        setLoading(true);
+        setLoadingRole(true);
+        const response = await api.get<UserProfileResponse>(`/api/profiles/me?userId=${user.id}`);
+        const profile = response.data;
 
-        const { data: { user } } = await supabase.auth.getUser();
-
-        // Proteção: Se não houver usuário logado, cancela a busca
-        if (!user) {
-          setUserRole(null);
-          setLoading(false);
-          return;
+        if (profile && profile.role) {
+          setUserRole(profile.role);
+        } else {
+          setUserRole('aluno'); // Fallback seguro
         }
-
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', user.id)
-          .single();
-
-        if (!error && data) {
-          setUserRole(data.role as 'aluno' | 'personal');
-        }
-      } catch (err) {
-        console.error('Erro ao buscar perfil no layout:', err);
+      } catch (err: any) {
+        console.error('❌ [AppLayout] Erro ao buscar perfil na VPS:', err.message);
+        // Fallback para o role salvo no token/sessão caso a VPS demore
+        setUserRole((user.role as any) || 'aluno');
       } finally {
-        setLoading(false);
+        setLoadingRole(false);
       }
     }
 
-    fetchUserRole();
+    fetchUserRoleFromVPS();
+  }, [user, isLoadingAuth]);
 
-    // Escuta evento de logout para limpar o perfil do estado
-    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!session) {
-        setUserRole(null);
-        router.replace('/(auth)/login');
-      }
-    });
-
-    return () => {
-      authListener.subscription.unsubscribe();
-    };
-  }, []);
-
+  // Gerenciamento de rotas e redirecionamento sem loop
   useEffect(() => {
-    if (loading || !userRole) return;
+    if (loadingRole || !userRole) return;
 
-    // 🟢 CORREÇÃO DA TUPLA COM TYPE CASTING (as string[]):
-    // Converte o segmento estrito do Expo Router num array comum para permitir a leitura segura do índice 1
-    const currentSubGroup = segments.length > 1 ? (segments as string[])[1] : undefined;
+    const routeSegments = segments as string[];
+    const fullPath = routeSegments.join('/');
 
-    if (userRole === 'personal' && currentSubGroup !== '(personal)') {
+    // Evita redirecionamentos desnecessários se já estiver na pasta correta
+    if (userRole === 'personal' && !fullPath.includes('(personal)')) {
       router.replace('/(app)/(personal)');
-    } else if (userRole === 'aluno' && currentSubGroup !== '(aluno)') {
+    } else if (userRole === 'admin' && !fullPath.includes('(admin)')) {
+      router.replace('/(app)/(admin)');
+    } else if (userRole === 'aluno' && !fullPath.includes('(aluno)')) {
       router.replace('/(app)/(aluno)');
     }
-  }, [userRole, loading, segments]);
+  }, [userRole, loadingRole, segments]);
 
-  if (loading) {
+  if (isLoadingAuth || loadingRole) {
     return (
-      <View className="flex-1 justify-center items-center bg-white dark:bg-zinc-950">
+      <View style={{ flex: 1, backgroundColor }} className="justify-center items-center">
         <ActivityIndicator size="large" color="#59C83A" />
       </View>
     );
   }
 
   return (
-    <Stack screenOptions={{ headerShown: false }}>
+    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor } }}>
       <Stack.Screen name="(aluno)" />
       <Stack.Screen name="(personal)" />
+      <Stack.Screen name="(admin)" />
     </Stack>
   );
 }

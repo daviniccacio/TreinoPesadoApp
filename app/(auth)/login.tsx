@@ -1,8 +1,7 @@
 // ============================================================================
-// DOCUMENTAÇÃO: TELA DE LOGIN INTEGRADA AO TEMA GLOBAL E NOVO FLUXO DE AUTH
+// DOCUMENTAÇÃO: FUNÇÃO DE LOGIN COM REDIRECIONAMENTO EXPLÍCITO
 // ============================================================================
-// Tela de autenticação atualizada para utilizar o tema global, overlay de
-// carregamento e redirecionamento direto para a nova tela de recuperação.
+// Submeta os dados para a API na VPS e força a transição de tela sem travar.
 // ============================================================================
 
 import React, { useState } from 'react';
@@ -28,7 +27,9 @@ import {
   Lightning,
 } from 'phosphor-react-native';
 import { MotiView } from 'moti';
-import { supabase } from '../../lib/supabase';
+
+import { api } from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 import { useThrottledCallback } from '../../lib/useThrottle';
 import { CustomModal } from '../../components/CustomModal';
 import { AuthLoadingOverlay } from '../../components/AppLoaders';
@@ -38,135 +39,27 @@ const BRAND_GREEN = '#59C83A';
 const BRAND_GREEN_DEEP = '#2F7A16';
 const HERO_BG = '#0F1F0A';
 
-/** Valida se a string possui um formato de e-mail válido */
 function isValidEmail(email: string): boolean {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return emailRegex.test(email);
 }
 
-/** Anel de pulso animado para a marca */
-function PulseRing({ delay = 0, size = 96 }: { delay?: number; size?: number }) {
-  return (
-    <MotiView
-      from={{ scale: 0.7, opacity: 0.35 }}
-      animate={{ scale: 1.55, opacity: 0 }}
-      transition={{ type: 'timing', duration: 2800, loop: true, delay }}
-      style={{
-        position: 'absolute',
-        width: size,
-        height: size,
-        borderRadius: size / 2,
-        borderWidth: 1,
-        borderColor: BRAND_GREEN,
-      }}
-    />
-  );
-}
-
-/** Selo de energia da marca */
-function EnergyBadge() {
-  return (
-    <View className="items-center justify-center" style={{ width: 100, height: 100 }}>
-      <View
-        style={{
-          position: 'absolute',
-          width: 100,
-          height: 100,
-          borderRadius: 50,
-          backgroundColor: BRAND_GREEN,
-          opacity: 0.12,
-        }}
-      />
-      <View
-        style={{
-          position: 'absolute',
-          width: 80,
-          height: 80,
-          borderRadius: 40,
-          backgroundColor: BRAND_GREEN,
-          opacity: 0.16,
-        }}
-      />
-
-      <PulseRing size={72} delay={0} />
-      <PulseRing size={72} delay={1400} />
-
-      <View
-        style={{
-          width: 60,
-          height: 60,
-          borderRadius: 30,
-          backgroundColor: BRAND_GREEN,
-          borderWidth: 1,
-          borderColor: 'rgba(255,255,255,0.25)',
-          alignItems: 'center',
-          justifyContent: 'center',
-          overflow: 'hidden',
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.3,
-          shadowRadius: 8,
-          elevation: 6,
-        }}
-      >
-        <View
-          style={{
-            position: 'absolute',
-            bottom: -18,
-            width: 70,
-            height: 40,
-            borderRadius: 35,
-            backgroundColor: BRAND_GREEN_DEEP,
-            opacity: 0.55,
-          }}
-        />
-        <View
-          style={{
-            position: 'absolute',
-            top: -14,
-            left: -10,
-            width: 38,
-            height: 26,
-            borderRadius: 20,
-            backgroundColor: '#ffffff',
-            opacity: 0.22,
-            transform: [{ rotate: '-20deg' }],
-          }}
-        />
-        <Lightning size={24} color="#ffffff" weight="bold" />
-      </View>
-    </View>
-  );
-}
-
 export default function LoginScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-
-  // SUBSCRITO AO TEMA GLOBAL DO APLICATIVO
+  const { signIn } = useAuth();
   const { isDark } = useTheme();
 
-  // ESTADOS DE LOGIN
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [showPassword, setShowPassword] = useState<boolean>(false);
 
-  // ESTADO DO MODAL PERSONALIZADO DE ALERTA
-  const [modalConfig, setModalConfig] = useState<{
-    visible: boolean;
-    title: string;
-    message: string;
-    type: 'success' | 'danger' | 'info';
-    confirmText: string;
-    cancelText: string;
-    showCancelButton: boolean;
-    onConfirm: () => void;
-  }>({
+  const [modalConfig, setModalConfig] = useState({
     visible: false,
     title: '',
     message: '',
-    type: 'info',
+    type: 'info' as 'success' | 'danger' | 'info',
     confirmText: 'Entendi',
     cancelText: 'Cancelar',
     showCancelButton: false,
@@ -220,7 +113,7 @@ export default function LoginScreen() {
     if (!isValidEmail(cleanEmail)) {
       showAlertModal({
         title: 'E-mail Inválido ⚠️',
-        message: 'Por favor, digite um e-mail no formato correto (exemplo: usuario@dominio.com).',
+        message: 'Por favor, digite um e-mail no formato correto.',
         type: 'danger',
       });
       return;
@@ -229,45 +122,55 @@ export default function LoginScreen() {
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      // 1. Envia requisição para a VPS
+      const response = await api.post('/api/auth/login', {
         email: cleanEmail,
-        password: password,
+        password: password.trim(),
       });
 
-      if (error) {
-        if (error.status === 429 || error.message.toLowerCase().includes('rate limit')) {
-          showAlertModal({
-            title: 'Muitas Tentativas! 🛡️',
-            message: 'Você realizou várias tentativas de login em pouco tempo. Por segurança, aguarde alguns minutos.',
-            type: 'danger',
-          });
-          return;
-        }
+      const { token, user } = response.data;
 
-        // 🟢 CORREÇÃO: REDIRECIONA DIRETO PARA A NOVA TELA DE RECUPERAÇÃO COM O E-MAIL PREENCHIDO
-        showAlertModal({
-          title: 'Erro ao entrar',
-          message: 'E-mail ou senha incorretos. Deseja redefinir sua senha?',
-          type: 'danger',
-          confirmText: 'Redefinir Senha',
-          cancelText: 'Tentar novamente',
-          showCancelButton: true,
-          onConfirm: () => {
-            router.push({
-              pathname: '/(auth)/forgot-password' as any,
-              params: { email: cleanEmail },
-            });
-          },
-        });
+      if (!user || !user.id) {
+        throw new Error('Resposta do servidor em formato inválido.');
       }
-    } catch (err) {
-      showAlertModal({
-        title: 'Erro de Conexão',
-        message: 'Ocorreu um erro inesperado ao conectar com o servidor.',
-        type: 'danger',
+
+      // 2. Registra no AuthContext
+      await signIn({
+        id: String(user.id),
+        email: user.email,
+        name: user.name || 'Usuário',
+        role: user.role || 'aluno',
+        token,
       });
-    } finally {
+
+      console.log('✅ [Login] Sucesso! Direcionando para a área do aluno...');
+
+      // 3. REDIRECIONAMENTO DIRETO (Evita travar na tela de login)
       setLoading(false);
+      
+      if (user.role === 'admin') {
+        router.replace('/(app)/(admin)' as any);
+      } else if (user.role === 'personal') {
+        router.replace('/(app)/(personal)' as any);
+      } else {
+        router.replace('/(app)/(aluno)' as any);
+      }
+
+    } catch (err: any) {
+      setLoading(false);
+      console.error('❌ [Login] Erro:', err.message || err);
+
+      const mensagemErro =
+        err.response?.data?.erro ||
+        err.message ||
+        'Não foi possível conectar ao servidor.';
+
+      showAlertModal({
+        title: 'Erro ao entrar',
+        message: mensagemErro,
+        type: 'danger',
+        confirmText: 'Entendi',
+      });
     }
   }
 
@@ -289,7 +192,7 @@ export default function LoginScreen() {
           showsVerticalScrollIndicator={false}
           bounces={false}
         >
-          {/* HERO EDITORIAL */}
+          {/* CABEÇALHO EDITORIAL */}
           <View
             style={{
               backgroundColor: HERO_BG,
@@ -299,19 +202,6 @@ export default function LoginScreen() {
             }}
             className="pb-10 px-6 overflow-hidden"
           >
-            <View
-              style={{
-                position: 'absolute',
-                width: '160%',
-                height: 46,
-                backgroundColor: BRAND_GREEN,
-                opacity: 0.08,
-                top: 92,
-                left: -60,
-                transform: [{ rotate: '-7deg' }],
-              }}
-            />
-
             <View className="flex-row items-center mb-8">
               <View className="w-8 h-8 rounded-full bg-white items-center justify-center overflow-hidden mr-2">
                 <Image
@@ -345,8 +235,6 @@ export default function LoginScreen() {
                   Continue a sua evolução hoje.
                 </Text>
               </MotiView>
-
-              <EnergyBadge />
             </View>
           </View>
 
@@ -358,7 +246,7 @@ export default function LoginScreen() {
             className="px-6 pt-8"
             style={{ paddingBottom: safeBottomPadding }}
           >
-            {/* Campo E-mail */}
+            {/* E-mail */}
             <View className="mb-3">
               <Text
                 className={`font-sans-bold text-xs uppercase tracking-wider mb-2 ml-1 ${
@@ -398,7 +286,7 @@ export default function LoginScreen() {
               </View>
             </View>
 
-            {/* Campo Senha */}
+            {/* Senha */}
             <View className="mb-1">
               <Text
                 className={`font-sans-bold text-xs uppercase tracking-wider mb-2 ml-1 ${
@@ -500,7 +388,6 @@ export default function LoginScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* MODAL DE ALERTA PERSONALIZADO */}
       <CustomModal
         visible={modalConfig.visible}
         isDark={isDark}
@@ -514,7 +401,6 @@ export default function LoginScreen() {
         onClose={() => setModalConfig((prev) => ({ ...prev, visible: false }))}
       />
 
-      {/* OVERLAY DE CARREGAMENTO BLOQUEANTE DURANTE O LOGIN */}
       <AuthLoadingOverlay
         visible={loading}
         message="Entrando na sua conta..."

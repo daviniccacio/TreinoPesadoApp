@@ -1,8 +1,8 @@
 // ============================================================================
-// DOCUMENTAÇÃO: TELA DE DETALHES DO TREINO PERSONALIZADO (ÁREA DO ALUNO)
+// DOCUMENTAÇÃO: TELA DE DETALHES DO TREINO PERSONALIZADO (ÁREA DO ALUNO - VPS)
 // ============================================================================
 // Exibe a lista completa de exercícios de um treino criado pelo próprio aluno,
-// permitindo a navegação para os detalhes do exercício, edição e exclusão.
+// obtendo os dados e realizando a exclusão diretamente através da API na VPS.
 // ============================================================================
 
 import React, { useState } from 'react';
@@ -19,7 +19,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ArrowLeft, Trash, CaretRight, PencilSimple } from 'phosphor-react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { MotiView } from 'moti';
-import { supabase } from '../../../../lib/supabase';
+
+// IMPORTAÇÃO DA API DA VPS
+import { api } from '../../../../services/api';
 import { CustomModal } from '../../../../components/CustomModal';
 
 interface WorkoutExerciseItem {
@@ -41,33 +43,13 @@ interface CustomWorkoutDetail {
 }
 
 /**
- * Busca os detalhes do treino personalizado no Supabase
+ * Busca os detalhes do treino personalizado na API da VPS
  */
 async function fetchCustomWorkoutDetail(workoutId: string): Promise<CustomWorkoutDetail> {
   if (!workoutId) throw new Error('ID do treino não fornecido');
 
-  const { data, error } = await supabase
-    .from('custom_workouts')
-    .select(`
-      id,
-      title,
-      custom_workout_exercises (
-        id,
-        sets,
-        reps,
-        weight,
-        exercises (
-          id,
-          name,
-          category_id
-        )
-      )
-    `)
-    .eq('id', workoutId)
-    .single();
-
-  if (error) throw new Error(error.message);
-  return data as unknown as CustomWorkoutDetail;
+  const response = await api.get(`/api/custom-workouts/${workoutId}`);
+  return response.data as CustomWorkoutDetail;
 }
 
 export default function CustomWorkoutDetailScreen() {
@@ -79,7 +61,6 @@ export default function CustomWorkoutDetailScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
-  // ESTADO DO MODAL PERSONALIZADO
   const [modalConfig, setModalConfig] = useState<{
     visible: boolean;
     title: string;
@@ -142,15 +123,10 @@ export default function CustomWorkoutDetailScreen() {
     enabled: !!id,
   });
 
-  // --- MUTAÇÃO PARA DELETAR O TREINO ---
+  // --- MUTAÇÃO PARA DELETAR O TREINO NA VPS ---
   const deleteWorkoutMutation = useMutation({
     mutationFn: async (workoutId: string) => {
-      const { error } = await supabase
-        .from('custom_workouts')
-        .delete()
-        .eq('id', workoutId);
-
-      if (error) throw new Error(error.message);
+      await api.delete(`/api/custom-workouts/${workoutId}`);
       return workoutId;
     },
     onSuccess: () => {
@@ -168,7 +144,7 @@ export default function CustomWorkoutDetailScreen() {
     onError: (err: any) => {
       showAlertModal({
         title: 'Erro ao Excluir',
-        message: err.message || 'Não foi possível excluir o treino.',
+        message: err?.response?.data?.erro || err.message || 'Não foi possível excluir o treino.',
         type: 'danger',
         showCancelButton: false,
       });
@@ -214,7 +190,6 @@ export default function CustomWorkoutDetailScreen() {
           <ArrowLeft size={20} color={isDark ? '#59C83A' : '#1b1b1d'} />
         </TouchableOpacity>
 
-        {/* Título do Cabeçalho em Outfit Bold */}
         <Text
           className="text-lg font-outfit-bold text-[#1b1b1d] dark:text-white flex-1 text-center mx-2"
           numberOfLines={1}
@@ -222,7 +197,6 @@ export default function CustomWorkoutDetailScreen() {
           {workout?.title || 'Detalhes do Treino'}
         </Text>
 
-        {/* Botões de Ação (Editar e Excluir) */}
         <View className="flex-row items-center gap-2">
           <TouchableOpacity
             onPress={() =>
@@ -256,14 +230,12 @@ export default function CustomWorkoutDetailScreen() {
       {isLoading ? (
         <View className="flex-1 justify-center items-center">
           <ActivityIndicator size="large" color="#59C83A" />
-          {/* Mensagem em DM Sans Medium */}
           <Text className="mt-3 text-[#414755] dark:text-zinc-400 font-sans-medium text-xs">
             Carregando exercícios do treino...
           </Text>
         </View>
       ) : workout ? (
         <ScrollView className="flex-1 px-5 pt-4" showsVerticalScrollIndicator={false}>
-          {/* TÍTULO E RESUMO ANIMADO */}
           <MotiView
             from={{ opacity: 0, translateY: 10 }}
             animate={{ opacity: 1, translateY: 0 }}
@@ -274,17 +246,14 @@ export default function CustomWorkoutDetailScreen() {
               delay: 30,
             }}
           >
-            {/* Título Principal em Outfit ExtraBold */}
             <Text className="text-2xl font-outfit-extrabold text-[#1b1b1d] dark:text-white mb-1">
               {workout.title}
             </Text>
-            {/* Contador de Exercícios em DM Sans Bold */}
             <Text style={{ color: '#59C83A' }} className="text-xs font-sans-bold uppercase mb-6">
               {workout.custom_workout_exercises?.length || 0} Exercícios no Total
             </Text>
           </MotiView>
 
-          {/* LISTA DE EXERCÍCIOS EM CASCATA */}
           {workout.custom_workout_exercises?.map((item, index) => (
             <MotiView
               key={item.id}
@@ -312,15 +281,12 @@ export default function CustomWorkoutDetailScreen() {
                 activeOpacity={0.8}
               >
                 <View className="flex-1 mr-3">
-                  {/* Categoria do Exercício em DM Sans Bold */}
                   <Text style={{ color: '#59C83A' }} className="text-xs font-sans-bold uppercase mb-0.5">
                     {index + 1}. {item.exercises?.category_id}
                   </Text>
-                  {/* Nome do Exercício em Outfit Bold */}
                   <Text className="text-base font-outfit-bold text-[#1b1b1d] dark:text-white mb-1">
                     {item.exercises?.name}
                   </Text>
-                  {/* Detalhes de Séries, Repetições e Carga em DM Sans */}
                   <View className="flex-row items-center gap-3">
                     <Text className="text-xs font-sans-medium text-[#414755] dark:text-zinc-400">
                       <Text style={{ color: '#59C83A' }} className="font-sans-bold">
@@ -354,7 +320,6 @@ export default function CustomWorkoutDetailScreen() {
         </ScrollView>
       ) : null}
 
-      {/* COMPONENTE DO MODAL PERSONALIZADO */}
       <CustomModal
         visible={modalConfig.visible}
         title={modalConfig.title}

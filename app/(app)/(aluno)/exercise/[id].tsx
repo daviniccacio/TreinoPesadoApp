@@ -1,5 +1,8 @@
 // ============================================================================
-// DOCUMENTAÇÃO: TELA DE DETALHES DO EXERCÍCIO (INTEGRADA AO TIMER GLOBAL)
+// DOCUMENTAÇÃO: TELA DE DETALHES DO EXERCÍCIO (INTEGRADA À VPS E AO TIMER GLOBAL)
+// ============================================================================
+// Exibe as informações detalhadas e o GIF de um exercício específico, obtendo
+// os dados através da API na VPS e gerindo o cronômetro de descanso.
 // ============================================================================
 
 import React, { useState } from 'react';
@@ -29,9 +32,10 @@ import { useQuery } from '@tanstack/react-query';
 import { MotiView } from 'moti';
 import { Image } from 'expo-image';
 
-import { supabase } from '../../../../lib/supabase';
+// IMPORTAÇÃO DA API DA VPS E DO CONTEXTO DE TIMER
+import { api } from '../../../../services/api';
 import { getExerciseGif } from '../../../../lib/exerciseGifs';
-import { useTimer } from '../../../../context/TimerContext'; // 🟢 CONTEXTO GLOBAL
+import { useTimer } from '../../../../context/TimerContext';
 
 interface ExerciseDetail {
   id: string;
@@ -43,17 +47,31 @@ interface ExerciseDetail {
   gif_key?: string;
 }
 
+/**
+ * Busca os detalhes de um exercício específico diretamente na API da VPS
+ */
 async function fetchExerciseDetail(exerciseId: string): Promise<ExerciseDetail> {
   if (!exerciseId) throw new Error('ID do exercício não fornecido');
 
-  const { data, error } = await supabase
-    .from('exercises')
-    .select('*')
-    .eq('id', exerciseId)
-    .single();
+  // Como a VPS retorna a lista completa de exercícios, buscamos e filtramos pelo ID
+  const response = await api.get('/api/exercises');
+  const allExercises = response.data || [];
 
-  if (error) throw new Error(error.message);
-  return data as ExerciseDetail;
+  const found = allExercises.find((ex: any) => String(ex.id) === String(exerciseId));
+
+  if (!found) {
+    throw new Error('Exercício não encontrado na base de dados.');
+  }
+
+  return {
+    id: found.id,
+    name: found.name || found.exercise_name || 'Exercício',
+    sets: found.sets || 3,
+    reps: found.reps || '10-12',
+    weight: found.weight || 'Carga livre',
+    category_id: found.category_id || 'Geral',
+    gif_key: found.gif_key,
+  };
 }
 
 export default function ExerciseDetailScreen() {
@@ -65,7 +83,7 @@ export default function ExerciseDetailScreen() {
 
   const [isGifLoading, setIsGifLoading] = useState<boolean>(true);
 
-  // 🟢 CONSUMINDO O TIMER GLOBAL
+  // CONSUMINDO O TIMER GLOBAL
   const {
     timeLeft,
     targetTime,
@@ -78,6 +96,7 @@ export default function ExerciseDetailScreen() {
     adjustMinutes,
   } = useTimer();
 
+  // BUSCA COM TANSTACK QUERY CONECTADA À VPS
   const { data: exercise, isLoading } = useQuery({
     queryKey: ['exercise-detail', id],
     queryFn: () => fetchExerciseDetail(id || ''),

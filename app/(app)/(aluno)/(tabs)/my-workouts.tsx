@@ -2,7 +2,7 @@
 // DOCUMENTAÇÃO: TELA MEUS TREINOS (ÁREA DO ALUNO - INTEGRADA À VPS)
 // ============================================================================
 // Exibe as fichas de treino do personal e do aluno carregadas via API na VPS.
-// Permite visualização detalhada e exclusão de treinos personalizados.
+// Utiliza o AuthContext para identificar o usuário autenticado de forma segura.
 // ============================================================================
 
 import React, { useState } from "react";
@@ -32,8 +32,10 @@ import {
 } from "phosphor-react-native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { MotiView } from "moti";
-import { supabase } from "../../../../lib/supabase";
+
+// IMPORTAÇÃO DA API DA VPS E DO CONTEXTO DE AUTENTICAÇÃO
 import { api } from "../../../../services/api";
+import { useAuth } from "../../../../context/AuthContext";
 import { CustomModal } from "../../../../components/CustomModal";
 
 // --- MAPEAMENTO DE CATEGORIAS MUSCULARES ---
@@ -53,7 +55,6 @@ const CATEGORY_MAP: Record<string, string> = {
   "perna-posterior": "Posterior de Coxa",
 };
 
-// --- TIPAGENS DE DADOS ---
 interface WorkoutCardItem {
   id: string;
   title: string;
@@ -90,9 +91,7 @@ const CATEGORY_FILTERS = [
 
 type FilterType = "all" | "personal" | "custom";
 
-/**
- * Formata os dias da semana para exibição
- */
+/** Formata os dias da semana para exibição legível */
 function formatDaysOfWeek(rawDays: any): string {
   if (!rawDays) return "Ficha Semanal";
 
@@ -168,16 +167,12 @@ function formatWeight(rawWeight: any): string {
 }
 
 /**
- * 🟢 BUSCA DE TREINOS MIGRADA PARA A API DA VPS VIA AXIOS
+ * Busca fichas de treino do aluno diretamente na API da VPS
  */
-async function fetchStudentWorkouts(): Promise<WorkoutCardItem[]> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+async function fetchStudentWorkouts(userId?: string): Promise<WorkoutCardItem[]> {
+  if (!userId) throw new Error("Usuário não autenticado");
 
-  if (!user) throw new Error("Usuário não autenticado");
-
-  const response = await api.get(`/student-workouts/${user.id}`);
+  const response = await api.get(`/api/student-workouts/${userId}`);
   const rawList = response.data || [];
 
   return rawList.map((item: any) => ({
@@ -187,7 +182,7 @@ async function fetchStudentWorkouts(): Promise<WorkoutCardItem[]> {
 }
 
 /**
- * 🟢 BUSCA DE EXERCÍCIOS PARA O MODAL MIGRADA PARA A API DA VPS
+ * Busca os exercícios de uma ficha específica na API da VPS
  */
 async function fetchWorkoutExercises(
   workoutId: string,
@@ -195,7 +190,7 @@ async function fetchWorkoutExercises(
 ): Promise<ExerciseItem[]> {
   if (!workoutId) return [];
 
-  const response = await api.get(`/workout-exercises/${workoutId}?type=${type}`);
+  const response = await api.get(`/api/workout-exercises/${workoutId}?type=${type}`);
   const data = response.data || [];
 
   return data.map((item: any) => {
@@ -223,6 +218,7 @@ export default function MyWorkoutsScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   const [selectedFilter, setSelectedFilter] = useState<FilterType>("all");
   const [selectedWorkoutForDetails, setSelectedWorkoutForDetails] = useState<WorkoutCardItem | null>(null);
@@ -277,8 +273,9 @@ export default function MyWorkoutsScreen() {
     isRefetching,
     refetch,
   } = useQuery({
-    queryKey: ["student-workouts"],
-    queryFn: fetchStudentWorkouts,
+    queryKey: ["student-workouts", user?.id],
+    queryFn: () => fetchStudentWorkouts(user?.id),
+    enabled: !!user?.id,
   });
 
   const { data: exercisesForDetails = [], isLoading: isLoadingExercises } = useQuery({
@@ -291,12 +288,9 @@ export default function MyWorkoutsScreen() {
     enabled: !!selectedWorkoutForDetails?.id,
   });
 
-  /**
-   * 🟢 MUTAÇÃO DE EXCLUSÃO MIGRADA PARA A API DA VPS
-   */
   const deleteWorkoutMutation = useMutation({
     mutationFn: async (workoutId: string) => {
-      await api.delete(`/custom-workouts/${workoutId}`);
+      await api.delete(`/api/custom-workouts/${workoutId}`);
       return workoutId;
     },
     onSuccess: () => {
@@ -381,7 +375,7 @@ export default function MyWorkoutsScreen() {
         </TouchableOpacity>
       </MotiView>
 
-      {/* FILTROS DE CATEGORIA */}
+      {/* FILTROS */}
       <View className="mb-4">
         <ScrollView
           horizontal
@@ -395,12 +389,7 @@ export default function MyWorkoutsScreen() {
                 key={`filter-${filter.id}`}
                 from={{ opacity: 0, translateX: -10 }}
                 animate={{ opacity: 1, translateX: 0 }}
-                transition={{
-                  type: "spring",
-                  damping: 22,
-                  stiffness: 160,
-                  delay: index * 40,
-                }}
+                transition={{ type: "spring", damping: 22, stiffness: 160, delay: index * 40 }}
               >
                 <TouchableOpacity
                   activeOpacity={0.7}
@@ -411,13 +400,7 @@ export default function MyWorkoutsScreen() {
                       : "bg-[#f8f9fa] dark:bg-zinc-900 border-[#e2dfe1] dark:border-zinc-800"
                   }`}
                 >
-                  <Text
-                    className={`text-xs font-sans-bold ${
-                      isActive
-                        ? "text-white"
-                        : "text-[#1b1b1d] dark:text-zinc-300"
-                    }`}
-                  >
+                  <Text className={`text-xs font-sans-bold ${isActive ? "text-white" : "text-[#1b1b1d] dark:text-zinc-300"}`}>
                     {filter.label}
                   </Text>
                 </TouchableOpacity>
@@ -451,7 +434,6 @@ export default function MyWorkoutsScreen() {
           <MotiView
             from={{ opacity: 0, scale: 0.97 }}
             animate={{ opacity: 1, scale: 1 }}
-            transition={{ type: "timing", duration: 250 }}
             className="bg-[#f8f9fa] dark:bg-zinc-900 p-8 rounded-2xl border border-dashed border-[#e2dfe1] dark:border-zinc-800 items-center my-2"
           >
             <Barbell size={40} color={isDark ? "#71717a" : "#a1a1aa"} />
@@ -475,12 +457,7 @@ export default function MyWorkoutsScreen() {
                 key={`workout-${workout.id}`}
                 from={{ opacity: 0, translateY: 14, scale: 0.97 }}
                 animate={{ opacity: 1, translateY: 0, scale: 1 }}
-                transition={{
-                  type: "spring",
-                  damping: 22,
-                  stiffness: 150,
-                  delay: index * 40,
-                }}
+                transition={{ type: "spring", damping: 22, stiffness: 150, delay: index * 40 }}
               >
                 <TouchableOpacity
                   activeOpacity={0.85}
@@ -489,24 +466,14 @@ export default function MyWorkoutsScreen() {
                 >
                   <View className="flex-row items-center justify-between mb-2">
                     <View className="flex-row items-center flex-1 mr-2 gap-2.5">
-                      <View
-                        className={`w-9 h-9 rounded-xl items-center justify-center border ${
-                          isPersonal
-                            ? "bg-[#59C83A]/10 border-[#59C83A]/30"
-                            : "bg-blue-500/10 border-blue-500/30"
-                        }`}
-                      >
+                      <View className={`w-9 h-9 rounded-xl items-center justify-center border ${isPersonal ? "bg-[#59C83A]/10 border-[#59C83A]/30" : "bg-blue-500/10 border-blue-500/30"}`}>
                         {isPersonal ? (
                           <UserCheck size={18} color="#59C83A" weight="bold" />
                         ) : (
                           <User size={18} color="#3B82F6" weight="bold" />
                         )}
                       </View>
-
-                      <Text
-                        className="text-base font-outfit-extrabold text-[#1b1b1d] dark:text-white flex-1"
-                        numberOfLines={1}
-                      >
+                      <Text className="text-base font-outfit-extrabold text-[#1b1b1d] dark:text-white flex-1" numberOfLines={1}>
                         {workout.title}
                       </Text>
                     </View>
@@ -521,10 +488,7 @@ export default function MyWorkoutsScreen() {
 
                   <View className="flex-row items-center my-1">
                     <Target size={14} color={isDark ? "#a1a1aa" : "#71717a"} />
-                    <Text
-                      className="text-xs font-sans-medium text-[#71717a] dark:text-zinc-400 ml-1.5 flex-1"
-                      numberOfLines={1}
-                    >
+                    <Text className="text-xs font-sans-medium text-[#71717a] dark:text-zinc-400 ml-1.5 flex-1" numberOfLines={1}>
                       {workout.subtitle}
                     </Text>
                   </View>
@@ -546,20 +510,11 @@ export default function MyWorkoutsScreen() {
                             }
                             className="w-8 h-8 rounded-lg bg-zinc-200 dark:bg-zinc-800 items-center justify-center border border-zinc-300 dark:border-zinc-700"
                           >
-                            <PencilSimple
-                              size={14}
-                              color={isDark ? "#ffffff" : "#1b1b1d"}
-                              weight="bold"
-                            />
+                            <PencilSimple size={14} color={isDark ? "#ffffff" : "#1b1b1d"} weight="bold" />
                           </TouchableOpacity>
 
                           <TouchableOpacity
-                            onPress={() =>
-                              handleDeleteCustomWorkout(
-                                workout.id,
-                                workout.title
-                              )
-                            }
+                            onPress={() => handleDeleteCustomWorkout(workout.id, workout.title)}
                             disabled={deleteWorkoutMutation.isPending}
                             className="w-8 h-8 rounded-lg bg-red-500/10 items-center justify-center border border-red-500/20"
                           >
@@ -574,9 +529,7 @@ export default function MyWorkoutsScreen() {
                         activeOpacity={0.8}
                       >
                         <PlayCircle size={16} color="#FFFFFF" weight="bold" />
-                        <Text className="text-xs font-sans-bold text-white">
-                          Iniciar
-                        </Text>
+                        <Text className="text-xs font-sans-bold text-white">Iniciar</Text>
                       </TouchableOpacity>
                     </View>
                   </View>
@@ -587,7 +540,7 @@ export default function MyWorkoutsScreen() {
         )}
       </ScrollView>
 
-      {/* MODAL DE PRÉ-VISUALIZAÇÃO */}
+      {/* MODAL DE DETALHES */}
       <Modal
         visible={!!selectedWorkoutForDetails}
         transparent
@@ -599,10 +552,7 @@ export default function MyWorkoutsScreen() {
             <View className="flex-row items-center justify-between mb-4">
               <View className="flex-row items-center flex-1 mr-2">
                 <Barbell size={24} color="#59C83A" weight="bold" />
-                <Text
-                  className="text-lg font-outfit-extrabold text-[#1b1b1d] dark:text-white ml-2 flex-1"
-                  numberOfLines={1}
-                >
+                <Text className="text-lg font-outfit-extrabold text-[#1b1b1d] dark:text-white ml-2 flex-1" numberOfLines={1}>
                   {selectedWorkoutForDetails?.title}
                 </Text>
               </View>
@@ -615,32 +565,20 @@ export default function MyWorkoutsScreen() {
               </TouchableOpacity>
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false} className="space-y-4">
+            <ScrollView showsVerticalScrollIndicator={false}>
               <View className="bg-[#f8f9fa] dark:bg-zinc-950 p-4 rounded-2xl border border-[#e2dfe1] dark:border-zinc-800 mb-4">
                 <View className="flex-row items-center justify-between mb-2">
-                  <Text className="text-xs font-sans-medium text-[#71717a] dark:text-zinc-400">
-                    Dias da Semana:
-                  </Text>
-                  <Text className="text-xs font-sans-bold text-[#59C83A]">
-                    {selectedWorkoutForDetails?.day_of_week}
-                  </Text>
+                  <Text className="text-xs font-sans-medium text-[#71717a] dark:text-zinc-400">Dias da Semana:</Text>
+                  <Text className="text-xs font-sans-bold text-[#59C83A]">{selectedWorkoutForDetails?.day_of_week}</Text>
                 </View>
-
                 <View className="flex-row items-center justify-between mb-2">
-                  <Text className="text-xs font-sans-medium text-[#71717a] dark:text-zinc-400">
-                    Origem do Treino:
-                  </Text>
+                  <Text className="text-xs font-sans-medium text-[#71717a] dark:text-zinc-400">Origem:</Text>
                   <Text className="text-xs font-sans-bold text-[#1b1b1d] dark:text-white">
-                    {selectedWorkoutForDetails?.type === "personal"
-                      ? "Prescrito pelo Personal"
-                      : "Personalizado"}
+                    {selectedWorkoutForDetails?.type === "personal" ? "Prescrito pelo Personal" : "Personalizado"}
                   </Text>
                 </View>
-
                 <View className="pt-2 border-t border-[#e2dfe1] dark:border-zinc-800/80">
-                  <Text className="text-[11px] font-sans-bold text-[#71717a] dark:text-zinc-400 mb-1">
-                    Objetivo / Descrição:
-                  </Text>
+                  <Text className="text-[11px] font-sans-bold text-[#71717a] dark:text-zinc-400 mb-1">Objetivo / Descrição:</Text>
                   <Text className="text-xs font-sans-medium text-[#1b1b1d] dark:text-zinc-300 leading-relaxed">
                     {selectedWorkoutForDetails?.subtitle}
                   </Text>
@@ -648,16 +586,11 @@ export default function MyWorkoutsScreen() {
               </View>
 
               <View className="mb-2">
-                <Text className="text-sm font-outfit text-[#1b1b1d] dark:text-white mb-3">
-                  Exercícios da Ficha
-                </Text>
-
+                <Text className="text-sm font-outfit text-[#1b1b1d] dark:text-white mb-3">Exercícios da Ficha</Text>
                 {isLoadingExercises ? (
                   <View className="py-6 items-center">
                     <ActivityIndicator size="small" color="#59C83A" />
-                    <Text className="text-xs font-sans-medium text-[#71717a] dark:text-zinc-400 mt-2">
-                      Carregando exercícios...
-                    </Text>
+                    <Text className="text-xs font-sans-medium text-[#71717a] dark:text-zinc-400 mt-2">Carregando exercícios...</Text>
                   </View>
                 ) : exercisesForDetails.length === 0 ? (
                   <Text className="text-xs font-sans-medium text-[#71717a] dark:text-zinc-400 text-center py-4">
@@ -671,35 +604,17 @@ export default function MyWorkoutsScreen() {
                     >
                       <View className="flex-row items-center flex-1 mr-2">
                         <View className="w-6 h-6 rounded-full bg-[#59C83A]/20 items-center justify-center mr-2.5">
-                          <Text className="text-[11px] font-outfit text-[#59C83A]">
-                            {idx + 1}
-                          </Text>
+                          <Text className="text-[11px] font-outfit text-[#59C83A]">{idx + 1}</Text>
                         </View>
                         <View className="flex-1">
-                          <Text
-                            className="text-xs font-outfit text-[#1b1b1d] dark:text-white"
-                            numberOfLines={1}
-                          >
-                            {exercise.name}
-                          </Text>
-                          {exercise.category ? (
-                            <Text className="text-[10px] font-sans-bold text-[#59C83A] mt-0.5">
-                              {exercise.category}
-                            </Text>
-                          ) : null}
+                          <Text className="text-xs font-outfit text-[#1b1b1d] dark:text-white" numberOfLines={1}>{exercise.name}</Text>
+                          {exercise.category && <Text className="text-[10px] font-sans-bold text-[#59C83A] mt-0.5">{exercise.category}</Text>}
                         </View>
                       </View>
-
                       <View className="flex-row items-center gap-2">
-                        <Text className="text-[11px] font-sans-bold text-[#59C83A]">
-                          {exercise.sets}x
-                        </Text>
-                        <Text className="text-[11px] font-sans-medium text-[#71717a] dark:text-zinc-400">
-                          {exercise.reps} reps
-                        </Text>
-                        <Text className="text-[11px] font-sans-bold text-[#1b1b1d] dark:text-zinc-300 ml-1">
-                          ({exercise.weight})
-                        </Text>
+                        <Text className="text-[11px] font-sans-bold text-[#59C83A]">{exercise.sets}x</Text>
+                        <Text className="text-[11px] font-sans-medium text-[#71717a] dark:text-zinc-400">{exercise.reps} reps</Text>
+                        <Text className="text-[11px] font-sans-bold text-[#1b1b1d] dark:text-zinc-300 ml-1">({exercise.weight})</Text>
                       </View>
                     </View>
                   ))
@@ -707,22 +622,14 @@ export default function MyWorkoutsScreen() {
               </View>
             </ScrollView>
 
-            <View
-              className="pt-4 border-t border-[#e2dfe1] dark:border-zinc-800 mt-2"
-              style={{ paddingBottom: safeBottomPadding }}
-            >
+            <View className="pt-4 border-t border-[#e2dfe1] dark:border-zinc-800 mt-2" style={{ paddingBottom: safeBottomPadding }}>
               <TouchableOpacity
-                onPress={() =>
-                  selectedWorkoutForDetails &&
-                  handleOpenWorkout(selectedWorkoutForDetails)
-                }
+                onPress={() => selectedWorkoutForDetails && handleOpenWorkout(selectedWorkoutForDetails)}
                 style={{ backgroundColor: "#59C83A" }}
                 className="py-3.5 rounded-2xl items-center flex-row justify-center shadow-md active:opacity-90"
               >
                 <PlayCircle size={18} color="#FFFFFF" weight="bold" />
-                <Text className="text-white font-outfit text-sm ml-2">
-                  Iniciar Este Treino Agora
-                </Text>
+                <Text className="text-white font-outfit text-sm ml-2">Iniciar Este Treino Agora</Text>
               </TouchableOpacity>
             </View>
           </View>

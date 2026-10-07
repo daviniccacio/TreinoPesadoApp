@@ -1,9 +1,8 @@
 // ============================================================================
-// DOCUMENTAÇÃO: ROOT LAYOUT COMPLETO (SISTEMA ENTERPRISE COM TIMER GLOBAL)
+// DOCUMENTAÇÃO: ROOT LAYOUT ENTERPRISE (PROTEÇÃO DE ROTAS SEM LOOPS)
 // ============================================================================
-// Gerencia autenticação via Supabase, fontes, cache TanStack Query, tema global,
-// verificação de perfil, direcionamento de rotas, push notifications,
-// monitoramento de rede, resiliência contra erros e temporizador flutuante.
+// Gerencia a autenticação local, tema global, cache TanStack Query,
+// notificações push, temporizador e redirecionamento seguro por papéis.
 // ============================================================================
 
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -42,16 +41,17 @@ import {
 
 import * as Notifications from 'expo-notifications';
 import { registerForPushNotificationsAsync } from '../lib/notifications';
-import { supabase } from '../lib/supabase';
+import { api } from '../services/api';
 
-// IMPORTAÇÃO DOS PROVEDORES DE CONTEXTO E COMPONENTES
+// IMPORTAÇÃO DOS PROVEDORES DE CONTEXTO E COMPONENTES ENTERPRISE
 import { ThemeProvider as AppThemeProvider, useTheme } from '../context/ThemeContext';
-import { TimerProvider } from '../context/TimerContext'; // 🟢 CONTEXTO GLOBAL DO TIMER
-import { FloatingTimer } from '../components/FloatingTimer'; // 🟢 WIDGET FLUTUANTE
+import { TimerProvider } from '../context/TimerContext';
+import { FloatingTimer } from '../components/FloatingTimer';
 import { AppEntranceLoading } from '../components/AppLoaders';
 import { OfflineBanner } from '../components/OfflineBanner';
 import { GlobalErrorBoundary } from '../components/ErrorBoundary';
 import { TermsAndPrivacyModal } from '../components/TermsAndPrivacyModal';
+import { AuthProvider, useAuth } from '../context/AuthContext';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -98,16 +98,15 @@ interface UserProfile {
 }
 
 function RootLayoutContent() {
-  const [session, setSession] = useState<any>(null);
+  const { user, isLoadingAuth, signOut } = useAuth();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [isReady, setIsReady] = useState<boolean>(false);
   const [isProfileLoading, setIsProfileLoading] = useState<boolean>(false);
   const [networkError, setNetworkError] = useState<boolean>(false);
 
-  // Estado do término do Splash Screen
+  // Controle de término da tela de apresentação (Entrance Loading)
   const [isEntranceFinished, setIsEntranceFinished] = useState<boolean>(false);
 
-  // ESTADO PARA CONTROLAR O MODAL DE TERMOS E PRIVACIDADE (LGPD)
+  // Modal LGPD (Termos de Uso)
   const [showTermsModal, setShowTermsModal] = useState<boolean>(false);
 
   const [fontsLoaded, fontError] = useFonts({
@@ -128,25 +127,17 @@ function RootLayoutContent() {
     SystemUI.setBackgroundColorAsync(backgroundColor);
   }, [isDark, backgroundColor]);
 
-  // ESCUTA ATIVA DE NOTIFICAÇÕES (RECEBIMENTO E CLIQUE)
+  // ESCUTA DE NOTIFICAÇÕES PUSH
   useEffect(() => {
     const notificationListener = Notifications.addNotificationReceivedListener(
       (notification) => {
-        console.log(
-          '🔔 [PUSH RECEBIDO EM PRIMEIRO PLANO]:',
-          notification.request.content.title,
-          '-',
-          notification.request.content.body
-        );
+        console.log('🔔 [PUSH RECEBIDO]:', notification.request.content.title);
       }
     );
 
     const responseListener = Notifications.addNotificationResponseReceivedListener(
       (response) => {
-        console.log(
-          '👆 [USUÁRIO CLICOU NA NOTIFICAÇÃO]:',
-          response.notification.request.content.data
-        );
+        console.log('👆 [PUSH CLICADO]:', response.notification.request.content.data);
       }
     );
 
@@ -156,67 +147,9 @@ function RootLayoutContent() {
     };
   }, []);
 
-  // ETAPA 1: VALIDAÇÃO DA SESSÃO INICIAL COM DIAGNÓSTICO
-  useEffect(() => {
-    async function validateAuthOnServer() {
-      try {
-        const {
-          data: { session: cachedSession },
-        } = await supabase.auth.getSession();
-
-        if (cachedSession) {
-          console.log('--------------------------------------------------');
-          console.log('🔥 [BOOT DO APP] SESSÃO LOCAL RECUPERADA!');
-          console.log('👤 USUÁRIO LOGADO:', cachedSession.user.email);
-          console.log('--------------------------------------------------');
-          setSession(cachedSession);
-        } else {
-          console.log('--------------------------------------------------');
-          console.log('🔒 [BOOT DO APP] NENHUMA SESSÃO LOCAL ENCONTRADA');
-          console.log('--------------------------------------------------');
-          setSession(null);
-        }
-      } catch (err) {
-        console.error('⚠️ Erro ao verificar sessão inicial:', err);
-      } finally {
-        setIsReady(true);
-      }
-    }
-
-    validateAuthOnServer();
-
-    // Escuta alterações na autenticação (Login, Logout, Refresh, Recovery)
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      async (event, currentSession) => {
-        console.log('🔄 [AUTH EVENT]:', event, '| Usuário:', currentSession?.user?.email ?? 'Sem sessão');
-
-        queryClient.clear();
-
-        if (event === 'PASSWORD_RECOVERY') {
-          setSession(currentSession);
-          setIsReady(true);
-          router.replace('/(auth)/reset-password' as any);
-          return;
-        }
-
-        if (event === 'SIGNED_OUT' || !currentSession) {
-          setSession(null);
-          setUserProfile(null);
-        } else {
-          setSession(currentSession);
-        }
-        setIsReady(true);
-      }
-    );
-
-    return () => {
-      authListener.subscription.unsubscribe();
-    };
-  }, []);
-
-  // ETAPA 2: BUSCA DO PERFIL NO SUPABASE
+  // 🟢 BUSCA DO PERFIL NA API DA VPS
   async function fetchUserProfile() {
-    if (!session?.user?.id) {
+    if (!user?.id) {
       setUserProfile(null);
       return;
     }
@@ -225,122 +158,103 @@ function RootLayoutContent() {
     setNetworkError(false);
 
     try {
-      const { data: profile, error } = await supabase
-        .from('profiles')
-        .select('role, is_blocked, accepted_terms')
-        .eq('id', session.user.id)
-        .single();
+      const response = await api.get<UserProfile>(`/api/profiles/me?userId=${user.id}`);
+      const profile = response.data;
 
-      if (error) {
-        console.error('Erro ao verificar perfil do usuário:', error.message);
-        setNetworkError(true);
-      } else if (profile) {
-        setUserProfile(profile as UserProfile);
-        if (!profile.accepted_terms) {
-          setShowTermsModal(true);
-        } else {
-          setShowTermsModal(false);
-        }
+      if (profile) {
+        setUserProfile(profile);
+        setShowTermsModal(!profile.accepted_terms);
       }
-    } catch (err) {
-      console.error('Erro de conexão ao buscar perfil:', err);
+    } catch (err: any) {
+      console.error('⚠️ [VPS] Erro ao buscar perfil na VPS:', err.message);
       setNetworkError(true);
     } finally {
       setIsProfileLoading(false);
     }
   }
 
+  // REGISTRO DE ACEITE DOS TERMOS LGPD
   async function handleAcceptTerms() {
-    if (!session?.user?.id) return;
+    if (!user?.id) return;
 
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ accepted_terms: true })
-        .eq('id', session.user.id);
-
-      if (error) {
-        Alert.alert('Erro', 'Não foi possível registrar o aceite. Tente novamente.');
-        return;
-      }
-
+      await api.put('/api/profiles/accept-terms', { userId: user.id });
       setShowTermsModal(false);
       setUserProfile((prev) => (prev ? { ...prev, accepted_terms: true } : null));
-    } catch (err) {
-      console.error('Erro ao salvar aceite dos termos:', err);
+    } catch (err: any) {
+      Alert.alert('Erro', 'Não foi possível registrar o aceite. Tente novamente.');
     }
   }
 
+  // BUSCA PERFIL QUANDO O USUÁRIO MUDA
   useEffect(() => {
-    if (session?.user?.id) {
+    if (user?.id) {
       fetchUserProfile();
+    } else {
+      setUserProfile(null);
+      setIsProfileLoading(false);
     }
-  }, [session?.user?.id]);
+  }, [user?.id]);
 
-  // REGISTRO DO PUSH TOKEN NO SUPABASE QUANDO LOGADO
+  // REGISTRA PUSH TOKEN NO BACKEND
   useEffect(() => {
-    if (session?.user?.id) {
-      registerForPushNotificationsAsync(session.user.id);
+    if (user?.id) {
+      registerForPushNotificationsAsync(user.id);
     }
-  }, [session]);
+  }, [user?.id]);
 
-  // ETAPA 3: PROTEÇÃO GLOBAL DE ROTAS
+  // 🟢 PROTEÇÃO GLOBAL DE ROTAS (PROTEGIDA CONTRA LOOPS INFINITOS)
   useEffect(() => {
-    if (!isReady || (!fontsLoaded && !fontError) || isProfileLoading) return;
+    if (isLoadingAuth || (!fontsLoaded && !fontError) || isProfileLoading) return;
 
     const routeSegments = segments as string[];
+    const fullPath = routeSegments.join('/');
     const rootGroup = routeSegments[0];
-    const subGroup = routeSegments[1];
 
+    // Ignora redirecionamento se o usuário estiver em rotas de recuperação de senha
     const isRecoveryRoute =
-      routeSegments.includes('reset-password') ||
-      routeSegments.includes('verify-otp') ||
-      routeSegments.includes('forgot-password');
+      fullPath.includes('reset-password') ||
+      fullPath.includes('verify-otp') ||
+      fullPath.includes('forgot-password');
 
-    if (isRecoveryRoute) {
-      return;
-    }
+    if (isRecoveryRoute) return;
 
-    if (!session) {
+    // 1. Se NÃO houver usuário logado
+    if (!user) {
       if (rootGroup !== '(auth)') {
         router.replace('/(auth)/login');
       }
       return;
     }
 
+    // 2. Se o perfil ainda não tiver sido carregado da VPS
     if (!userProfile) return;
 
+    // 3. Se o usuário estiver bloqueado pelo administrador
     if (userProfile.is_blocked) {
-      supabase.auth.signOut();
-      setSession(null);
+      signOut();
       setUserProfile(null);
-      Alert.alert(
-        'Acesso Suspenso',
-        'Sua conta foi bloqueada pelo administrador do sistema.'
-      );
+      Alert.alert('Acesso Suspenso', 'Sua conta foi bloqueada pelo administrador.');
       router.replace('/(auth)/login');
       return;
     }
 
-    if (userProfile.role === 'admin') {
-      if (rootGroup !== '(app)' || subGroup !== '(admin)') {
-        router.replace('/(app)/(admin)' as any);
-      }
-    } else if (userProfile.role === 'personal') {
-      if (rootGroup !== '(app)' || subGroup !== '(personal)') {
-        router.replace('/(app)/(personal)' as any);
-      }
-    } else {
-      if (rootGroup !== '(app)' || subGroup !== '(aluno)') {
-        router.replace('/(app)/(aluno)' as any);
-      }
+    // 4. Redirecionamento seguro baseado no papel (Role) sem disparos repetidos
+    const userRole = userProfile.role || 'aluno';
+
+    if (userRole === 'admin' && !fullPath.includes('(admin)')) {
+      router.replace('/(app)/(admin)' as any);
+    } else if (userRole === 'personal' && !fullPath.includes('(personal)')) {
+      router.replace('/(app)/(personal)' as any);
+    } else if (userRole === 'aluno' && !fullPath.includes('(aluno)')) {
+      router.replace('/(app)/(aluno)' as any);
     }
-  }, [session, userProfile, isReady, isProfileLoading, fontsLoaded, fontError, segments]);
+  }, [user, userProfile, isLoadingAuth, isProfileLoading, fontsLoaded, fontError, segments]);
 
   const isBootFinished = Boolean(
-    isReady &&
+    !isLoadingAuth &&
     (fontsLoaded || !!fontError) &&
-    (!session || !isProfileLoading || !!userProfile)
+    (!user || !isProfileLoading || !!userProfile)
   );
 
   if (networkError && !userProfile) {
@@ -350,7 +264,7 @@ function RootLayoutContent() {
           Falha de Conexão com o Servidor
         </Text>
         <Text className="text-xs font-sans-medium text-zinc-400 mb-6 text-center">
-          Não foi possível verificar suas permissões devido a um tempo limite de rede (Gateway Timeout).
+          Não foi possível verificar suas permissões na VPS.
         </Text>
         <TouchableOpacity
           onPress={fetchUserProfile}
@@ -373,7 +287,6 @@ function RootLayoutContent() {
 
   return (
     <SafeAreaProvider style={{ flex: 1, backgroundColor }}>
-      {/* BANNER DE INTERNET MONITORA A CONEXÃO EM TEMPO REAL */}
       <OfflineBanner />
 
       <NavigationThemeProvider value={isDark ? CustomDarkTheme : CustomLightTheme}>
@@ -381,9 +294,7 @@ function RootLayoutContent() {
           screenOptions={{
             headerShown: false,
             animation: 'fade',
-            contentStyle: {
-              backgroundColor,
-            },
+            contentStyle: { backgroundColor },
           }}
         >
           <Stack.Screen name="index" options={{ style: { backgroundColor } } as any} />
@@ -392,10 +303,8 @@ function RootLayoutContent() {
         </Stack>
       </NavigationThemeProvider>
 
-      {/* 🟢 WIDGET FLUTUANTE DO CRONÔMETRO EXIBIDO EM QUALQUER TELA QUANDO ATIVO */}
       <FloatingTimer />
 
-      {/* MODAL DE CONFORMIDADE LGPD */}
       <TermsAndPrivacyModal
         visible={showTermsModal}
         isDark={isDark}
@@ -406,17 +315,18 @@ function RootLayoutContent() {
 }
 
 // ============================================================================
-// EXPORTAÇÃO PRINCIPAL DO ROOT LAYOUT COM O TIMERPROVIDER INTEGRADO
+// EXPORTAÇÃO PRINCIPAL DO ROOT LAYOUT COM AUTHPROVIDER INTEGRADO
 // ============================================================================
 export default function RootLayout() {
   return (
     <GlobalErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <AppThemeProvider>
-          {/* 🟢 O TIMERPROVIDER PROVE O ESTADO DO TEMPORIZADOR PARA O APP TODO */}
-          <TimerProvider>
-            <RootLayoutContent />
-          </TimerProvider>
+          <AuthProvider>
+            <TimerProvider>
+              <RootLayoutContent />
+            </TimerProvider>
+          </AuthProvider>
         </AppThemeProvider>
       </QueryClientProvider>
     </GlobalErrorBoundary>

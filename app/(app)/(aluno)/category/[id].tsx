@@ -1,9 +1,8 @@
 // ============================================================================
-// DOCUMENTAÇÃO: TELA DE EXERCÍCIOS POR CATEGORIA (ÁREA DO ALUNO)
+// DOCUMENTAÇÃO: TELA DE EXERCÍCIOS POR CATEGORIA (OTIMIZADA PARA A VPS)
 // ============================================================================
-// Exibe a lista de exercícios cadastrados para uma categoria específica,
-// com suporte a busca local, animação de entrada, Pull-to-Refresh e
-// mapeamento correto de nomes formatados com acentuação.
+// Exibe a lista de exercícios com cache persistente no TanStack Query para
+// evitar telas vazias por atraso de resposta (Cold Start) da VPS.
 // ============================================================================
 
 import React, { useState } from 'react';
@@ -28,13 +27,9 @@ import {
 } from 'phosphor-react-native';
 import { useQuery } from '@tanstack/react-query';
 import { MotiView } from 'moti';
-import { supabase } from '../../../../lib/supabase';
 
-// ============================================================================
-// DICIONÁRIO DE MAPEAMENTO DE CATEGORIAS
-// ============================================================================
-// Converte as chaves técnicas do banco de dados nos nomes formatados com acentos.
-// ============================================================================
+import { api } from '../../../../services/api';
+
 const CATEGORY_MAP: Record<string, string> = {
   gluteo: 'Glúteos',
   peito: 'Peitoral',
@@ -47,7 +42,6 @@ const CATEGORY_MAP: Record<string, string> = {
   cardio: 'Cardio',
   alongamentos: 'Alongamentos',
   'pernas-posterior': 'Posterior de Pernas',
-
 };
 
 interface Exercise {
@@ -60,21 +54,26 @@ interface Exercise {
 }
 
 /**
- * Função de busca dos exercícios de uma categoria específica no Supabase
+ * Busca os exercícios na VPS com tratamento robusto de falhas
  */
 async function fetchExercisesByCategory(categoryId: string): Promise<Exercise[]> {
   if (!categoryId) return [];
 
-  const { data, error } = await supabase
-    .from('exercises')
-    .select('*')
-    .eq('category_id', categoryId);
+  const response = await api.get('/api/exercises');
+  const allExercises = response.data || [];
 
-  if (error) {
-    throw new Error(error.message);
-  }
+  const filtered = allExercises.filter(
+    (ex: any) => String(ex.category_id || '').toLowerCase() === categoryId.toLowerCase()
+  );
 
-  return (data || []) as Exercise[];
+  return filtered.map((item: any) => ({
+    id: item.id,
+    name: item.name || item.exercise_name || 'Exercício',
+    sets: item.sets || 3,
+    reps: item.reps || '10-12',
+    weight: item.weight || 'Carga livre',
+    category_id: item.category_id || categoryId,
+  }));
 }
 
 export default function CategoryScreen() {
@@ -86,6 +85,7 @@ export default function CategoryScreen() {
 
   const [searchQuery, setSearchQuery] = useState<string>('');
 
+  // 🟢 CONFIGURAÇÃO OTIMIZADA DO TANSTACK QUERY (CACHE PERSISTENTE)
   const {
     data: exercises = [],
     isLoading,
@@ -96,13 +96,12 @@ export default function CategoryScreen() {
     queryKey: ['category-exercises', id],
     queryFn: () => fetchExercisesByCategory(id || ''),
     enabled: !!id,
+    staleTime: 1000 * 60 * 10, // Mantém os dados frescos por 10 minutos
+    gcTime: 1000 * 60 * 30,    // Mantém em cache por 30 minutos na memória
+    retry: 3,                  // Tenta reconectar até 3 vezes se a VPS estiver a acordar
+    retryDelay: 1000,          // Intervalo de 1 segundo entre as tentativas
   });
 
-  // ============================================================================
-  // TRATAMENTO DO TÍTULO DA CATEGORIA
-  // ============================================================================
-  // Busca o nome formatado no dicionário. Se não encontrar, apenas capitaliza.
-  // ============================================================================
   const categoryTitle = React.useMemo(() => {
     if (!id) return 'Categoria';
     const normalizedKey = id.toLowerCase().trim();
@@ -124,7 +123,7 @@ export default function CategoryScreen() {
           type: 'spring',
           damping: 22,
           stiffness: 150,
-          delay: index * 40, // Cascata ritmada por card
+          delay: index * 40,
         }}
       >
         <TouchableOpacity
@@ -138,12 +137,10 @@ export default function CategoryScreen() {
           activeOpacity={0.8}
         >
           <View className="flex-1 mr-3">
-            {/* Nome do Exercício em Outfit Bold */}
             <Text className="text-base font-outfit text-[#1b1b1d] dark:text-white mb-1">
               {item.name}
             </Text>
 
-            {/* Detalhes de Séries, Repetições e Carga em DM Sans */}
             <View className="flex-row items-center gap-3">
               <Text className="text-xs font-sans-medium text-[#414755] dark:text-zinc-400">
                 <Text style={{ color: '#59C83A' }} className="font-sans-bold">
@@ -179,11 +176,7 @@ export default function CategoryScreen() {
       <MotiView
         from={{ opacity: 0, translateY: -8 }}
         animate={{ opacity: 1, translateY: 0 }}
-        transition={{
-          type: 'spring',
-          damping: 24,
-          stiffness: 160,
-        }}
+        transition={{ type: 'spring', damping: 24, stiffness: 160 }}
         className="flex-row items-center justify-between px-5 py-3 border-b border-[#f0edef] dark:border-zinc-800"
       >
         <TouchableOpacity
@@ -194,7 +187,6 @@ export default function CategoryScreen() {
           <ArrowLeft size={20} color={isDark ? '#59C83A' : '#1b1b1d'} />
         </TouchableOpacity>
 
-        {/* Título da Categoria Formatado */}
         <Text className="text-lg font-outfit text-[#1b1b1d] dark:text-white">
           {categoryTitle}
         </Text>
@@ -207,7 +199,7 @@ export default function CategoryScreen() {
         <View className="flex-1 justify-center items-center">
           <ActivityIndicator size="large" color="#59C83A" />
           <Text className="mt-3 text-[#414755] dark:text-zinc-400 font-sans-medium text-xs">
-            Carregando exercícios...
+            A conectar com o servidor e carregar exercícios...
           </Text>
         </View>
       ) : isError ? (
@@ -248,19 +240,13 @@ export default function CategoryScreen() {
             <MotiView
               from={{ opacity: 0, translateY: 10 }}
               animate={{ opacity: 1, translateY: 0 }}
-              transition={{
-                type: 'spring',
-                damping: 22,
-                stiffness: 150,
-                delay: 30,
-              }}
+              transition={{ type: 'spring', damping: 22, stiffness: 150, delay: 30 }}
               className="mb-4"
             >
               <Text className="text-xl font-outfit-extrabold text-[#1b1b1d] dark:text-white mb-3">
                 Exercícios Disponíveis
               </Text>
 
-              {/* Campo de Busca por Exercício */}
               <View className="bg-[#f8f9fa] dark:bg-zinc-900 flex-row items-center px-4 py-2.5 rounded-2xl border border-[#e2dfe1] dark:border-zinc-800">
                 <MagnifyingGlass size={18} color={isDark ? '#59C83A' : '#414755'} />
                 <TextInput

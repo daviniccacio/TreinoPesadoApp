@@ -1,33 +1,22 @@
 // ============================================================================
-// DOCUMENTAÇÃO: CLIENTE DE API HTTP PARA A VPS ORACLE CLOUD
+// DOCUMENTAÇÃO: CLIENTE DE API HTTP (SERVICES/API.TS)
 // ============================================================================
-// Fornece uma instância configurada do Axios para realizar requisições para a
-// API Express na VPS e métodos auxiliares para consultar os dados de treinos.
+// Configura a instância do Axios apontando para a porta raiz da VPS na
+// Oracle Cloud, evitando duplicação do prefixo /api nas requisições.
 // ============================================================================
 
 import axios from 'axios';
 
-// Obtém a URL da VPS configurada no .env ou utiliza o IP fixo como fallback
+// URL raiz da VPS na Oracle Cloud (porta 3000)
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://163.176.233.145:3000';
 
-// Instância do Axios pré-configurada
+// Remove a barra ou sufixo /api caso tenha sido inserido por engano no .env
+const cleanBaseURL = API_URL.replace(/\/api\/?$/, '').replace(/\/$/, '');
+
 export const api = axios.create({
-  baseURL: `${API_URL}/api`,
-  timeout: 10000, // Tempo limite de resposta de 10 segundos
+  baseURL: cleanBaseURL,
+  timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
   },
 });
-
-/**
- * Consulta a lista completa de exercícios na base de dados PostgreSQL da VPS
- */
-export async function getExercisesFromVPS() {
-  try {
-    const response = await api.get('/exercises');
-    return response.data;
-  } catch (error) {
-    console.error('❌ Erro ao buscar exercícios na VPS:', error);
-    throw error;
-  }
-}

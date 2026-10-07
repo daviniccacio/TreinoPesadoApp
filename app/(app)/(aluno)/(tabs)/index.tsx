@@ -1,8 +1,8 @@
 // ============================================================================
-// DOCUMENTAÇÃO: TELA INICIAL / HOME (ÁREA DO ALUNO)
+// DOCUMENTAÇÃO: TELA INICIAL / HOME (ÁREA DO ALUNO - COM IMAGENS POR CATEGORIA)
 // ============================================================================
-// Apresenta a saudação personalizada ao aluno, atalho rápido para criação de
-// treinos e a grade de grupos musculares para navegação nas categorias.
+// Apresenta a saudação ao aluno, atalho rápido para treinos e a grade de 
+// grupos musculares com imagens ilustrativas dinâmicas e individualizadas.
 // ============================================================================
 
 import React from "react";
@@ -21,9 +21,11 @@ import { Plus, CaretRight } from "phosphor-react-native";
 import { useQuery } from "@tanstack/react-query";
 import { MotiView } from "moti";
 import { Image } from "expo-image";
-import { supabase } from "../../../../lib/supabase";
 
-// --- TIPAGENS DE DADOS ---
+// IMPORTAÇÃO DA API DA VPS E DO CONTEXTO DE AUTENTICAÇÃO
+import { api } from "../../../../services/api";
+import { useAuth } from "../../../../context/AuthContext";
+
 interface Category {
   id: string;
   title: string;
@@ -35,43 +37,69 @@ interface StudentHomeData {
   categories: Category[];
 }
 
-const FALLBACK_IMAGE =
-  "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=600";
+// 🟢 DICIONÁRIO DE IMAGENS ILUSTRATIVAS PARA CADA GRUPO MUSCULAR
+const CATEGORY_IMAGES: Record<string, string> = {
+  PEITO: "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?q=80&w=600",
+  COSTAS: "https://images.unsplash.com/photo-1603287681836-b174ce5074c2?q=80&w=600",
+  PERNAS: "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=600",
+  OMBROS: "https://images.unsplash.com/photo-1532029835096-1e102a450536?q=80&w=600",
+  BICEPS: "https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?q=80&w=600",
+  TRICEPS: "https://images.unsplash.com/photo-1530822847156-5df68365db1c?q=80&w=600",
+  ABDOMEN: "https://images.unsplash.com/photo-1517838277536-f5f99be501cd?q=80&w=600",
+  CARDIO: "https://images.unsplash.com/photo-1538805060514-97d9cc17730c?q=80&w=600",
+  DEFAULT: "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=600",
+};
 
 /**
- * Busca o primeiro nome do aluno e as categorias cadastradas no Supabase
+ * Busca o nome do perfil do aluno na VPS e monta a lista de categorias com imagens exclusivas
  */
-async function fetchStudentHomeData(): Promise<StudentHomeData> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
+async function fetchStudentHomeData(userId?: string): Promise<StudentHomeData> {
   let userName = "Atleta";
 
-  if (user) {
-    const { data: profile, error } = await supabase
-      .from("profiles")
-      .select("full_name")
-      .eq("id", user.id)
-      .maybeSingle();
+  try {
+    if (userId) {
+      const profileRes = await api.get(`/api/profiles/me?userId=${userId}`);
+      const profile = profileRes.data;
 
-    if (error) {
-      console.log("Erro ao buscar perfil do aluno:", error.message);
+      if (profile?.name || profile?.full_name) {
+        const fullName = profile.name || profile.full_name;
+        userName = fullName.trim().split(" ")[0];
+      }
     }
-
-    if (profile?.full_name && profile.full_name.trim() !== "") {
-      userName = profile.full_name.trim().split(" ")[0];
-    }
+  } catch (err: any) {
+    console.error("⚠️ [Home] Erro ao buscar perfil na VPS:", err.message);
   }
 
-  const { data: categoriesData } = await supabase
-    .from("categories")
-    .select("*")
-    .order("title", { ascending: true });
+  let categories: Category[] = [];
+
+  try {
+    const categoriesRes = await api.get("/api/exercises");
+    const exercises = categoriesRes.data;
+
+    const uniqueMap = new Map();
+    if (Array.isArray(exercises)) {
+      exercises.forEach((ex: any) => {
+        const catId = (ex.category_id || "geral").toUpperCase();
+        if (!uniqueMap.has(catId)) {
+          // Seleciona a imagem correspondente ao grupo muscular ou usa a padrão
+          const imageUrl = CATEGORY_IMAGES[catId] || CATEGORY_IMAGES.DEFAULT;
+
+          uniqueMap.set(catId, {
+            id: ex.category_id || "geral",
+            title: catId,
+            image_url: imageUrl,
+          });
+        }
+      });
+      categories = Array.from(uniqueMap.values());
+    }
+  } catch (err: any) {
+    console.error("⚠️ [Home] Erro ao buscar categorias:", err.message);
+  }
 
   return {
     userName,
-    categories: (categoriesData || []) as Category[],
+    categories,
   };
 }
 
@@ -81,17 +109,20 @@ export default function HomeScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
 
+  const { user } = useAuth();
+
   const {
     data,
     isLoading,
     isRefetching,
     refetch,
   } = useQuery({
-    queryKey: ["student-home-data"],
-    queryFn: fetchStudentHomeData,
+    queryKey: ["student-home-data", user?.id],
+    queryFn: () => fetchStudentHomeData(user?.id),
+    enabled: !!user?.id,
   });
 
-  const userName = data?.userName || "Atleta";
+  const userName = data?.userName || user?.name?.split(" ")[0] || "Atleta";
   const categories = data?.categories || [];
   const safeTopPadding = Math.max(insets?.top || 0, 16);
 
@@ -103,7 +134,6 @@ export default function HomeScreen() {
       {isLoading ? (
         <View className="flex-1 justify-center items-center">
           <ActivityIndicator size="large" color="#59C83A" />
-          {/* Mensagem em DM Sans Medium */}
           <Text className="mt-3 text-[#71717a] dark:text-zinc-400 font-sans-medium text-xs">
             Carregando seus treinos...
           </Text>
@@ -111,7 +141,7 @@ export default function HomeScreen() {
       ) : (
         <ScrollView
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: 120 }} // Garante espaço para a Navbar Flutuante
+          contentContainerStyle={{ paddingBottom: 120 }}
           refreshControl={
             <RefreshControl
               refreshing={isRefetching}
@@ -125,18 +155,12 @@ export default function HomeScreen() {
           <MotiView
             from={{ opacity: 0, translateY: -10 }}
             animate={{ opacity: 1, translateY: 0 }}
-            transition={{
-              type: "spring",
-              damping: 18,
-              stiffness: 120,
-            }}
+            transition={{ type: "spring", damping: 18, stiffness: 120 }}
             className="my-3"
           >
-            {/* Título Principal em Outfit ExtraBold */}
             <Text className="text-xl font-outfit text-[#1b1b1d] dark:text-white tracking-tight">
               Treino Pesado Academia
             </Text>
-            {/* Saudação ao Aluno em DM Sans SemiBold */}
             <Text className="text-xs font-sans-semibold text-[#71717a] dark:text-zinc-400 mt-0.5">
               Bem-vindo, {userName}!
             </Text>
@@ -146,12 +170,7 @@ export default function HomeScreen() {
           <MotiView
             from={{ opacity: 0, scale: 0.94, translateY: 8 }}
             animate={{ opacity: 1, scale: 1, translateY: 0 }}
-            transition={{
-              type: "spring",
-              damping: 15,
-              stiffness: 130,
-              delay: 40,
-            }}
+            transition={{ type: "spring", damping: 15, stiffness: 130, delay: 40 }}
             className="mb-5"
           >
             <TouchableOpacity
@@ -164,11 +183,9 @@ export default function HomeScreen() {
                   <Plus size={20} color="#FFFFFF" weight="bold" />
                 </View>
                 <View className="flex-1">
-                  {/* Título do Banner em Outfit Bold */}
                   <Text className="text-sm font-outfit text-white">
                     Montar Meu Treino
                   </Text>
-                  {/* Subtítulo em DM Sans Medium */}
                   <Text className="text-[11px] font-sans-medium text-white/90">
                     Crie uma rotina personalizada
                   </Text>
@@ -178,12 +195,11 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </MotiView>
 
-          {/* Título da Seção em Outfit ExtraBold */}
           <Text className="text-sm font-outfit text-[#1b1b1d] dark:text-white mb-3">
             Grupos Musculares
           </Text>
 
-          {/* 3. GRADE DE CATEGORIAS */}
+          {/* 3. GRADE DE CATEGORIAS COM IMAGENS INDIVIDUALIZADAS */}
           <View className="flex-row flex-wrap justify-between">
             {categories.map((category, index) => (
               <MotiView
@@ -210,9 +226,8 @@ export default function HomeScreen() {
                   activeOpacity={0.8}
                   className="h-32 rounded-2xl overflow-hidden border border-[#e2dfe1] dark:border-zinc-800 bg-zinc-900 relative"
                 >
-                  {/* Imagem de Fundo da Categoria */}
                   <Image
-                    source={{ uri: category.image_url || FALLBACK_IMAGE }}
+                    source={{ uri: category.image_url }}
                     contentFit="cover"
                     transition={200}
                     style={{
@@ -223,17 +238,14 @@ export default function HomeScreen() {
                     }}
                   />
 
-                  {/* Textos sobrepostos */}
                   <View className="flex-1 justify-end p-3 bg-black/30">
-                    {/* Título da Categoria em Outfit Bold */}
                     <Text
-                      className="text font-outfit text-white"
+                      className="text-sm font-outfit text-white"
                       numberOfLines={1}
                     >
                       {category.title}
                     </Text>
                     <View className="flex-row items-center mt-0.5">
-                      {/* Texto de Ação em DM Sans Bold */}
                       <Text className="text-[10px] font-sans-bold text-white/80 mr-1">
                         Ver treinos
                       </Text>
