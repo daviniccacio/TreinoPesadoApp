@@ -8,7 +8,7 @@
 import axios from 'axios';
 
 // URL raiz da VPS na Oracle Cloud (porta 3000)
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://163.176.233.145:3000';
+const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
 
 // Remove a barra ou sufixo /api caso tenha sido inserido por engano no .env
 const cleanBaseURL = API_URL.replace(/\/api\/?$/, '').replace(/\/$/, '');
