@@ -1,8 +1,8 @@
 // ============================================================================
-// TELA DE GESTÃO DE ALUNOS (PERSONAL TRAINER)
+// DOCUMENTAÇÃO: TELA DE GESTÃO DE ALUNOS (PERSONAL TRAINER - INTEGRADA À VPS)
 // ============================================================================
 // Busca e exibe a lista de alunos vinculados ao Personal Trainer autenticado
-// com suporte a busca por nome e animações de interface.
+// através da API na VPS com suporte a busca por nome e animações.
 // ============================================================================
 
 import React, { useState } from 'react';
@@ -21,7 +21,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MagnifyingGlass, Users, CaretRight, X, Sparkle } from 'phosphor-react-native';
 import { useQuery } from '@tanstack/react-query';
 import { MotiView } from 'moti';
-import { supabase } from '../../../../lib/supabase';
+
+// IMPORTAÇÃO DA API DA VPS E DO CONTEXTO DE AUTENTICAÇÃO
+import { api } from '../../../../services/api';
+import { useAuth } from '../../../../context/AuthContext';
 
 interface Student {
   id: string;
@@ -30,34 +33,13 @@ interface Student {
 }
 
 /**
- * Busca estritamente os alunos vinculados ao ID do Personal Trainer autenticado
+ * Busca estritamente os alunos vinculados ao ID do Personal Trainer via API VPS
  */
-async function fetchMyStudents(): Promise<Student[]> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+async function fetchMyStudents(personalId?: string): Promise<Student[]> {
+  if (!personalId) return [];
 
-  if (!user) return [];
-
-  // 🟢 CORREÇÃO: Seleciona apenas as colunas existentes na tabela 'profiles' ('id', 'full_name', 'role')
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('id, full_name, role')
-    .eq('personal_id', user.id)
-    .order('created_at', { ascending: false });
-
-  if (error) {
-    console.error('Erro ao buscar alunos vinculados:', error.message);
-    throw new Error(error.message);
-  }
-
-  const formattedStudents = (data || []).map((item: any) => ({
-    id: item.id,
-    full_name: item.full_name || 'Aluno Sem Nome',
-    role: item.role,
-  }));
-
-  return formattedStudents as Student[];
+  const response = await api.get(`/api/personal/students/${personalId}`);
+  return (response.data || []) as Student[];
 }
 
 export default function PersonalStudentsScreen() {
@@ -65,10 +47,11 @@ export default function PersonalStudentsScreen() {
   const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
+  const { user } = useAuth(); // 🟢 OBTÉM O USUÁRIO DO CONTEXTO GLOBAL
 
   const [searchQuery, setSearchQuery] = useState('');
 
-  // --- CONSULTA TANSTACK QUERY ---
+  // --- CONSULTA TANSTACK QUERY CONECTADA À VPS ---
   const {
     data: students = [],
     isLoading,
@@ -77,8 +60,9 @@ export default function PersonalStudentsScreen() {
     isRefetching,
     refetch,
   } = useQuery({
-    queryKey: ['personal-students'],
-    queryFn: fetchMyStudents,
+    queryKey: ['personal-students', user?.id],
+    queryFn: () => fetchMyStudents(user?.id),
+    enabled: !!user?.id,
   });
 
   function getInitials(full_name: string) {
@@ -156,7 +140,7 @@ export default function PersonalStudentsScreen() {
       {isError && (
         <View className="bg-red-500/10 border border-red-500/30 p-3.5 rounded-2xl mb-4">
           <Text className="text-red-500 text-xs font-sans-bold text-center">
-            {error?.message || 'Erro ao carregar lista de alunos.'}
+            {(error as any)?.message || 'Erro ao carregar lista de alunos.'}
           </Text>
         </View>
       )}
@@ -217,7 +201,7 @@ export default function PersonalStudentsScreen() {
                 activeOpacity={0.7}
                 onPress={() => {
                   router.push({
-                    pathname: '/(personal)/student-detail',
+                    pathname: '/(personal)/student-detail' as any,
                     params: { id: item.id, full_name: item.full_name },
                   });
                 }}

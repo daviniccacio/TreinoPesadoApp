@@ -1,7 +1,7 @@
 // ============================================================================
-// DOCUMENTAÇÃO: CATÁLOGO DE CATEGORIAS DE EXERCÍCIOS (PERSONAL TRAINER)
+// DOCUMENTAÇÃO: CATÁLOGO DE CATEGORIAS DE EXERCÍCIOS (PERSONAL - INTEGRADO À VPS)
 // ============================================================================
-// Exibe uma grade (grid) de categorias de exercícios cadastradas no Supabase
+// Exibe uma grade (grid) de categorias de exercícios cadastradas na VPS
 // utilizando animações Moti, tipografia customizada e suporte a modo escuro.
 // ============================================================================
 
@@ -14,13 +14,16 @@ import {
   ActivityIndicator,
   useColorScheme,
 } from 'react-native';
+import { View as RNView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CaretRight } from 'phosphor-react-native';
 import { useQuery } from '@tanstack/react-query';
 import { MotiView } from 'moti';
-import { Image } from 'expo-image'; // 🟢 Otimizado para alta performance e cache de imagens
-import { supabase } from '../../../../lib/supabase';
+import { Image } from 'expo-image';
+
+// IMPORTAÇÃO DA API DA VPS
+import { api } from '../../../../services/api';
 
 // --- TIPAGENS DE DADOS ---
 interface Category {
@@ -30,16 +33,11 @@ interface Category {
 }
 
 /**
- * Busca todas as categorias de exercícios cadastradas no Supabase ordenadas por título
+ * Busca todas as categorias de exercícios cadastradas na API da VPS
  */
 async function fetchCategories(): Promise<Category[]> {
-  const { data, error } = await supabase
-    .from('categories')
-    .select('*')
-    .order('title');
-
-  if (error) throw new Error(error.message);
-  return (data || []) as Category[];
+  const response = await api.get('/api/categories');
+  return (response.data || []) as Category[];
 }
 
 export default function PersonalExercisesScreen() {
@@ -48,8 +46,8 @@ export default function PersonalExercisesScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
-  // --- CONSULTA COM TANSTACK QUERY ---
-  const { data: categories = [], isLoading } = useQuery({
+  // --- CONSULTA COM TANSTACK QUERY CONECTADA À VPS ---
+  const { data: categories = [], isLoading, isError } = useQuery({
     queryKey: ['categories-list'],
     queryFn: fetchCategories,
   });
@@ -57,7 +55,7 @@ export default function PersonalExercisesScreen() {
   const safeTopPadding = Math.max(insets?.top || 0, 16);
 
   return (
-    <View
+    <RNView
       className="flex-1 bg-white dark:bg-zinc-950"
       style={{ paddingTop: safeTopPadding }}
     >
@@ -72,11 +70,9 @@ export default function PersonalExercisesScreen() {
         }}
         className="px-5 py-4 border-b border-[#f0edef] dark:border-zinc-800"
       >
-        {/* Título com a fonte Outfit ExtraBold */}
         <Text className="text-2xl font-outfit-extrabold text-[#1b1b1d] dark:text-white">
           Catálogo de Exercícios
         </Text>
-        {/* Subtítulo com a fonte DM Sans Medium */}
         <Text className="text-xs font-sans-medium text-[#71717a] dark:text-zinc-400 mt-0.5">
           Consulte demonstrações e instruções da academia
         </Text>
@@ -84,21 +80,26 @@ export default function PersonalExercisesScreen() {
 
       {/* 2. CONTEÚDO PRINCIPAL (INDICADOR DE CARREGAMENTO OU GRADE) */}
       {isLoading ? (
-        <View className="flex-1 justify-center items-center">
+        <RNView className="flex-1 justify-center items-center">
           <ActivityIndicator size="large" color="#59C83A" />
-        </View>
+        </RNView>
+      ) : isError ? (
+        <RNView className="flex-1 justify-center items-center px-6">
+          <Text className="text-red-500 font-sans-bold text-xs text-center">
+            Não foi possível carregar as categorias de exercícios.
+          </Text>
+        </RNView>
       ) : (
-        /* 🟢 SCROLLVIEW CORRIGIDO COM contentContainerStyle E ESPAÇO PARA A NAVBAR */
         <ScrollView
           className="flex-1"
           contentContainerStyle={{
             paddingHorizontal: 20,
             paddingTop: 16,
-            paddingBottom: 120, // Garante que os cards inferiores fiquem acima da Navbar Flutuante
+            paddingBottom: 120,
           }}
           showsVerticalScrollIndicator={false}
         >
-          <View className="flex-row flex-wrap justify-between">
+          <RNView className="flex-row flex-wrap justify-between">
             {categories.map((category, index) => (
               <MotiView
                 key={category.id}
@@ -108,14 +109,14 @@ export default function PersonalExercisesScreen() {
                   type: 'spring',
                   damping: 22,
                   stiffness: 150,
-                  delay: index * 50, // Efeito cascata progressivo para cada cartão
+                  delay: index * 50,
                 }}
                 className="w-[48%] mb-4"
               >
                 <TouchableOpacity
                   onPress={() =>
                     router.push({
-                      pathname: '/(personal)/category/[id]',
+                      pathname: '/(personal)/category/[id]' as any,
                       params: { id: category.id, title: category.title },
                     })
                   }
@@ -133,26 +134,24 @@ export default function PersonalExercisesScreen() {
                   ) : null}
 
                   {/* Gradiente escuro com textos explicativos sobrepostos */}
-                  <View className="absolute inset-0 bg-black/45 justify-end p-3">
-                    {/* Título da Categoria com Outfit Bold */}
+                  <RNView className="absolute inset-0 bg-black/45 justify-end p-3">
                     <Text className="text-white text-lg font-outfit leading-tight">
                       {category.title}
                     </Text>
 
-                    {/* Botão Indicativo com DM Sans Bold */}
-                    <View className="flex-row items-center mt-1">
+                    <RNView className="flex-row items-center mt-1">
                       <Text className="text-white/90 text-xs font-sans-bold mr-1">
                         Ver lista
                       </Text>
                       <CaretRight size={12} color="#ffffff" weight="bold" />
-                    </View>
-                  </View>
+                    </RNView>
+                  </RNView>
                 </TouchableOpacity>
               </MotiView>
             ))}
-          </View>
+          </RNView>
         </ScrollView>
       )}
-    </View>
+    </RNView>
   );
 }

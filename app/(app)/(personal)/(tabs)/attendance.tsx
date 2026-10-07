@@ -1,8 +1,8 @@
 // ============================================================================
-// DOCUMENTAÇÃO: TELA DE FREQUÊNCIA DE TREINOS (PERSONAL TRAINER)
+// DOCUMENTAÇÃO: TELA DE FREQUÊNCIA DE TREINOS (PERSONAL - INTEGRADA À VPS)
 // ============================================================================
 // Apresenta o histórico de assiduidade e métricas semanais dos alunos
-// vinculados ao Personal com busca segura em duas etapas e MotiView animations.
+// vinculados ao Personal com busca direta na API VPS e animações MotiView.
 // ============================================================================
 
 import React, { useMemo } from 'react';
@@ -25,7 +25,10 @@ import {
 } from 'phosphor-react-native';
 import { useQuery } from '@tanstack/react-query';
 import { MotiView } from 'moti';
-import { supabase } from '../../../../lib/supabase';
+
+// IMPORTAÇÃO DA API DA VPS E DO CONTEXTO DE AUTENTICAÇÃO
+import { api } from '../../../../services/api';
+import { useAuth } from '../../../../context/AuthContext';
 
 // --- ESTRUTURA DE DADOS ---
 interface AttendanceLog {
@@ -40,70 +43,22 @@ interface AttendanceLog {
 }
 
 /**
- * Busca com segurança o histórico de frequência dos alunos vinculados ao Personal logado
+ * Busca com segurança o histórico de frequência dos alunos vinculados ao Personal via VPS
  */
-async function fetchAttendanceLogs(): Promise<AttendanceLog[]> {
-  // 1. Obter o usuário autenticado atual
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
+async function fetchAttendanceLogs(personalId?: string): Promise<AttendanceLog[]> {
+  if (!personalId) return [];
 
-  if (authError || !user) {
-    return [];
-  }
-
-  // 🟢 2. ETAPA 1: Buscar os IDs de todos os alunos vinculados a este Personal Trainer
-  const { data: linkedStudents, error: studentsError } = await supabase
-    .from('profiles')
-    .select('id')
-    .eq('personal_id', user.id);
-
-  if (studentsError) {
-    console.error('Erro ao buscar alunos vinculados:', studentsError.message);
-    throw new Error('Não foi possível identificar seus alunos vinculados.');
-  }
-
-  // Se não houver alunos vinculados ao Personal, retorna lista vazia imediatamente
-  if (!linkedStudents || linkedStudents.length === 0) {
-    return [];
-  }
-
-  // Extrai apenas os IDs dos alunos em um array de strings
-  const studentIds = linkedStudents.map((student) => student.id);
-
-  // 🟢 3. ETAPA 2: Buscar os logs de treinos FILTRANDO estritamente pelos IDs dos meus alunos
-  const { data, error } = await supabase
-    .from('workout_logs')
-    .select(
-      `
-      id,
-      created_at,
-      student_id,
-      workout_title,
-      duration_seconds,
-      profiles (
-        full_name
-      )
-    `
-    )
-    .in('student_id', studentIds)
-    .order('created_at', { ascending: false });
-
-  if (error) {
-    console.error('Erro ao buscar histórico de frequência:', error.message);
-    throw new Error('Não foi possível carregar o histórico de frequência.');
-  }
-
-  return (data || []) as unknown as AttendanceLog[];
+  const response = await api.get(`/api/personal/attendance-logs/${personalId}`);
+  return (response.data || []) as AttendanceLog[];
 }
 
 export default function PersonalAttendanceScreen() {
   const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
+  const { user } = useAuth(); // 🟢 OBTÉM O USUÁRIO AUTENTICADO DO CONTEXTO GLOBAL
 
-  // --- CONSULTA COM TANSTACK QUERY ---
+  // --- CONSULTA COM TANSTACK QUERY CONECTADA À VPS ---
   const {
     data: logs = [],
     isLoading,
@@ -112,8 +67,9 @@ export default function PersonalAttendanceScreen() {
     isRefetching,
     refetch,
   } = useQuery({
-    queryKey: ['personal-attendance-logs'],
-    queryFn: fetchAttendanceLogs,
+    queryKey: ['personal-attendance-logs', user?.id],
+    queryFn: () => fetchAttendanceLogs(user?.id),
+    enabled: !!user?.id,
   });
 
   /**
@@ -242,7 +198,7 @@ export default function PersonalAttendanceScreen() {
         <View className="bg-red-500/10 border border-red-500/30 p-4 rounded-2xl mb-4 flex-row items-center">
           <WarningCircle size={20} color="#EF4444" />
           <Text className="text-red-500 text-xs font-sans-bold ml-2 flex-1">
-            {error?.message || 'Não foi possível carregar o histórico.'}
+            {(error as any)?.message || 'Não foi possível carregar o histórico.'}
           </Text>
         </View>
       )}
@@ -266,6 +222,7 @@ export default function PersonalAttendanceScreen() {
               refreshing={isRefetching}
               onRefresh={refetch}
               tintColor="#59C83A"
+              colors={['#59C83A']}
             />
           }
           ListEmptyComponent={

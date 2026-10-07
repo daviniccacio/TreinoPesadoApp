@@ -1,9 +1,9 @@
 // ============================================================================
-// DOCUMENTAÇÃO: TELA DE PERFIL PROFISSIONAL (PERSONAL TRAINER) - TIPAGEM CORRIGIDA
+// DOCUMENTAÇÃO: TELA DE PERFIL PROFISSIONAL (PERSONAL TRAINER - INTEGRADA À VPS)
 // ============================================================================
 // Exibe dados cadastrais, código de acesso para alunos, estatísticas de trabalho,
 // alternância de tema global, política de privacidade, exclusão definitiva de conta,
-// logout e revalidação de dados no foco da aba para prevenir telas em branco.
+// logout e revalidação de dados diretamente via API na VPS.
 // ============================================================================
 
 import React, { useState, useCallback } from 'react';
@@ -34,19 +34,19 @@ import {
 } from 'phosphor-react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { MotiView } from 'moti';
-import { supabase } from '../../../../lib/supabase';
+
+// IMPORTAÇÕES DE CONTEXTOS E SERVIÇOS
+import { api } from '../../../../services/api';
+import { useAuth } from '../../../../context/AuthContext';
+import { useTheme } from '../../../../context/ThemeContext';
 import { CustomModal } from '../../../../components/CustomModal';
 import { SendNotificationModal } from '../../../../components/SendNotificationModal';
-
-// IMPORTAÇÃO DO CONTEXTO DE TEMA GLOBAL PERSISTENTE
-import { useTheme } from '../../../../context/ThemeContext';
 
 // --- TIPAGENS DE DADOS ---
 interface PersonalProfileData {
   fullName: string;
   email: string;
   inviteCode: string;
-  birthDate: string;
   libraryTemplatesCount: number;
   linkedStudentsCount: number;
 }
@@ -96,48 +96,15 @@ export function PrivacyPolicyButton({
 }
 
 /**
- * Busca os dados do perfil, código de acesso e métricas do Personal Trainer no Supabase
+ * Busca os dados do perfil, código de acesso e métricas do Personal Trainer via API VPS
  */
-async function fetchPersonalProfileData(): Promise<PersonalProfileData> {
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-
-  if (authError || !user) {
-    throw new Error('Sessão expirada ou usuário não autenticado.');
+async function fetchPersonalProfileData(userId?: string): Promise<PersonalProfileData> {
+  if (!userId) {
+    throw new Error('Usuário não autenticado.');
   }
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('full_name, invite_code')
-    .eq('id', user.id)
-    .single();
-
-  const fullName =
-    profile?.full_name ||
-    `${user.user_metadata?.first_name || ''} ${user.user_metadata?.last_name || ''}`.trim() ||
-    'Personal Trainer';
-
-  const { count: libraryCount } = await supabase
-    .from('workout_plans')
-    .select('*', { count: 'exact', head: true })
-    .is('student_id', null)
-    .eq('personal_id', user.id);
-
-  const { count: studentsCount } = await supabase
-    .from('profiles')
-    .select('*', { count: 'exact', head: true })
-    .eq('personal_id', user.id);
-
-  return {
-    fullName,
-    email: user.email || '',
-    inviteCode: profile?.invite_code || 'PERS-XXXX',
-    birthDate: user.user_metadata?.birth_date || '',
-    libraryTemplatesCount: libraryCount || 0,
-    linkedStudentsCount: studentsCount || 0,
-  };
+  const response = await api.get(`/api/personal/profile/${userId}`);
+  return response.data as PersonalProfileData;
 }
 
 export default function PersonalProfileScreen() {
@@ -145,13 +112,14 @@ export default function PersonalProfileScreen() {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
 
-  // SUBSCRITO AO TEMA GLOBAL PERSISTENTE
+  // CONTEXTO DE AUTENTICAÇÃO E TEMA GLOBAL
+  const { user, signOut } = useAuth();
   const { isDark, toggleTheme } = useTheme();
 
   // ESTADOS DOS MODAIS
   const [modalVisible, setModalVisible] = useState(false);
 
-  // ESTADO DO MODAL PERSONALIZADO REUTILIZÁVEL DE ALERTA
+  // ESTADO DO MODAL PERSONALIZADO DE ALERTA
   const [modalConfig, setModalConfig] = useState<{
     visible: boolean;
     title: string;
@@ -196,7 +164,7 @@ export default function PersonalProfileScreen() {
     });
   }
 
-  // CONSULTA DE PERFIL COM TANSTACK QUERY E TRATAMENTO DE REVALIDAÇÃO
+  // CONSULTA DE PERFIL CONECTADA À VPS
   const {
     data: profile,
     isLoading,
@@ -205,46 +173,34 @@ export default function PersonalProfileScreen() {
     refetch,
     isRefetching,
   } = useQuery({
-    queryKey: ['personal-profile-data'],
-    queryFn: fetchPersonalProfileData,
+    queryKey: ['personal-profile-data', user?.id],
+    queryFn: () => fetchPersonalProfileData(user?.id),
+    enabled: !!user?.id,
     staleTime: 1000 * 60 * 5,
-    gcTime: 1000 * 60 * 10,
   });
 
-  // Força o recarregamento dos dados assim que a aba recebe o foco na tela
+  // Revalida os dados quando a tela recebe o foco
   useFocusEffect(
     useCallback(() => {
-      refetch();
-    }, [refetch])
+      if (user?.id) refetch();
+    }, [refetch, user?.id])
   );
 
-  // MUTAÇÃO DE EXCLUSÃO DEFINITIVA DE CONTA
+  // MUTAÇÃO DE EXCLUSÃO DEFINITIVA DE CONTA NA VPS
   const deleteAccountMutation = useMutation({
     mutationFn: async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user) throw new Error('Sessão expirada.');
-
-      const { error: rpcError } = await supabase.rpc('delete_own_account');
-
-      if (rpcError) {
-        await supabase.from('workout_plans').delete().eq('personal_id', user.id);
-        await supabase.from('custom_workouts').delete().eq('user_id', user.id);
-        await supabase.from('profiles').delete().eq('id', user.id);
-      }
-
-      await supabase.auth.signOut();
+      if (!user?.id) throw new Error('Sessão expirada.');
+      await api.delete(`/api/users/account/${user.id}`);
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       queryClient.clear();
-      router.replace('/(auth)/login');
+      await signOut();
+      router.replace('/(auth)/login' as any);
     },
     onError: (err: any) => {
       showAlertModal({
         title: 'Erro ao Excluir',
-        message: err.message || 'Não foi possível excluir sua conta no momento.',
+        message: err?.response?.data?.erro || err.message || 'Não foi possível excluir sua conta no momento.',
         type: 'danger',
         showCancelButton: false,
       });
@@ -274,17 +230,9 @@ export default function PersonalProfileScreen() {
       showCancelButton: true,
       onConfirm: async () => {
         try {
-          const { error } = await supabase.auth.signOut();
-          if (error) {
-            showAlertModal({
-              title: 'Erro ao sair',
-              message: error.message,
-              type: 'danger',
-            });
-            return;
-          }
           queryClient.clear();
-          router.replace('/(auth)/login');
+          await signOut();
+          router.replace('/(auth)/login' as any);
         } catch (err) {
           console.error('Erro ao processar logout:', err);
           showAlertModal({
@@ -320,7 +268,7 @@ export default function PersonalProfileScreen() {
     );
   }
 
-  // ESTADO 2: ERRO NA CONEXÃO / SESSÃO
+  // ESTADO 2: ERRO NA CONEXÃO OU SESSÃO
   if ((isError || !profile) && !isLoading) {
     return (
       <View
@@ -348,7 +296,7 @@ export default function PersonalProfileScreen() {
               isDark ? 'text-zinc-400' : 'text-[#71717a]'
             }`}
           >
-            {(error as Error)?.message || 'Ocorreu um problema de conexão com o banco de dados.'}
+            {(error as Error)?.message || 'Ocorreu um problema de conexão com a VPS.'}
           </Text>
 
           <TouchableOpacity
@@ -363,10 +311,8 @@ export default function PersonalProfileScreen() {
     );
   }
 
-  // 🟢 CORREÇÃO DOS ERROS TS18048 (Linhas 369-373):
-  // Uso de Optional Chaining (`?.`) e Coalescência Nula (`??`) para garantia do TypeScript.
   const fullName = profile?.fullName ?? 'Personal Trainer';
-  const email = profile?.email ?? '';
+  const email = profile?.email ?? user?.email ?? '';
   const inviteCode = profile?.inviteCode ?? 'PERS-XXXX';
   const libraryCount = profile?.libraryTemplatesCount ?? 0;
   const linkedStudentsCount = profile?.linkedStudentsCount ?? 0;
@@ -492,7 +438,7 @@ export default function PersonalProfileScreen() {
 
           <View className="flex-row justify-between gap-3 mb-6">
             <TouchableOpacity
-              onPress={() => router.push('/(personal)')}
+              onPress={() => router.push('/(personal)' as any)}
               className={`flex-1 p-4 rounded-2xl items-center border ${
                 isDark
                   ? 'bg-zinc-900 border-zinc-800'
@@ -518,7 +464,7 @@ export default function PersonalProfileScreen() {
             </TouchableOpacity>
 
             <TouchableOpacity
-              onPress={() => router.push('/(personal)/routines')}
+              onPress={() => router.push('/(personal)/routines' as any)}
               className={`flex-1 p-4 rounded-2xl items-center border ${
                 isDark
                   ? 'bg-zinc-900 border-zinc-800'
