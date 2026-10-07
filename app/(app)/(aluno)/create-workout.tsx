@@ -1,8 +1,5 @@
 // ============================================================================
-// DOCUMENTAÇÃO: TELA DE CRIAÇÃO / EDIÇÃO DE TREINO CUSTOMIZADO (ALUNO)
-// ============================================================================
-// Permite ao aluno criar ou editar uma ficha personalizada com categorias
-// formatadas com acentuação e letras maiúsculas/minúsculas corretas.
+// DOCUMENTAÇÃO: TELA DE CRIAÇÃO / EDIÇÃO DE TREINO CUSTOMIZADO (ALUNO - VPS)
 // ============================================================================
 
 import React, { useState, useEffect, useMemo, useCallback } from "react";
@@ -37,6 +34,7 @@ import { Image } from "expo-image";
 import { MotiView } from "moti";
 
 import { supabase } from "../../../lib/supabase";
+import { api } from "../../../services/api";
 import { getExerciseGif } from "../../../lib/exerciseGifs";
 import { CustomModal } from "../../../components/CustomModal";
 
@@ -49,7 +47,6 @@ const DAYS_OF_WEEK = [
   "Sexta",
 ];
 
-// 🟢 FUNÇÃO UTILITÁRIA PARA FORMATAR AS CATEGORIAS DE FORMA AMIGÁVEL E BONITA
 function formatCategoryLabel(rawCategory?: string): string {
   if (!rawCategory) return "Geral";
   const normalized = rawCategory.trim().toLowerCase();
@@ -69,8 +66,6 @@ function formatCategoryLabel(rawCategory?: string): string {
   };
 
   if (mapLabels[normalized]) return mapLabels[normalized];
-
-  // Caso seja uma categoria nova no banco, coloca a primeira letra em maiúscula
   return rawCategory.charAt(0).toUpperCase() + rawCategory.slice(1).toLowerCase();
 }
 
@@ -126,14 +121,12 @@ export default function CreateOrEditWorkoutScreen() {
   const [availableExercises, setAvailableExercises] = useState<ExerciseOption[]>([]);
   const [isLoadingAvailable, setIsLoadingAvailable] = useState(false);
 
-  // ESTADOS DE FILTRO E BUSCA DO MODAL
+  // FILTROS
   const [selectedCategory, setSelectedCategory] = useState<string>("TODOS");
   const [searchQuery, setSearchQuery] = useState<string>("");
-
-  // ESTADO QUE GUARDA APENAS 1 GIF EXPANDIDO POR VEZ
   const [expandedModalExerciseId, setExpandedModalExerciseId] = useState<string | null>(null);
 
-  // ESTADO DO MODAL PERSONALIZADO DE ALERTA
+  // MODAL DE ALERTA
   const [modalConfig, setModalConfig] = useState<{
     visible: boolean;
     title: string;
@@ -178,18 +171,14 @@ export default function CreateOrEditWorkoutScreen() {
     });
   }
 
-  // AVALIA SE EXISTEM DADOS DIGITADOS OU EXERCÍCIOS SELECIONADOS
   const isFormDirty =
     selectedExercises.length > 0 ||
     workoutTitle.trim().length > 0 ||
     workoutDescription.trim().length > 0;
 
-  // PROTEÇÃO CONTRA SAÍDA ACIDENTAL DA TELA
   useEffect(() => {
     const unsubscribe = navigation.addListener("beforeRemove", (e) => {
-      if (!isFormDirty || isSaved) {
-        return;
-      }
+      if (!isFormDirty || isSaved) return;
 
       e.preventDefault();
 
@@ -210,7 +199,7 @@ export default function CreateOrEditWorkoutScreen() {
     return unsubscribe;
   }, [navigation, isFormDirty, isSaved]);
 
-  // 1. CARREGA OS DADOS DO TREINO SE ESTIVER NO MODO DE EDIÇÃO
+  // 1. CARREGA O TREINO PARA EDIÇÃO VIA API DA VPS
   useEffect(() => {
     async function loadWorkoutForEditing() {
       if (!planId) return;
@@ -218,31 +207,8 @@ export default function CreateOrEditWorkoutScreen() {
       try {
         setIsLoadingWorkout(true);
 
-        const { data, error } = await supabase
-          .from("custom_workouts")
-          .select(`
-            id,
-            title,
-            description,
-            day_of_week,
-            custom_workout_exercises (
-              id,
-              sets,
-              reps,
-              weight,
-              exercise_id,
-              exercises (
-                id,
-                name,
-                category_id,
-                gif_key
-              )
-            )
-          `)
-          .eq("id", planId)
-          .single();
-
-        if (error) throw new Error(error.message);
+        const response = await api.get(`/custom-workouts/detail/${planId}`);
+        const data = response.data;
 
         if (data) {
           setWorkoutTitle(data.title || "");
@@ -266,7 +232,7 @@ export default function CreateOrEditWorkoutScreen() {
       } catch (err: any) {
         showAlertModal({
           title: "Erro ao carregar treino",
-          message: err.message || "Não foi possível carregar os dados.",
+          message: err?.response?.data?.erro || "Não foi possível carregar os dados.",
           type: "danger",
         });
       } finally {
@@ -277,7 +243,7 @@ export default function CreateOrEditWorkoutScreen() {
     loadWorkoutForEditing();
   }, [planId]);
 
-  // 2. BUSCA A LISTA DE TODOS OS EXERCÍCIOS DISPONÍVEIS
+  // 2. BUSCA A LISTA DE EXERCÍCIOS DISPONÍVEIS VIA API DA VPS
   async function handleOpenAddExerciseModal() {
     setIsModalOpen(true);
     setExpandedModalExerciseId(null);
@@ -288,13 +254,8 @@ export default function CreateOrEditWorkoutScreen() {
 
     try {
       setIsLoadingAvailable(true);
-      const { data, error } = await supabase
-        .from("exercises")
-        .select("id, name, category_id, gif_key")
-        .order("name", { ascending: true });
-
-      if (error) throw new Error(error.message);
-      setAvailableExercises(data || []);
+      const response = await api.get("/exercises");
+      setAvailableExercises(response.data || []);
     } catch (err: any) {
       showAlertModal({
         title: "Erro",
@@ -306,7 +267,6 @@ export default function CreateOrEditWorkoutScreen() {
     }
   }
 
-  // 3. EXTRAÇÃO DINÂMICA DE CATEGORIAS DISPONÍVEIS
   const categoriesList = useMemo(() => {
     const rawCategories = availableExercises
       .map((item) => item.category_id)
@@ -315,7 +275,6 @@ export default function CreateOrEditWorkoutScreen() {
     return ["TODOS", ...uniqueCategories];
   }, [availableExercises]);
 
-  // 4. FILTRAGEM DE EXERCÍCIOS POR CATEGORIA E BUSCA
   const filteredExercises = useMemo(() => {
     return availableExercises.filter((item) => {
       const matchesCategory =
@@ -330,7 +289,6 @@ export default function CreateOrEditWorkoutScreen() {
     });
   }, [availableExercises, selectedCategory, searchQuery]);
 
-  // 5. SELEÇÃO DE EXERCÍCIO
   function handleSelectExercise(exercise: ExerciseOption) {
     const alreadyExists = selectedExercises.some(
       (e) => e.exercise_id === exercise.id
@@ -360,7 +318,6 @@ export default function CreateOrEditWorkoutScreen() {
     }
   }
 
-  // 6. ATUALIZA SÉRIES, REPETIÇÕES OU CARGA
   function handleUpdateExerciseField(
     index: number,
     field: "sets" | "reps" | "weight",
@@ -373,12 +330,10 @@ export default function CreateOrEditWorkoutScreen() {
     });
   }
 
-  // 7. REMOVE UM EXERCÍCIO DA LISTA LOCAL
   function handleRemoveExercise(index: number) {
     setSelectedExercises((prev) => prev.filter((_, i) => i !== index));
   }
 
-  // 🟢 ITEM DO MODAL MEMORIZADO COM FORMATADOR DE CATEGORIA
   const renderModalExerciseItem = useCallback(
     ({ item }: { item: ExerciseOption }) => {
       const isAdded = selectedExercises.some((e) => e.exercise_id === item.id);
@@ -398,7 +353,6 @@ export default function CreateOrEditWorkoutScreen() {
             className="flex-row justify-between items-center"
           >
             <View className="flex-1 mr-2">
-              {/* 🟢 NOME DA CATEGORIA FORMATADO E SEM UPPERCASE */}
               <Text className="text-xs font-sans-bold text-[#59C83A]">
                 {formatCategoryLabel(item.category_id)}
               </Text>
@@ -439,7 +393,7 @@ export default function CreateOrEditWorkoutScreen() {
     [selectedExercises, expandedModalExerciseId]
   );
 
-  // 8. SALVA OU ATUALIZA O TREINO NO SUPABASE
+  // 3. SALVA OU ATUALIZA O TREINO VIA API DA VPS
   async function handleSaveWorkout() {
     if (!workoutTitle.trim()) {
       showAlertModal({
@@ -467,109 +421,23 @@ export default function CreateOrEditWorkoutScreen() {
 
       if (!user) throw new Error("Sessão expirada. Faça login novamente.");
 
-      let currentWorkoutId = planId;
-
       const payload = {
+        userId: user.id,
         title: workoutTitle.trim(),
         description: workoutDescription.trim(),
         day_of_week: selectedDay,
+        exercises: selectedExercises,
       };
 
       if (isEditing && planId) {
-        let { error: updateError } = await supabase
-          .from("custom_workouts")
-          .update(payload)
-          .eq("id", planId);
-
-        if (updateError) {
-          const { error: fallbackUpdateError } = await supabase
-            .from("custom_workouts")
-            .update({ title: workoutTitle.trim() })
-            .eq("id", planId);
-
-          if (fallbackUpdateError) throw new Error(fallbackUpdateError.message);
-        }
-
-        const { error: deleteError } = await supabase
-          .from("custom_workout_exercises")
-          .delete()
-          .eq("custom_workout_id", planId);
-
-        if (deleteError) {
-          await supabase
-            .from("custom_workout_exercises")
-            .delete()
-            .eq("workout_id", planId);
-        }
+        await api.put(`/custom-workouts/${planId}`, payload);
       } else {
-        let newWorkoutData = null;
-
-        const fullInsert = await supabase
-          .from("custom_workouts")
-          .insert({
-            ...payload,
-            user_id: user.id,
-            student_id: user.id,
-          })
-          .select("id")
-          .single();
-
-        if (fullInsert.error) {
-          const fallbackInsert = await supabase
-            .from("custom_workouts")
-            .insert({
-              title: workoutTitle.trim(),
-              user_id: user.id,
-              student_id: user.id,
-            })
-            .select("id")
-            .single();
-
-          if (fallbackInsert.error) throw new Error(fallbackInsert.error.message);
-          newWorkoutData = fallbackInsert.data;
-        } else {
-          newWorkoutData = fullInsert.data;
-        }
-
-        currentWorkoutId = newWorkoutData.id;
-      }
-
-      if (currentWorkoutId) {
-        const exercisesToInsert = selectedExercises.map((item) => ({
-          custom_workout_id: currentWorkoutId,
-          exercise_id: item.exercise_id,
-          sets: parseInt(item.sets, 10) || 3,
-          reps: item.reps || "10",
-          weight: item.weight || "0kg",
-        }));
-
-        const { error: exercisesError } = await supabase
-          .from("custom_workout_exercises")
-          .insert(exercisesToInsert);
-
-        if (exercisesError) {
-          const fallbackToInsert = selectedExercises.map((item) => ({
-            workout_id: currentWorkoutId,
-            exercise_id: item.exercise_id,
-            sets: parseInt(item.sets, 10) || 3,
-            reps: item.reps || "10",
-            weight: item.weight || "0kg",
-          }));
-
-          const { error: fallbackError } = await supabase
-            .from("custom_workout_exercises")
-            .insert(fallbackToInsert);
-
-          if (fallbackError) {
-            throw new Error(
-              `Falha ao salvar exercícios: ${fallbackError.message}`
-            );
-          }
-        }
+        await api.post("/custom-workouts", payload);
       }
 
       queryClient.invalidateQueries({ queryKey: ["student-workouts"] });
       queryClient.invalidateQueries({ queryKey: ["student-home-data"] });
+      queryClient.invalidateQueries({ queryKey: ["workout-details-exercises"] });
       if (planId) {
         queryClient.invalidateQueries({
           queryKey: ["custom-workout-detail", planId],
@@ -592,7 +460,7 @@ export default function CreateOrEditWorkoutScreen() {
     } catch (err: any) {
       showAlertModal({
         title: "Erro ao Salvar",
-        message: err.message || "Ocorreu um erro inesperado.",
+        message: err?.response?.data?.erro || err.message || "Ocorreu um erro inesperado.",
         type: "danger",
       });
     } finally {
@@ -607,7 +475,7 @@ export default function CreateOrEditWorkoutScreen() {
       className="flex-1 bg-white dark:bg-zinc-950 px-5"
       style={{ paddingTop: safeTopPadding + 10 }}
     >
-      {/* 1. CABEÇALHO ANIMADO */}
+      {/* 1. CABEÇALHO */}
       <MotiView
         from={{ opacity: 0, translateY: -8 }}
         animate={{ opacity: 1, translateY: 0 }}
@@ -645,7 +513,7 @@ export default function CreateOrEditWorkoutScreen() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: 40 }}
         >
-          {/* 2. CAMPOS DO FORMULÁRIO */}
+          {/* 2. FORMULÁRIO */}
           <MotiView
             from={{ opacity: 0, translateY: 10 }}
             animate={{ opacity: 1, translateY: 0 }}
@@ -718,7 +586,7 @@ export default function CreateOrEditWorkoutScreen() {
             </ScrollView>
           </MotiView>
 
-          {/* 3. CABEÇALHO DA SEÇÃO DE EXERCÍCIOS */}
+          {/* 3. SEÇÃO DE EXERCÍCIOS */}
           <MotiView
             from={{ opacity: 0, translateY: 10 }}
             animate={{ opacity: 1, translateY: 0 }}
@@ -781,7 +649,6 @@ export default function CreateOrEditWorkoutScreen() {
               >
                 <View className="flex-row items-center justify-between mb-3">
                   <View className="flex-1 mr-2">
-                    {/* 🟢 CATEGORIA FORMATADA NO CARD SELECIONADO (SEM UPPERCASE) */}
                     <Text className="text-xs font-sans-bold text-[#59C83A]">
                       {formatCategoryLabel(exercise.category_id)}
                     </Text>
@@ -798,7 +665,7 @@ export default function CreateOrEditWorkoutScreen() {
                   </TouchableOpacity>
                 </View>
 
-                {/* CAMPOS DE SÉRIES, REPS E CARGA */}
+                {/* SÉRIES, REPS E CARGA */}
                 <View className="flex-row justify-between gap-2">
                   <View className="flex-1">
                     <Text className="text-[10px] font-sans-bold text-[#71717a] dark:text-zinc-400 mb-1">
@@ -844,7 +711,7 @@ export default function CreateOrEditWorkoutScreen() {
             ))
           )}
 
-          {/* 5. BOTÃO SALVAR / ATUALIZAR */}
+          {/* 5. BOTÃO SALVAR */}
           <MotiView
             from={{ opacity: 0, translateY: 12 }}
             animate={{ opacity: 1, translateY: 0 }}
@@ -906,7 +773,7 @@ export default function CreateOrEditWorkoutScreen() {
                   </TouchableOpacity>
                 </View>
 
-                {/* CAMPO DE BUSCA */}
+                {/* BUSCA */}
                 <View className="flex-row items-center bg-[#f8f9fa] dark:bg-zinc-950 border border-[#e2dfe1] dark:border-zinc-800 rounded-xl px-3 py-2.5 mb-3">
                   <MagnifyingGlass size={18} color={isDark ? "#71717a" : "#a1a1aa"} />
                   <TextInput
@@ -923,7 +790,7 @@ export default function CreateOrEditWorkoutScreen() {
                   )}
                 </View>
 
-                {/* FILTRO DE CATEGORIAS HORIZONTAL COM RÓTULOS FORMATADOS */}
+                {/* FILTRO DE CATEGORIAS */}
                 <View className="mb-4">
                   <ScrollView
                     horizontal
@@ -944,7 +811,6 @@ export default function CreateOrEditWorkoutScreen() {
                               : "bg-[#f8f9fa] dark:bg-zinc-950 border-[#e2dfe1] dark:border-zinc-800"
                           }`}
                         >
-                          {/* 🟢 RÓTULO DO FILTRO FORMATADO E SEM UPPERCASE */}
                           <Text
                             className={`text-xs font-sans-bold ${
                               isActive
@@ -960,7 +826,7 @@ export default function CreateOrEditWorkoutScreen() {
                   </ScrollView>
                 </View>
 
-                {/* LISTA DE EXERCÍCIOS DISPONÍVEIS OTIMIZADA COM FLATLIST */}
+                {/* LISTA DE EXERCÍCIOS */}
                 {isLoadingAvailable ? (
                   <View className="flex-1 justify-center items-center">
                     <ActivityIndicator size="large" color="#59C83A" />
@@ -990,7 +856,6 @@ export default function CreateOrEditWorkoutScreen() {
         </TouchableWithoutFeedback>
       </Modal>
 
-      {/* COMPONENTE DO MODAL PERSONALIZADO REUTILIZÁVEL */}
       <CustomModal
         visible={modalConfig.visible}
         title={modalConfig.title}

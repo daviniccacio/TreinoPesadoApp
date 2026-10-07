@@ -1,9 +1,8 @@
 // ============================================================================
-// DOCUMENTAÇÃO: TELA MEUS TREINOS (ÁREA DO ALUNO)
+// DOCUMENTAÇÃO: TELA MEUS TREINOS (ÁREA DO ALUNO - INTEGRADA À VPS)
 // ============================================================================
-// Exibe as fichas de treino do personal e do aluno.
-// Corrigida a consulta para a tabela 'workout_exercises' do Supabase.
-// Inclui margem de segurança inferior contra sobreposição de navegação nativa.
+// Exibe as fichas de treino do personal e do aluno carregadas via API na VPS.
+// Permite visualização detalhada e exclusão de treinos personalizados.
 // ============================================================================
 
 import React, { useState } from "react";
@@ -34,6 +33,7 @@ import {
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { MotiView } from "moti";
 import { supabase } from "../../../../lib/supabase";
+import { api } from "../../../../services/api";
 import { CustomModal } from "../../../../components/CustomModal";
 
 // --- MAPEAMENTO DE CATEGORIAS MUSCULARES ---
@@ -91,7 +91,7 @@ const CATEGORY_FILTERS = [
 type FilterType = "all" | "personal" | "custom";
 
 /**
- * Formata os dias da semana para exibição com nomes completos
+ * Formata os dias da semana para exibição
  */
 function formatDaysOfWeek(rawDays: any): string {
   if (!rawDays) return "Ficha Semanal";
@@ -158,9 +158,6 @@ function formatDaysOfWeek(rawDays: any): string {
   return formattedList.join(", ");
 }
 
-/**
- * Formata o peso evitando duplicar a unidade "kg"
- */
 function formatWeight(rawWeight: any): string {
   if (!rawWeight) return "Carga livre";
   const str = String(rawWeight).trim();
@@ -171,7 +168,7 @@ function formatWeight(rawWeight: any): string {
 }
 
 /**
- * Busca as fichas atribuídas pelo personal e os treinos personalizados do aluno
+ * 🟢 BUSCA DE TREINOS MIGRADA PARA A API DA VPS VIA AXIOS
  */
 async function fetchStudentWorkouts(): Promise<WorkoutCardItem[]> {
   const {
@@ -180,74 +177,17 @@ async function fetchStudentWorkouts(): Promise<WorkoutCardItem[]> {
 
   if (!user) throw new Error("Usuário não autenticado");
 
-  const combinedList: WorkoutCardItem[] = [];
+  const response = await api.get(`/student-workouts/${user.id}`);
+  const rawList = response.data || [];
 
-  try {
-    const { data: prescribedData, error } = await supabase
-      .from("workout_plans")
-      .select("*")
-      .eq("student_id", user.id);
-
-    if (!error && prescribedData) {
-      prescribedData.forEach((item: any) => {
-        const rawDay =
-          item.day_of_week ||
-          item.days_of_week ||
-          item.week_day ||
-          item.day ||
-          item.target_day;
-
-        combinedList.push({
-          id: item.id,
-          title: item.name || item.title || "Treino do Personal",
-          type: "personal",
-          subtitle: item.goal || item.description || "Ficha recomendada",
-          day_of_week: formatDaysOfWeek(rawDay),
-          raw_days: rawDay,
-        });
-      });
-    }
-  } catch (e) {
-    console.warn("Erro ao carregar workout_plans:", e);
-  }
-
-  try {
-    const { data: customData, error } = await supabase
-      .from("custom_workouts")
-      .select("*")
-      .or(`user_id.eq.${user.id},student_id.eq.${user.id}`);
-
-    if (!error && customData) {
-      const customMap = new Map();
-      customData.forEach((item: any) => customMap.set(item.id, item));
-
-      customMap.forEach((item: any) => {
-        const rawDay =
-          item.day_of_week ||
-          item.days_of_week ||
-          item.week_day ||
-          item.day ||
-          item.target_day;
-
-        combinedList.push({
-          id: item.id,
-          title: item.title || "Treino Personalizado",
-          type: "custom",
-          subtitle: item.description || "Criado por mim",
-          day_of_week: formatDaysOfWeek(rawDay),
-          raw_days: rawDay,
-        });
-      });
-    }
-  } catch (e) {
-    console.warn("Erro ao carregar custom_workouts:", e);
-  }
-
-  return combinedList;
+  return rawList.map((item: any) => ({
+    ...item,
+    day_of_week: formatDaysOfWeek(item.raw_days || item.day_of_week),
+  }));
 }
 
 /**
- * 🟢 BUSCA DE EXERCÍCIOS CORRIGIDA PARA UTILIZAR 'workout_exercises'
+ * 🟢 BUSCA DE EXERCÍCIOS PARA O MODAL MIGRADA PARA A API DA VPS
  */
 async function fetchWorkoutExercises(
   workoutId: string,
@@ -255,64 +195,23 @@ async function fetchWorkoutExercises(
 ): Promise<ExerciseItem[]> {
   if (!workoutId) return [];
 
-  // Nome da tabela principal no Supabase (corrigido de workout_plan_exercises para workout_exercises)
-  const primaryTable = type === "personal" ? "workout_exercises" : "custom_workout_exercises";
-
-  // Tentativa 1: Busca com junção relacional na tabela 'exercises'
-  let { data, error } = await supabase
-    .from(primaryTable)
-    .select("*, exercises(*)")
-    .or(`workout_id.eq.${workoutId},workout_plan_id.eq.${workoutId},plan_id.eq.${workoutId}`);
-
-  // Tentativa 2: Fallback para busca direta caso ocorra erro na junção
-  if (error || !data || data.length === 0) {
-    const fallback = await supabase
-      .from(primaryTable)
-      .select("*")
-      .or(`workout_id.eq.${workoutId},workout_plan_id.eq.${workoutId},plan_id.eq.${workoutId}`);
-
-    data = fallback.data || [];
-    if (fallback.error && (!data || data.length === 0)) {
-      console.warn(`Erro ao carregar exercícios de ${primaryTable}:`, fallback.error);
-      return [];
-    }
-  }
+  const response = await api.get(`/workout-exercises/${workoutId}?type=${type}`);
+  const data = response.data || [];
 
   return data.map((item: any) => {
-    // Mapeamento resiliente do nome do exercício
-    const exerciseName =
-      item.name ||
-      item.exercise_name ||
-      item.title ||
-      item.exercises?.name ||
-      item.exercises?.title ||
-      item.exercise?.name ||
-      "Exercício";
-
-    // Mapeamento resiliente da categoria muscular
-    const rawCategory =
-      item.category ||
-      item.category_name ||
-      item.category_id ||
-      item.exercises?.category ||
-      item.exercises?.category_name ||
-      item.exercises?.category_id ||
-      item.exercise?.category ||
-      "";
-
-    const catKey = String(rawCategory).toLowerCase().trim();
+    const catKey = String(item.category || "").toLowerCase().trim();
     const categoryFormatted =
       CATEGORY_MAP[catKey] ||
-      (rawCategory
-        ? String(rawCategory).charAt(0).toUpperCase() + String(rawCategory).slice(1)
+      (item.category
+        ? String(item.category).charAt(0).toUpperCase() + String(item.category).slice(1)
         : undefined);
 
     return {
       id: item.id,
-      name: exerciseName,
+      name: item.exercise_name || item.name || "Exercício",
       sets: item.sets || 3,
       reps: item.reps || "10-12",
-      weight: formatWeight(item.weight || item.load),
+      weight: formatWeight(item.weight),
       category: categoryFormatted,
     };
   });
@@ -392,14 +291,12 @@ export default function MyWorkoutsScreen() {
     enabled: !!selectedWorkoutForDetails?.id,
   });
 
+  /**
+   * 🟢 MUTAÇÃO DE EXCLUSÃO MIGRADA PARA A API DA VPS
+   */
   const deleteWorkoutMutation = useMutation({
     mutationFn: async (workoutId: string) => {
-      const { error } = await supabase
-        .from("custom_workouts")
-        .delete()
-        .eq("id", workoutId);
-
-      if (error) throw new Error(error.message);
+      await api.delete(`/custom-workouts/${workoutId}`);
       return workoutId;
     },
     onSuccess: () => {
@@ -415,7 +312,7 @@ export default function MyWorkoutsScreen() {
     onError: (err: any) => {
       showAlertModal({
         title: "Erro ao Excluir",
-        message: err.message || "Não foi possível excluir o treino.",
+        message: err?.response?.data?.erro || err.message || "Não foi possível excluir o treino.",
         type: "danger",
         showCancelButton: false,
       });
@@ -451,7 +348,6 @@ export default function MyWorkoutsScreen() {
     return true;
   });
 
-  // Espaçamentos de segurança para topo e rodapé nativos
   const safeTopPadding = Math.max(insets?.top || 0, 16);
   const safeBottomPadding = Math.max(insets?.bottom || 0, 20);
 
@@ -460,7 +356,7 @@ export default function MyWorkoutsScreen() {
       className="flex-1 bg-white dark:bg-zinc-950 px-5"
       style={{ paddingTop: safeTopPadding + 10 }}
     >
-      {/* CABEÇALHO ANIMADO */}
+      {/* CABEÇALHO */}
       <MotiView
         from={{ opacity: 0, translateY: -8 }}
         animate={{ opacity: 1, translateY: 0 }}
@@ -531,7 +427,7 @@ export default function MyWorkoutsScreen() {
         </ScrollView>
       </View>
 
-      {/* LISTA DE TREINOS COM SAFE BOTTOM PADDING */}
+      {/* LISTA DE TREINOS */}
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 100 + safeBottomPadding }}
@@ -691,7 +587,7 @@ export default function MyWorkoutsScreen() {
         )}
       </ScrollView>
 
-      {/* MODAL DE PRÉ-VISUALIZAÇÃO COM MARGEM INFERIOR NATIVA */}
+      {/* MODAL DE PRÉ-VISUALIZAÇÃO */}
       <Modal
         visible={!!selectedWorkoutForDetails}
         transparent
@@ -811,7 +707,6 @@ export default function MyWorkoutsScreen() {
               </View>
             </ScrollView>
 
-            {/* BOTÃO DO MODAL COM MARGEM INFERIOR DE SEGURANÇA */}
             <View
               className="pt-4 border-t border-[#e2dfe1] dark:border-zinc-800 mt-2"
               style={{ paddingBottom: safeBottomPadding }}
