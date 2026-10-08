@@ -26,7 +26,8 @@ import {
 } from 'phosphor-react-native';
 import { z } from 'zod';
 import { MotiView } from 'moti';
-import { supabase } from '../../lib/supabase';
+
+import { api } from '../../services/api';
 import { useThrottledCallback } from '../../lib/useThrottle';
 import { CustomModal } from '../../components/CustomModal';
 
@@ -49,7 +50,7 @@ const registerSchema = z.object({
   role: z.enum(["aluno", "personal"]),
 });
 
-/** Anel de pulso animado — mesmo componente usado no Login, mantém a identidade consistente. */
+/** Anel de pulso animado do cabeçalho */
 function PulseRing({ delay = 0, size = 96 }: { delay?: number; size?: number }) {
   return (
     <MotiView
@@ -68,7 +69,7 @@ function PulseRing({ delay = 0, size = 96 }: { delay?: number; size?: number }) 
   );
 }
 
-/** Selo/badge premium do hero — idêntico ao do Login (glow permanente + disco com profundidade). */
+/** Selo/badge de energia do hero */
 function EnergyBadge() {
   return (
     <View className="items-center justify-center" style={{ width: 100, height: 100 }}>
@@ -157,7 +158,7 @@ export default function RegisterScreen() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  // ESTADO DO MODAL PERSONALIZADO DE ALERTA
+  // Estado do Modal de Alerta
   const [modalConfig, setModalConfig] = useState<{
     visible: boolean;
     title: string;
@@ -231,37 +232,30 @@ export default function RegisterScreen() {
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.signUp({
-        email: email.trim(),
-        password: password,
-        options: {
-          data: {
-            full_name: name.trim(),
-            name: name.trim(),
-            role: role,
-          },
-        },
+      // Requisição direta para a API na VPS
+      const response = await api.post('/api/auth/register', {
+        name: name.trim(),
+        email: email.trim().toLowerCase(),
+        password,
+        role,
       });
 
-      if (error) {
-        showAlertModal({
-          title: "Erro no cadastro",
-          message: error.message || "Não foi possível criar a conta.",
-          type: "danger",
-        });
-      } else {
-        showAlertModal({
-          title: "Conta criada! 🎉",
-          message: "Seu cadastro foi realizado com sucesso.",
-          type: "success",
-          confirmText: "Ir para o Login",
-          onConfirm: () => router.replace("/(auth)/login"),
-        });
-      }
-    } catch (err) {
       showAlertModal({
-        title: "Erro",
-        message: "Ocorreu um erro inesperado ao realizar o cadastro.",
+        title: "Conta criada! 🎉",
+        message: response.data?.mensagem || "Seu cadastro foi realizado com sucesso.",
+        type: "success",
+        confirmText: "Ir para o Login",
+        onConfirm: () => router.replace("/(auth)/login"),
+      });
+    } catch (err: any) {
+      const errorMessage =
+        err.response?.data?.erro ||
+        err.message ||
+        "Não foi possível conectar ao servidor para realizar o cadastro.";
+
+      showAlertModal({
+        title: "Erro no cadastro",
+        message: errorMessage,
         type: "danger",
       });
     } finally {
@@ -287,9 +281,7 @@ export default function RegisterScreen() {
           showsVerticalScrollIndicator={false}
           bounces={false}
         >
-          {/* ============================================================ */}
-          {/* HERO EDITORIAL — mesma linguagem visual do Login              */}
-          {/* ============================================================ */}
+          {/* HERO EDITORIAL */}
           <View
             style={{
               backgroundColor: HERO_BG,
@@ -350,9 +342,7 @@ export default function RegisterScreen() {
             </View>
           </View>
 
-          {/* ============================================================ */}
-          {/* FORMULÁRIO                                                    */}
-          {/* ============================================================ */}
+          {/* FORMULÁRIO DE CADASTRO */}
           <MotiView
             from={{ opacity: 0, translateY: 12 }}
             animate={{ opacity: 1, translateY: 0 }}
@@ -360,7 +350,7 @@ export default function RegisterScreen() {
             className="px-6 pt-8"
             style={{ paddingBottom: safeBottomPadding }}
           >
-            {/* Seleção de Tipo de Conta */}
+            {/* Seleção do Perfil (Aluno / Personal) */}
             <Text className="font-sans-bold text-xs uppercase tracking-wider text-[#71717a] dark:text-zinc-400 mb-2 ml-1">
               Tipo de conta
             </Text>
@@ -536,7 +526,7 @@ export default function RegisterScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* MODAL DE ALERTA PERSONALIZADO */}
+      {/* Modal de Alerta */}
       <CustomModal
         visible={modalConfig.visible}
         title={modalConfig.title}

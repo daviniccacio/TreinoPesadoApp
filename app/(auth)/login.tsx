@@ -1,9 +1,3 @@
-// ============================================================================
-// DOCUMENTAÇÃO: FUNÇÃO DE LOGIN COM REDIRECIONAMENTO EXPLÍCITO
-// ============================================================================
-// Submeta os dados para a API na VPS e força a transição de tela sem travar.
-// ============================================================================
-
 import React, { useState } from 'react';
 import {
   View,
@@ -14,6 +8,7 @@ import {
   Platform,
   ScrollView,
   Image,
+  Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -24,7 +19,6 @@ import {
   Eye,
   EyeSlash,
   ArrowRight,
-  Lightning,
 } from 'phosphor-react-native';
 import { MotiView } from 'moti';
 
@@ -36,9 +30,9 @@ import { AuthLoadingOverlay } from '../../components/AppLoaders';
 import { useTheme } from '../../context/ThemeContext';
 
 const BRAND_GREEN = '#59C83A';
-const BRAND_GREEN_DEEP = '#2F7A16';
 const HERO_BG = '#0F1F0A';
 
+/** Valida o formato básico de um endereço de e-mail */
 function isValidEmail(email: string): boolean {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return emailRegex.test(email);
@@ -55,6 +49,7 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState<boolean>(false);
   const [showPassword, setShowPassword] = useState<boolean>(false);
 
+  // Configuração do estado do Modal de Alerta
   const [modalConfig, setModalConfig] = useState({
     visible: false,
     title: '',
@@ -66,6 +61,7 @@ export default function LoginScreen() {
     onConfirm: () => {},
   });
 
+  /** Exibe o modal de alerta de forma segura */
   function showAlertModal({
     title,
     message,
@@ -83,25 +79,33 @@ export default function LoginScreen() {
     showCancelButton?: boolean;
     onConfirm?: () => void;
   }) {
-    setModalConfig({
-      visible: true,
-      title,
-      message,
-      type,
-      confirmText,
-      cancelText,
-      showCancelButton,
-      onConfirm: () => {
-        setModalConfig((prev) => ({ ...prev, visible: false }));
-        if (onConfirm) onConfirm();
-      },
-    });
+    try {
+      setModalConfig({
+        visible: true,
+        title,
+        message,
+        type,
+        confirmText,
+        cancelText,
+        showCancelButton,
+        onConfirm: () => {
+          setModalConfig((prev) => ({ ...prev, visible: false }));
+          if (onConfirm) onConfirm();
+        },
+      });
+    } catch (e) {
+      // Fallback para o alerta nativo caso ocorra alguma falha com a renderização
+      Alert.alert(title, message);
+    }
   }
 
+  /** Função principal de Login */
   async function handleLogin() {
     const cleanEmail = email.trim().toLowerCase();
+    const cleanPassword = password.trim();
 
-    if (!cleanEmail || !password.trim()) {
+    // 1. Validação de campos vazios
+    if (!cleanEmail || !cleanPassword) {
       showAlertModal({
         title: 'Campos Obrigatórios',
         message: 'Por favor, preencha o e-mail e a senha.',
@@ -119,13 +123,14 @@ export default function LoginScreen() {
       return;
     }
 
+    // Ativa o indicador visual de carregamento
     setLoading(true);
 
     try {
-      // 1. Envia requisição para a VPS
+      // 2. Requisição para a API na VPS
       const response = await api.post('/api/auth/login', {
         email: cleanEmail,
-        password: password.trim(),
+        password: cleanPassword,
       });
 
       const { token, user } = response.data;
@@ -134,7 +139,7 @@ export default function LoginScreen() {
         throw new Error('Resposta do servidor em formato inválido.');
       }
 
-      // 2. Registra no AuthContext
+      // 3. Registra a sessão do usuário no AuthContext
       await signIn({
         id: String(user.id),
         email: user.email,
@@ -143,11 +148,11 @@ export default function LoginScreen() {
         token,
       });
 
-      console.log('✅ [Login] Sucesso! Direcionando para a área do aluno...');
+      console.log('✅ [Login] Sucesso! Redirecionando...');
 
-      // 3. REDIRECIONAMENTO DIRETO (Evita travar na tela de login)
       setLoading(false);
-      
+
+      // Redirecionamento de acordo com o perfil
       if (user.role === 'admin') {
         router.replace('/(app)/(admin)' as any);
       } else if (user.role === 'personal') {
@@ -155,26 +160,37 @@ export default function LoginScreen() {
       } else {
         router.replace('/(app)/(aluno)' as any);
       }
-
     } catch (err: any) {
+      // 🟢 PASSO CRÍTICO 1: Desativa o indicador de carregamento imediatamente
       setLoading(false);
-      console.error('❌ [Login] Erro:', err.message || err);
 
-      const mensagemErro =
-        err.response?.data?.erro ||
-        err.message ||
-        'Não foi possível conectar ao servidor.';
+      // Extrai o texto da mensagem com segurança
+      let mensagemErro = 'E-mail ou senha incorretos.';
 
-      showAlertModal({
-        title: 'Erro ao entrar',
-        message: mensagemErro,
-        type: 'danger',
-        confirmText: 'Entendi',
-      });
+      if (err?.response?.data?.erro && typeof err.response.data.erro === 'string') {
+        mensagemErro = err.response.data.erro;
+      } else if (err?.code === 'ECONNABORTED') {
+        mensagemErro = 'Tempo limite esgotado ao conectar com a VPS. Tente novamente.';
+      } else if (typeof err?.message === 'string' && err.message) {
+        mensagemErro = err.message;
+      }
+
+      // 🟢 PASSO CRÍTICO 2: Usa setTimeout para garantir que o overlay de carregamento
+      // é removido da memória antes de abrir o modal de erro
+      setTimeout(() => {
+        showAlertModal({
+          title: 'Falha no Login ⚠️',
+          message: mensagemErro,
+          type: 'danger',
+          confirmText: 'Tentar Novamente',
+        });
+      }, 100);
+    } finally {
+      setLoading(false);
     }
   }
 
-  const handleLoginThrottled = useThrottledCallback(handleLogin, 2000);
+  const handleLoginThrottled = useThrottledCallback(handleLogin, 1500);
 
   const safeTopPadding = Math.max(insets?.top || 0, 16);
   const safeBottomPadding = Math.max(insets?.bottom || 0, 16);
@@ -192,7 +208,7 @@ export default function LoginScreen() {
           showsVerticalScrollIndicator={false}
           bounces={false}
         >
-          {/* CABEÇALHO EDITORIAL */}
+          {/* CABEÇALHO */}
           <View
             style={{
               backgroundColor: HERO_BG,
@@ -246,7 +262,7 @@ export default function LoginScreen() {
             className="px-6 pt-8"
             style={{ paddingBottom: safeBottomPadding }}
           >
-            {/* E-mail */}
+            {/* Campo E-mail */}
             <View className="mb-3">
               <Text
                 className={`font-sans-bold text-xs uppercase tracking-wider mb-2 ml-1 ${
@@ -286,7 +302,7 @@ export default function LoginScreen() {
               </View>
             </View>
 
-            {/* Senha */}
+            {/* Campo Senha */}
             <View className="mb-1">
               <Text
                 className={`font-sans-bold text-xs uppercase tracking-wider mb-2 ml-1 ${
@@ -388,6 +404,7 @@ export default function LoginScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
 
+      {/* Modal de Alerta Customizado */}
       <CustomModal
         visible={modalConfig.visible}
         isDark={isDark}
@@ -401,6 +418,7 @@ export default function LoginScreen() {
         onClose={() => setModalConfig((prev) => ({ ...prev, visible: false }))}
       />
 
+      {/* Overlay de Carregamento */}
       <AuthLoadingOverlay
         visible={loading}
         message="Entrando na sua conta..."

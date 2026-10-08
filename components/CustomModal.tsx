@@ -11,6 +11,7 @@ import {
   Text,
   Modal,
   TouchableOpacity,
+  TouchableWithoutFeedback,
   useColorScheme,
 } from 'react-native';
 import {
@@ -29,14 +30,14 @@ export interface CustomModalProps {
   cancelText?: string;
   showCancelButton?: boolean;
   isDark?: boolean; // 🟢 Prop opcional para sincronizar com o tema da tela pai
-  onConfirm: () => void;
-  onClose: () => void;
+  onConfirm?: () => void;
+  onClose?: () => void;
 }
 
 export function CustomModal({
-  visible,
-  title,
-  message,
+  visible = false,
+  title = 'Aviso',
+  message = '',
   type = 'info',
   confirmText = 'Entendi',
   cancelText = 'Cancelar',
@@ -46,13 +47,28 @@ export function CustomModal({
   onClose,
 }: CustomModalProps) {
   const systemColorScheme = useColorScheme();
-  
+
   // 🟢 Se 'isDark' for passado via prop, usa ele; senão, usa o tema do sistema
   const isDark = customIsDark !== undefined ? customIsDark : systemColorScheme === 'dark';
 
   if (!visible) return null;
 
-  // Configuração visual por tipo de alerta
+  // Fechamento seguro do modal
+  const handleClose = () => {
+    if (onClose) {
+      onClose();
+    }
+  };
+
+  // Confirmação segura
+  const handleConfirm = () => {
+    if (onConfirm) {
+      onConfirm();
+    }
+    handleClose();
+  };
+
+  // Mapeamento visual seguro por tipo de alerta
   const iconMap = {
     success: <CheckCircle size={32} color="#10b981" weight="bold" />,
     danger: <WarningCircle size={32} color="#ef4444" weight="bold" />,
@@ -65,93 +81,107 @@ export function CustomModal({
     info: 'bg-[#59C83A]/10 border-[#59C83A]/30',
   };
 
+  // Garante ícone e fundo padrão caso receba um 'type' inválido
+  const currentIcon = iconMap[type] || iconMap.info;
+  const currentBadgeBg = badgeBgMap[type] || badgeBgMap.info;
+
   return (
     <Modal
       visible={visible}
       transparent
       animationType="fade"
-      onRequestClose={onClose}
+      onRequestClose={handleClose}
+      statusBarTranslucent
     >
-      <View className="flex-1 bg-black/60 justify-center items-center px-6">
-        <View
-          className={`w-full rounded-3xl p-6 border shadow-2xl ${
-            isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-[#e2dfe1]'
-          }`}
-        >
-          {/* BOTÃO DE FECHAR (X) */}
-          <TouchableOpacity
-            onPress={onClose}
-            className={`absolute top-4 right-4 w-8 h-8 rounded-full items-center justify-center z-10 ${
-              isDark ? 'bg-zinc-800' : 'bg-zinc-100'
-            }`}
-          >
-            <X size={16} color={isDark ? '#a1a1aa' : '#71717a'} />
-          </TouchableOpacity>
-
-          {/* ÍCONE E TÍTULO */}
-          <View className="items-center mb-4 pt-2">
+      {/* Clique no fundo escuro fecha o modal */}
+      <TouchableWithoutFeedback onPress={handleClose}>
+        <View className="flex-1 bg-black/60 justify-center items-center px-6">
+          {/* Impede que o clique dentro do modal feche o componente */}
+          <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
             <View
-              className={`w-14 h-14 rounded-2xl items-center justify-center border mb-3 ${badgeBgMap[type]}`}
-            >
-              {iconMap[type]}
-            </View>
-
-            <Text
-              className={`text-lg font-outfit text-center ${
-                isDark ? 'text-white' : 'text-[#1b1b1d]'
+              className={`w-full rounded-3xl p-6 border shadow-2xl relative ${
+                isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-[#e2dfe1]'
               }`}
             >
-              {title}
-            </Text>
-          </View>
-
-          {/* MENSAGEM */}
-          <Text
-            className={`text-xs font-sans-medium text-center mb-6 leading-5 ${
-              isDark ? 'text-zinc-400' : 'text-[#71717a]'
-            }`}
-          >
-            {message}
-          </Text>
-
-          {/* BOTÕES DE AÇÃO */}
-          <View className="flex-row gap-3">
-            {showCancelButton && (
+              {/* BOTÃO DE FECHAR (X) */}
               <TouchableOpacity
-                onPress={onClose}
-                className={`flex-1 py-3.5 rounded-2xl items-center border ${
-                  isDark
-                    ? 'bg-zinc-800 border-zinc-700'
-                    : 'bg-zinc-100 border-[#e2dfe1]'
+                onPress={handleClose}
+                activeOpacity={0.7}
+                className={`absolute top-4 right-4 w-8 h-8 rounded-full items-center justify-center z-10 ${
+                  isDark ? 'bg-zinc-800' : 'bg-zinc-100'
                 }`}
               >
+                <X size={16} color={isDark ? '#a1a1aa' : '#71717a'} />
+              </TouchableOpacity>
+
+              {/* ÍCONE E TÍTULO */}
+              <View className="items-center mb-4 pt-2">
+                <View
+                  className={`w-14 h-14 rounded-2xl items-center justify-center border mb-3 ${currentBadgeBg}`}
+                >
+                  {currentIcon}
+                </View>
+
                 <Text
-                  className={`font-sans-bold text-xs ${
-                    isDark ? 'text-zinc-300' : 'text-zinc-700'
+                  className={`text-lg font-outfit text-center ${
+                    isDark ? 'text-white' : 'text-[#1b1b1d]'
                   }`}
                 >
-                  {cancelText}
+                  {title}
                 </Text>
-              </TouchableOpacity>
-            )}
+              </View>
 
-            <TouchableOpacity
-              onPress={onConfirm}
-              className={`flex-1 py-3.5 rounded-2xl items-center ${
-                type === 'danger'
-                  ? 'bg-red-500'
-                  : type === 'success'
-                  ? 'bg-emerald-600'
-                  : 'bg-[#59C83A]'
-              }`}
-            >
-              <Text className="font-sans-bold text-xs text-white">
-                {confirmText}
+              {/* MENSAGEM */}
+              <Text
+                className={`text-xs font-sans-medium text-center mb-6 leading-5 ${
+                  isDark ? 'text-zinc-400' : 'text-[#71717a]'
+                }`}
+              >
+                {message}
               </Text>
-            </TouchableOpacity>
-          </View>
+
+              {/* BOTÕES DE AÇÃO */}
+              <View className="flex-row gap-3">
+                {showCancelButton && (
+                  <TouchableOpacity
+                    onPress={handleClose}
+                    activeOpacity={0.8}
+                    className={`flex-1 py-3.5 rounded-2xl items-center border ${
+                      isDark
+                        ? 'bg-zinc-800 border-zinc-700'
+                        : 'bg-zinc-100 border-[#e2dfe1]'
+                    }`}
+                  >
+                    <Text
+                      className={`font-sans-bold text-xs ${
+                        isDark ? 'text-zinc-300' : 'text-zinc-700'
+                      }`}
+                    >
+                      {cancelText}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+
+                <TouchableOpacity
+                  onPress={handleConfirm}
+                  activeOpacity={0.8}
+                  className={`flex-1 py-3.5 rounded-2xl items-center ${
+                    type === 'danger'
+                      ? 'bg-red-500'
+                      : type === 'success'
+                      ? 'bg-emerald-600'
+                      : 'bg-[#59C83A]'
+                  }`}
+                >
+                  <Text className="font-sans-bold text-xs text-white">
+                    {confirmText}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </TouchableWithoutFeedback>
         </View>
-      </View>
+      </TouchableWithoutFeedback>
     </Modal>
   );
 }

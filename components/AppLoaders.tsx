@@ -4,7 +4,7 @@
 // Reúne todos os componentes de carregamento do Treino Pesado num único local.
 // Contém:
 // 1. AppEntranceLoading: Splash Screen com Logo HD e barra verídica.
-// 2. AuthLoadingOverlay: Modal sobreposto bloqueante para telas de Auth.
+// 2. AuthLoadingOverlay: Overlay absoluto sobreposto bloqueante para telas de Auth.
 // ============================================================================
 
 import React, { useEffect, useState } from 'react';
@@ -14,7 +14,6 @@ import {
   Image,
   ImageSourcePropType,
   ActivityIndicator,
-  Modal,
 } from 'react-native';
 import { MotiView, MotiText } from 'moti';
 import { LockSimple } from 'phosphor-react-native';
@@ -156,16 +155,10 @@ export function AppEntranceLoading({
 
 // ============================================================================
 // 2. OVERLAY DE AUTENTICAÇÃO E TRANSIÇÃO (AUTH LOADING OVERLAY)
+// 🟢 CORRIGIDO: Usa View Absoluta zIndex 9999 para EVITAR crash de Modal Nativo!
 // ============================================================================
 interface AuthLoadingOverlayProps {
-  /**
-   * Controla se o modal está visível durante a requisição.
-   */
   visible: boolean;
-  /**
-   * Mensagem principal exibida no card (ex: "Acessando conta...").
-   * Default: "Validando credenciais..."
-   */
   message?: string;
 }
 
@@ -178,58 +171,69 @@ export function AuthLoadingOverlay({
   if (!visible) return null;
 
   return (
-    <Modal transparent animationType="fade" visible={visible}>
-      {/* 1. FUNDO ESCURO SEMI-TRANSPARENTE BLOQUEANTE */}
-      <View className="flex-1 bg-black/60 justify-center items-center px-6">
-        {/* 2. CARTÃO CENTRAL ANIMADO VIA MOTI */}
+    <View
+      style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0, 0, 0, 0.65)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 9999,
+        elevation: 10,
+      }}
+      className="px-6"
+    >
+      {/* CARTÃO CENTRAL ANIMADO VIA MOTI */}
+      <MotiView
+        from={{ opacity: 0, scale: 0.85, translateY: 10 }}
+        animate={{ opacity: 1, scale: 1, translateY: 0 }}
+        transition={{
+          type: 'spring',
+          damping: 18,
+          stiffness: 200,
+        }}
+        className={`w-full max-w-xs p-6 rounded-3xl border items-center shadow-2xl ${
+          isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-[#e2dfe1]'
+        }`}
+      >
+        {/* ÍCONE DE CADEADO COM BRILHO VERDE PULSANTE */}
         <MotiView
-          from={{ opacity: 0, scale: 0.85, translateY: 10 }}
-          animate={{ opacity: 1, scale: 1, translateY: 0 }}
+          from={{ scale: 0.9, opacity: 0.7 }}
+          animate={{ scale: 1.1, opacity: 1 }}
           transition={{
-            type: 'spring',
-            damping: 18,
-            stiffness: 200,
+            type: 'timing',
+            duration: 800,
+            loop: true,
+            repeatReverse: true,
           }}
-          className={`w-full max-w-xs p-6 rounded-3xl border items-center shadow-2xl ${
-            isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-[#e2dfe1]'
+          className="w-16 h-16 rounded-2xl bg-[#38E538]/10 border border-[#38E538]/30 items-center justify-center mb-4"
+        >
+          <LockSimple size={32} color="#38E538" weight="bold" />
+        </MotiView>
+
+        {/* SPINNER DE APOIO DA COR PRINCIPAL */}
+        <ActivityIndicator size="small" color="#38E538" className="mb-3" />
+
+        {/* TEXTO DE MENSAGEM DINÂMICA */}
+        <Text
+          className={`text-sm font-sans-bold text-center ${
+            isDark ? 'text-white' : 'text-[#1b1b1d]'
           }`}
         >
-          {/* 3. ÍCONE DE CADEADO COM BRILHO VERDE PULSANTE */}
-          <MotiView
-            from={{ scale: 0.9, opacity: 0.7 }}
-            animate={{ scale: 1.1, opacity: 1 }}
-            transition={{
-              type: 'timing',
-              duration: 800,
-              loop: true,
-              repeatReverse: true,
-            }}
-            className="w-16 h-16 rounded-2xl bg-[#38E538]/10 border border-[#38E538]/30 items-center justify-center mb-4"
-          >
-            <LockSimple size={32} color="#38E538" weight="bold" />
-          </MotiView>
+          {message}
+        </Text>
 
-          {/* 4. SPINNER DE APOIO DA COR PRINCIPAL */}
-          <ActivityIndicator size="small" color="#38E538" className="mb-3" />
-
-          {/* 5. TEXTO DE MENSAGEM DINÂMICA */}
-          <Text
-            className={`text-sm font-sans-bold text-center ${
-              isDark ? 'text-white' : 'text-[#1b1b1d]'
-            }`}
-          >
-            {message}
-          </Text>
-
-          <Text
-            className={`text-xs font-sans-medium text-center mt-1 ${
-              isDark ? 'text-zinc-400' : 'text-[#71717a]'
-            }`}
-          >
-            Aguarde um momento
-          </Text>
-        </MotiView>
-      </View>
-    </Modal>
+        <Text
+          className={`text-xs font-sans-medium text-center mt-1 ${
+            isDark ? 'text-zinc-400' : 'text-[#71717a]'
+          }`}
+        >
+          Aguarde um momento
+        </Text>
+      </MotiView>
+    </View>
   );
 }

@@ -1,8 +1,8 @@
 // ============================================================================
-// DOCUMENTAÇÃO: ROOT LAYOUT ENTERPRISE (PROTEÇÃO DE ROTAS SEM LOOPS)
+// DOCUMENTAÇÃO: ROOT LAYOUT ENTERPRISE (PROTEÇÃO DE ROTAS E TRATAMENTO DE 404)
 // ============================================================================
-// Gerencia a autenticação local, tema global, cache TanStack Query,
-// notificações push, temporizador e redirecionamento seguro por papéis.
+// Gerencia autenticação local, tratamento de erros de API (como 404 de conta excluída),
+// tema global, notificações push e redirecionamento de rotas.
 // ============================================================================
 
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -43,7 +43,7 @@ import * as Notifications from 'expo-notifications';
 import { registerForPushNotificationsAsync } from '../lib/notifications';
 import { api } from '../services/api';
 
-// IMPORTAÇÃO DOS PROVEDORES DE CONTEXTO E COMPONENTES ENTERPRISE
+// IMPORTAÇÃO DOS PROVEDORES DE CONTEXTO E COMPONENTES
 import { ThemeProvider as AppThemeProvider, useTheme } from '../context/ThemeContext';
 import { TimerProvider } from '../context/TimerContext';
 import { FloatingTimer } from '../components/FloatingTimer';
@@ -147,7 +147,7 @@ function RootLayoutContent() {
     };
   }, []);
 
-  // 🟢 BUSCA DO PERFIL NA API DA VPS
+  // 🟢 BUSCA DO PERFIL NA API DA VPS COM TRATAMENTO DE ERRO 404 (CONTA EXCLUÍDA)
   async function fetchUserProfile() {
     if (!user?.id) {
       setUserProfile(null);
@@ -166,7 +166,18 @@ function RootLayoutContent() {
         setShowTermsModal(!profile.accepted_terms);
       }
     } catch (err: any) {
-      console.error('⚠️ [VPS] Erro ao buscar perfil na VPS:', err.message);
+      console.error('⚠️ [VPS] Erro ao buscar perfil na VPS:', err.response?.status || err.message);
+
+      // 🟢 SE O SERVIDOR RETORNAR 404 (Conta Não Encontrada/Excluída), APAGA A SESSÃO LOCAL!
+      if (err.response?.status === 404) {
+        console.warn('⚠️ [VPS] Conta do usuário não existe mais no banco de dados. Deslogando...');
+        await signOut();
+        setUserProfile(null);
+        setNetworkError(false);
+        return;
+      }
+
+      // Caso seja erro de rede genérico (ex: VPS offline)
       setNetworkError(true);
     } finally {
       setIsProfileLoading(false);
@@ -196,12 +207,12 @@ function RootLayoutContent() {
     }
   }, [user?.id]);
 
-  // REGISTRA PUSH TOKEN NO BACKEND
+  // REGISTRA PUSH TOKEN NO BACKEND APENAS SE O PERFIL EXISTIR
   useEffect(() => {
-    if (user?.id) {
+    if (user?.id && userProfile) {
       registerForPushNotificationsAsync(user.id);
     }
-  }, [user?.id]);
+  }, [user?.id, userProfile]);
 
   // 🟢 PROTEÇÃO GLOBAL DE ROTAS (PROTEGIDA CONTRA LOOPS INFINITOS)
   useEffect(() => {
@@ -239,7 +250,7 @@ function RootLayoutContent() {
       return;
     }
 
-    // 4. Redirecionamento seguro baseado no papel (Role) sem disparos repetidos
+    // 4. Redirecionamento seguro baseado no papel (Role)
     const userRole = userProfile.role || 'aluno';
 
     if (userRole === 'admin' && !fullPath.includes('(admin)')) {
@@ -257,6 +268,7 @@ function RootLayoutContent() {
     (!user || !isProfileLoading || !!userProfile)
   );
 
+  // 🟢 TELA DE ERRO COM BOTÃO DE "SAIR DA CONTA"
   if (networkError && !userProfile) {
     return (
       <View style={{ flex: 1, backgroundColor }} className="justify-center items-center px-6">
@@ -266,12 +278,24 @@ function RootLayoutContent() {
         <Text className="text-xs font-sans-medium text-zinc-400 mb-6 text-center">
           Não foi possível verificar suas permissões na VPS.
         </Text>
-        <TouchableOpacity
-          onPress={fetchUserProfile}
-          className="bg-[#59C83A] px-6 py-3 rounded-2xl"
-        >
-          <Text className="text-white font-sans-bold text-sm">Tentar Novamente</Text>
-        </TouchableOpacity>
+        <View className="flex-row gap-3">
+          <TouchableOpacity
+            onPress={fetchUserProfile}
+            className="bg-[#59C83A] px-5 py-3 rounded-2xl"
+          >
+            <Text className="text-white font-sans-bold text-sm">Tentar Novamente</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={async () => {
+              await signOut();
+              setNetworkError(false);
+            }}
+            className="bg-zinc-800 px-5 py-3 rounded-2xl border border-zinc-700"
+          >
+            <Text className="text-zinc-300 font-sans-bold text-sm">Sair da Conta</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     );
   }

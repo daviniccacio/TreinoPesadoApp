@@ -1,22 +1,30 @@
-// ============================================================================
-// DOCUMENTAÇÃO: CLIENTE DE API HTTP (SERVICES/API.TS)
-// ============================================================================
-// Configura a instância do Axios apontando para a porta raiz da VPS na
-// Oracle Cloud, evitando duplicação do prefixo /api nas requisições.
-// ============================================================================
-
 import axios from 'axios';
 
-// URL raiz da VPS na Oracle Cloud (porta 3000)
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
-
-// Remove a barra ou sufixo /api caso tenha sido inserido por engano no .env
-const cleanBaseURL = API_URL.replace(/\/api\/?$/, '').replace(/\/$/, '');
+// Substitua pelo IP ou domínio da sua VPS
+const API_URL = 'http://163.176.233.145:3000'; 
 
 export const api = axios.create({
-  baseURL: cleanBaseURL,
-  timeout: 10000,
+  baseURL: API_URL,
+  timeout: 8000, // Limite de 8 segundos para evitar requisições presas
   headers: {
     'Content-Type': 'application/json',
   },
 });
+
+// Interceptor de resposta blindado para repassar o erro com segurança
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    // Registra o erro no console de forma simples sem quebrar o app
+    if (error.response) {
+      console.warn(`⚠️ [API Error ${error.response.status}]:`, error.response.data);
+    } else if (error.request) {
+      console.warn('⚠️ [API Error]: Sem resposta do servidor da VPS.');
+    } else {
+      console.warn('⚠️ [API Error]:', error.message);
+    }
+
+    // OBRIGATÓRIO: Repassa o erro para ser capturado no try/catch da tela
+    return Promise.reject(error);
+  }
+);
