@@ -1,8 +1,9 @@
 // ============================================================================
-// DOCUMENTAÇÃO: TELA DE CRIAÇÃO / EDIÇÃO DE PLANO DE TREINO (COM CONFIRMAÇÃO)
+// DOCUMENTAÇÃO: TELA DE CRIAÇÃO / EDIÇÃO DE PLANO DE TREINO (INTEGRADA À VPS)
 // ============================================================================
 // Inclui proteção contra saída acidental com alterações não salvas, modal
-// com fecho instantâneo, persistência de exercícios e categorias dinâmicas.
+// com fecho instantâneo, persistência de exercícios, categorias dinâmicas
+// e invalidação suave de cache (sem travamento do spinner de RefreshControl).
 // ============================================================================
 
 import React, { useState, useCallback, useEffect } from 'react';
@@ -36,7 +37,9 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Image } from 'expo-image';
 import { MotiView } from 'moti';
 
-import { supabase } from '../../../lib/supabase';
+// IMPORTAÇÕES DE CONTEXTO E API VPS
+import { api } from '../../../services/api';
+import { useAuth } from '../../../context/AuthContext';
 import { getExerciseGif } from '../../../lib/exerciseGifs';
 import { useThrottledCallback } from '../../../lib/useThrottle';
 import { CustomModal } from '../../../components/CustomModal';
@@ -84,12 +87,13 @@ const OBJECTIVE_OPTIONS = ['Hipertrofia', 'Emagrecimento', 'Resistência', 'For�
 
 export default function CreateWorkoutPlanScreen() {
   const router = useRouter();
-  const navigation = useNavigation(); // 🟢 NAVEGAÇÃO NATIVA PARA INTERCEPTAR A SAÍDA
+  const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
   const queryClient = useQueryClient();
+  const { user } = useAuth(); // ID do Personal Logado
 
   const { planId, studentId, studentName } = useLocalSearchParams<{
     planId?: string;
@@ -105,7 +109,7 @@ export default function CreateWorkoutPlanScreen() {
   const [selectedExercises, setSelectedExercises] = useState<SelectedExerciseItem[]>([]);
   const [saving, setSaving] = useState(false);
   const [loadingPlanData, setLoadingPlanData] = useState(false);
-  const [isSaved, setIsSaved] = useState(false); // 🟢 BANDEIRA QUE PERMITE SAÍDA APÓS SALVAR
+  const [isSaved, setIsSaved] = useState(false);
 
   // --- ESTADOS DO MODAL DE EXERCÍCIOS ---
   const [isModalVisible, setIsModalVisible] = useState(false);
@@ -140,7 +144,7 @@ export default function CreateWorkoutPlanScreen() {
     confirmText: 'Entendi',
     cancelText: 'Cancelar',
     showCancelButton: false,
-    onConfirm: () => {},
+    onConfirm: () => { },
   });
 
   function showAlertModal({
@@ -167,21 +171,18 @@ export default function CreateWorkoutPlanScreen() {
     });
   }
 
-  // 🟢 IDENTIFICA SE HÁ ALTERAÇÕES NÃO SALVAS NO FORMULÁRIO
+  // IDENTIFICA SE HÁ ALTERAÇÕES NÃO SALVAS NO FORMULÁRIO
   const isFormDirty = selectedExercises.length > 0 || planName.trim().length > 0 || description.trim().length > 0;
 
-  // 🟢 HOOK QUE INTERCEPTA A TENTATIVA DE SAÍDA DA TELA
+  // INTERCEPTA A TENTATIVA DE SAÍDA DA TELA SE HOUVER MUDANÇAS
   useEffect(() => {
     const unsubscribe = navigation.addListener('beforeRemove', (e) => {
-      // Se não houver alterações ou se o plano acabou de ser salvo, permite a saída normal
       if (!isFormDirty || isSaved) {
         return;
       }
 
-      // Impede a navegação padrão imediata
       e.preventDefault();
 
-      // Exibe o modal de confirmação
       showAlertModal({
         title: 'Descartar alterações? ⚠️',
         message: 'Você possui exercícios ou informações preenchidas. Se sair agora, todas as alterações serão perdidas.',
@@ -190,7 +191,6 @@ export default function CreateWorkoutPlanScreen() {
         cancelText: 'Continuar Editando',
         showCancelButton: true,
         onConfirm: () => {
-          // Despacha a ação de navegação acumulada para fechar a tela
           navigation.dispatch(e.data.action);
         },
       });
@@ -199,17 +199,23 @@ export default function CreateWorkoutPlanScreen() {
     return unsubscribe;
   }, [navigation, isFormDirty, isSaved]);
 
-  // NAVEGAÇÃO DE RETORNO EXPLÍCITA
+  // NAVEGAÇÃO DE RETORNO COM INVALIDAÇÃO SUAVE DE CACHE
   const handleNavigateBack = useCallback(() => {
+    // Invalidação suave de cache (marca como stale para atualizar sem travar o spinner nativo)
+    queryClient.invalidateQueries({ queryKey: ['personal-student-detail', studentId], refetchType: 'none' });
+    queryClient.invalidateQueries({ queryKey: ['student-workouts'], refetchType: 'none' });
+    queryClient.invalidateQueries({ queryKey: ['personal-profile-data'], refetchType: 'none' });
+    queryClient.invalidateQueries({ queryKey: ['personal-library-routines'], refetchType: 'none' });
+
     if (studentId) {
       router.replace({
         pathname: '/(personal)/student-detail',
         params: { id: studentId, name: studentName },
-      });
+      } as any);
     } else {
-      router.replace('/(personal)/routines');
+      router.replace('/(personal)/routines' as any);
     }
-  }, [router, studentId, studentName]);
+  }, [router, studentId, studentName, queryClient]);
 
   const handleSavePlanThrottled = useThrottledCallback(handleSavePlan, 2000);
 
@@ -233,48 +239,33 @@ export default function CreateWorkoutPlanScreen() {
     setIsSaved(false);
   }
 
+  // CARREGA DADOS DO PLANO VIA API VPS
   async function loadExistingPlanData(id: string) {
     try {
       setLoadingPlanData(true);
 
-      const { data: plan, error: planError } = await supabase
-        .from('workout_plans')
-        .select('*')
-        .eq('id', id)
-        .single();
+      const response = await api.get(`/api/workout-plans/detail/${id}`);
+      const data = response.data;
 
-      if (planError) throw planError;
+      if (data) {
+        setPlanName(data.name || '');
+        setDescription(data.description || '');
+        setObjective(data.objective || 'Hipertrofia');
+        setSelectedDays(data.days_of_week || ['Segunda']);
 
-      if (plan) {
-        setPlanName(plan.name || '');
-        setDescription(plan.description || '');
-        setObjective(plan.objective || 'Hipertrofia');
-        setSelectedDays(plan.days_of_week || ['Segunda']);
-      }
+        const mappedExercises: SelectedExerciseItem[] = (data.plan_exercises || []).map((ex: any) => {
+          const generatedTempId = String(ex.id || Date.now().toString() + Math.random().toString());
+          return {
+            tempId: generatedTempId,
+            exercise_id: String(ex.exercise_id || ex.id || generatedTempId),
+            name: String(ex.name || 'Exercício'),
+            sets: String(ex.sets || '3'),
+            reps: String(ex.reps || '10'),
+            notes: String(ex.notes || ''),
+            gif_key: ex.gif_key || null,
+          };
+        });
 
-      const { data: exercises, error: exercisesError } = await supabase
-        .from('plan_exercises')
-        .select(`
-          *,
-          exercise:exercises (
-            gif_key
-          )
-        `)
-        .eq('plan_id', id)
-        .order('order_index', { ascending: true });
-
-      if (exercisesError) throw exercisesError;
-
-      if (exercises) {
-        const mappedExercises: SelectedExerciseItem[] = exercises.map((ex: any) => ({
-          tempId: ex.id || Date.now().toString() + Math.random().toString(),
-          exercise_id: ex.exercise_id,
-          name: ex.name,
-          sets: String(ex.sets || '3'),
-          reps: String(ex.reps || '10'),
-          notes: ex.notes || '',
-          gif_key: ex.exercise?.gif_key || null,
-        }));
         setSelectedExercises(mappedExercises);
       }
     } catch (err: any) {
@@ -304,7 +295,6 @@ export default function CreateWorkoutPlanScreen() {
     }
   }
 
-  // HELPER: FORMATAR RÓTULOS DE CATEGORIA
   function formatCategoryLabel(rawCategory: string): string {
     const normalized = rawCategory.trim().toLowerCase();
     const mapLabels: Record<string, string> = {
@@ -324,37 +314,31 @@ export default function CreateWorkoutPlanScreen() {
     return normalized.charAt(0).toUpperCase() + normalized.slice(1);
   }
 
-  // BUSCA DE EXERCÍCIOS E CATEGORIAS DINÂMICAS DO SUPABASE
+  // BUSCA DE EXERCÍCIOS E CATEGORIAS DINÂMICAS VIA API VPS
   const fetchRegisteredExercises = useCallback(async () => {
     try {
       setLoadingModalExercises(true);
 
-      const { data, error } = await supabase
-        .from('exercises')
-        .select('*')
-        .order('name', { ascending: true });
+      const response = await api.get('/api/exercises');
+      const data = response.data || [];
 
-      if (error) throw error;
+      setRegisteredExercises(data);
 
-      if (data) {
-        setRegisteredExercises(data);
+      const rawCategories: string[] = data
+        .map((item: RegisteredExercise) => item.category_id)
+        .filter((cat: unknown): cat is string => typeof cat === 'string' && cat.trim().length > 0);
 
-        const rawCategories = data
-          .map((item: RegisteredExercise) => item.category_id)
-          .filter((cat): cat is string => typeof cat === 'string' && cat.trim().length > 0);
+      const uniqueCategories: string[] = Array.from(new Set<string>(rawCategories));
 
-        const uniqueCategories = Array.from(new Set(rawCategories));
+      const dynamicFilters: CategoryOption[] = [
+        { id: 'todos', label: 'Todos' },
+        ...uniqueCategories.map((catKey: string) => ({
+          id: catKey.toLowerCase(),
+          label: formatCategoryLabel(catKey),
+        })),
+      ];
 
-        const dynamicFilters: CategoryOption[] = [
-          { id: 'todos', label: 'Todos' },
-          ...uniqueCategories.map((catKey) => ({
-            id: catKey.toLowerCase(),
-            label: formatCategoryLabel(catKey),
-          })),
-        ];
-
-        setCategoryOptions(dynamicFilters);
-      }
+      setCategoryOptions(dynamicFilters);
     } catch (err: any) {
       showAlertModal({
         title: 'Erro',
@@ -373,17 +357,21 @@ export default function CreateWorkoutPlanScreen() {
   }
 
   function handleToggleExerciseFromLibrary(item: RegisteredExercise) {
-    const existingIndex = selectedExercises.findIndex((ex) => ex.exercise_id === item.id);
+    const existingIndex = selectedExercises.findIndex(
+      (ex) =>
+        ex.exercise_id === item.id ||
+        ex.name.trim().toLowerCase() === item.name.trim().toLowerCase()
+    );
 
     if (existingIndex >= 0) {
-      setSelectedExercises((prev) => prev.filter((ex) => ex.exercise_id !== item.id));
+      setSelectedExercises((prev) => prev.filter((_, index) => index !== existingIndex));
       if (expandedModalExerciseId === item.id) {
         setExpandedModalExerciseId(null);
       }
     } else {
       const newExerciseItem: SelectedExerciseItem = {
         tempId: Date.now().toString() + Math.random().toString(),
-        exercise_id: item.id,
+        exercise_id: String(item.id),
         name: item.name,
         category_id: item.category_id,
         sets: String(item.sets || '3'),
@@ -399,7 +387,7 @@ export default function CreateWorkoutPlanScreen() {
 
   function handleUpdateExercise(tempId: string, field: keyof SelectedExerciseItem, value: string) {
     setSelectedExercises((prev) =>
-      prev.map((item) => (item.tempId === tempId ? { ...item, [field]: value } : item))
+      prev.map((item) => (item.tempId === tempId ? { ...item, [field]: value ?? '' } : item))
     );
   }
 
@@ -407,24 +395,28 @@ export default function CreateWorkoutPlanScreen() {
     setSelectedExercises((prev) => prev.filter((item) => item.tempId !== tempId));
   }
 
+  // SALVAR / ATUALIZAR O PLANO VIA API VPS
   async function handleSavePlan() {
+    const safeExercises = selectedExercises.map((ex) => ({
+      exercise_id: String(ex.exercise_id || ex.tempId || 'ex-id'),
+      name: String(ex.name || 'Exercício').trim(),
+      sets: String(ex.sets || '3').trim() || '3',
+      reps: String(ex.reps || '10').trim() || '10',
+      notes: ex.notes ? String(ex.notes).trim() : '',
+    }));
+
     const payload = {
       name: planName.trim(),
-      description: description.trim() || null,
-      objective,
-      days_of_week: selectedDays,
-      exercises: selectedExercises.map((ex) => ({
-        exercise_id: ex.exercise_id,
-        sets: ex.sets.trim(),
-        reps: ex.reps.trim(),
-        notes: ex.notes.trim() || null,
-      })),
+      description: description ? description.trim() : '',
+      objective: objective || 'Hipertrofia',
+      days_of_week: selectedDays.length > 0 ? selectedDays : ['Segunda'],
+      exercises: safeExercises,
     };
 
     const validation = createWorkoutPlanSchema.safeParse(payload);
 
     if (!validation.success) {
-      const firstError = validation.error.issues[0].message;
+      const firstError = validation.error.issues[0]?.message || 'Verifique os campos preenchidos.';
       showAlertModal({
         title: 'Dados Inválidos',
         message: firstError,
@@ -435,47 +427,18 @@ export default function CreateWorkoutPlanScreen() {
 
     try {
       setSaving(true);
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
 
       if (planId) {
-        const { error: planError } = await supabase
-          .from('workout_plans')
-          .update({
-            name: planName.trim(),
-            description: description.trim() || null,
-            objective: objective,
-            days_of_week: selectedDays,
-          })
-          .eq('id', planId);
+        // MODO EDIÇÃO
+        await api.put(`/api/workout-plans/${planId}`, {
+          name: planName.trim(),
+          description: description.trim() || null,
+          objective,
+          days_of_week: selectedDays,
+          exercises: safeExercises,
+        });
 
-        if (planError) throw planError;
-
-        await supabase.from('plan_exercises').delete().eq('plan_id', planId);
-
-        const exercisesPayload = selectedExercises.map((ex, index) => ({
-          plan_id: planId,
-          exercise_id: ex.exercise_id,
-          name: ex.name,
-          sets: ex.sets.trim() || '3',
-          reps: ex.reps.trim() || '10',
-          notes: ex.notes.trim() || null,
-          order_index: index,
-        }));
-
-        const { error: exercisesError } = await supabase
-          .from('plan_exercises')
-          .insert(exercisesPayload);
-
-        if (exercisesError) throw exercisesError;
-
-        queryClient.invalidateQueries({ queryKey: ['personal-student-detail', studentId] });
-        queryClient.invalidateQueries({ queryKey: ['student-workouts'] });
-        queryClient.invalidateQueries({ queryKey: ['personal-profile-data'] });
-        queryClient.invalidateQueries({ queryKey: ['personal-library-routines'] });
-
-        setIsSaved(true); // 🟢 MARCA COMO SALVO COM SUCESSO
+        setIsSaved(true);
         showAlertModal({
           title: 'Sucesso! 🎉',
           message: 'Plano de treino atualizado com sucesso!',
@@ -484,42 +447,18 @@ export default function CreateWorkoutPlanScreen() {
           onConfirm: () => handleNavigateBack(),
         });
       } else {
-        const { data: planData, error: planError } = await supabase
-          .from('workout_plans')
-          .insert({
-            name: planName.trim(),
-            description: description.trim() || null,
-            objective: objective,
-            days_of_week: selectedDays,
-            student_id: studentId || null,
-            personal_id: user?.id,
-          })
-          .select('id')
-          .single();
+        // MODO CRIAÇÃO
+        await api.post('/api/workout-plans', {
+          name: planName.trim(),
+          description: description.trim() || null,
+          objective,
+          days_of_week: selectedDays,
+          studentId: studentId || null,
+          personalId: user?.id || null,
+          exercises: safeExercises,
+        });
 
-        if (planError) throw planError;
-
-        const exercisesPayload = selectedExercises.map((ex, index) => ({
-          plan_id: planData.id,
-          exercise_id: ex.exercise_id,
-          name: ex.name,
-          sets: ex.sets.trim() || '3',
-          reps: ex.reps.trim() || '10',
-          notes: ex.notes.trim() || null,
-          order_index: index,
-        }));
-
-        const { error: exercisesError } = await supabase
-          .from('plan_exercises')
-          .insert(exercisesPayload);
-
-        if (exercisesError) throw exercisesError;
-
-        queryClient.invalidateQueries({ queryKey: ['personal-student-detail', studentId] });
-        queryClient.invalidateQueries({ queryKey: ['student-workouts'] });
-        queryClient.invalidateQueries({ queryKey: ['personal-profile-data'] });
-
-        setIsSaved(true); // 🟢 MARCA COMO SALVO COM SUCESSO
+        setIsSaved(true);
         showAlertModal({
           title: 'Sucesso! 🎉',
           message: 'Plano de treino criado com sucesso!',
@@ -531,7 +470,7 @@ export default function CreateWorkoutPlanScreen() {
     } catch (error: any) {
       showAlertModal({
         title: 'Erro ao Salvar',
-        message: error.message || 'Ocorreu um erro ao guardar o plano.',
+        message: error?.response?.data?.erro || error.message || 'Ocorreu um erro ao guardar o plano.',
         type: 'danger',
       });
     } finally {
@@ -548,19 +487,21 @@ export default function CreateWorkoutPlanScreen() {
     return matchesSearch && matchesCategory;
   });
 
-  // FUNÇÃO RENDERITEM MEMORIZADA PARA ALTA PERFORMANCE
   const renderModalExerciseItem = useCallback(
     ({ item }: { item: RegisteredExercise }) => {
-      const isAdded = selectedExercises.some((ex) => ex.exercise_id === item.id);
+      const isAdded = selectedExercises.some(
+        (ex) =>
+          ex.exercise_id === item.id ||
+          ex.name.trim().toLowerCase() === item.name.trim().toLowerCase()
+      );
       const isGifExpanded = expandedModalExerciseId === item.id;
 
       return (
         <View
-          className={`p-3.5 rounded-2xl border mb-2.5 overflow-hidden ${
-            isAdded
+          className={`p-3.5 rounded-2xl border mb-2.5 overflow-hidden ${isAdded
               ? 'bg-[#59C83A]/10 border-[#59C83A]'
               : 'bg-[#f8f9fa] dark:bg-zinc-950 border-[#e2dfe1] dark:border-zinc-800'
-          }`}
+            }`}
         >
           <TouchableOpacity
             onPress={() => handleToggleExerciseFromLibrary(item)}
@@ -710,11 +651,10 @@ export default function CreateWorkoutPlanScreen() {
                 <TouchableOpacity
                   key={item}
                   onPress={() => setObjective(item)}
-                  className={`px-3.5 py-2 rounded-xl mr-2 border ${
-                    active
+                  className={`px-3.5 py-2 rounded-xl mr-2 border ${active
                       ? 'bg-[#59C83A] border-[#59C83A]'
                       : 'bg-white dark:bg-zinc-950 border-[#e2dfe1] dark:border-zinc-800'
-                  }`}
+                    }`}
                 >
                   <Text className={`text-xs font-sans-bold ${active ? 'text-white' : 'text-[#414755] dark:text-zinc-400'}`}>
                     {item}
@@ -734,11 +674,10 @@ export default function CreateWorkoutPlanScreen() {
                 <TouchableOpacity
                   key={day}
                   onPress={() => toggleDay(day)}
-                  className={`px-3 py-1.5 rounded-lg border ${
-                    isSelected
+                  className={`px-3 py-1.5 rounded-lg border ${isSelected
                       ? 'bg-[#59C83A]/20 border-[#59C83A]'
                       : 'bg-white dark:bg-zinc-950 border-[#e2dfe1] dark:border-zinc-800'
-                  }`}
+                    }`}
                 >
                   <Text className={`text-xs font-sans-bold ${isSelected ? 'text-[#59C83A]' : 'text-[#71717a]'}`}>
                     {day}
@@ -934,16 +873,14 @@ export default function CreateWorkoutPlanScreen() {
                         <TouchableOpacity
                           key={cat.id}
                           onPress={() => setSelectedCategoryFilter(cat.id)}
-                          className={`px-4 py-2 rounded-xl mr-2 border ${
-                            active
+                          className={`px-4 py-2 rounded-xl mr-2 border ${active
                               ? 'bg-[#59C83A] border-[#59C83A]'
                               : 'bg-[#f8f9fa] dark:bg-zinc-800 border-[#e2dfe1] dark:border-zinc-700'
-                          }`}
+                            }`}
                         >
                           <Text
-                            className={`text-xs font-sans-bold ${
-                              active ? 'text-white' : 'text-[#414755] dark:text-zinc-200'
-                            }`}
+                            className={`text-xs font-sans-bold ${active ? 'text-white' : 'text-[#414755] dark:text-zinc-200'
+                              }`}
                           >
                             {cat.label}
                           </Text>

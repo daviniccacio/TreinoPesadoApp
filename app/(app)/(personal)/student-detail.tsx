@@ -1,5 +1,5 @@
 // ============================================================================
-// DOCUMENTAÇÃO: TELA DE DETALHES E ACOMPANHAMENTO DO ALUNO (PERSONAL TRAINER)
+// DOCUMENTAÇÃO: TELA DE DETALHES E ACOMPANHAMENTO DO ALUNO (INTEGRADA À VPS)
 // ============================================================================
 // Apresenta o perfil do aluno, estatísticas de treinos concluídos, opções para
 // prescrever novas fichas do zero ou da biblioteca, e a gestão dos planos ativos.
@@ -31,7 +31,9 @@ import {
 } from 'phosphor-react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { MotiView } from 'moti';
-import { supabase } from '../../../lib/supabase';
+
+// IMPORTAÇÕES DE CONTEXTO E API VPS
+import { api } from '../../../services/api';
 import { CustomModal } from '../../../components/CustomModal';
 
 // --- TIPAGENS DE DADOS ---
@@ -67,7 +69,7 @@ interface ShowAlertModalOptions {
 }
 
 /**
- * Busca os dados do perfil, estatísticas de presença e planos de treino do aluno no Supabase
+ * Busca os dados do perfil, estatísticas e planos de treino do aluno via API VPS
  */
 async function fetchStudentDetailData(
   studentId?: string,
@@ -81,60 +83,17 @@ async function fetchStudentDetailData(
     };
   }
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const { data: profileData, error: profileError } = await supabase
-    .from('profiles')
-    .select('full_name, personal_id')
-    .eq('id', studentId)
-    .single();
-
-  if (profileError || !profileData) {
-    throw new Error('Aluno não encontrado ou acesso não autorizado.');
-  }
-
-  if (profileData.personal_id !== user?.id && studentId !== user?.id) {
-    throw new Error('Acesso negado: este aluno pertence a outro personal.');
-  }
-
-  const studentName = profileData.full_name || fallbackName || 'Aluno';
-
-  const { data: plansData } = await supabase
-    .from('workout_plans')
-    .select('id, name, description, objective, days_of_week, created_at')
-    .eq('student_id', studentId)
-    .order('created_at', { ascending: false });
-
-  const workoutPlans: StudentWorkoutPlan[] = plansData || [];
-  const prescribedPlanNames = new Set(
-    workoutPlans.map((plan) => plan.name.trim().toLowerCase())
-  );
-
-  const { data: logsData } = await supabase
-    .from('workout_logs')
-    .select('workout_title, created_at')
-    .eq('student_id', studentId)
-    .order('created_at', { ascending: false });
-
-  const logs = logsData || [];
-  const totalWorkouts = logs.length;
-
-  const prescribedWorkouts = logs.filter((log) =>
-    prescribedPlanNames.has((log.workout_title || '').trim().toLowerCase())
-  ).length;
-
-  const lastWorkoutDate = logs.length > 0 ? logs[0].created_at : null;
+  const response = await api.get(`/api/students/detail/${studentId}`);
+  const data = response.data;
 
   return {
-    studentName,
+    studentName: data.studentName || fallbackName || 'Aluno',
     stats: {
-      prescribedWorkouts,
-      totalWorkouts,
-      lastWorkoutDate,
+      prescribedWorkouts: data.stats?.prescribedWorkouts || 0,
+      totalWorkouts: data.stats?.totalWorkouts || 0,
+      lastWorkoutDate: data.stats?.lastWorkoutDate || null,
     },
-    workoutPlans,
+    workoutPlans: data.workoutPlans || [],
   };
 }
 
@@ -198,34 +157,14 @@ export default function StudentDetailScreen() {
     enabled: !!studentId,
   });
 
-  // --- MUTAÇÃO DUPLA DE SEGURANÇA PARA DESVINCULAR ALUNO ---
+  // --- MUTAÇÃO PARA DESVINCULAR ALUNO VIA API VPS ---
   const unlinkStudentMutation = useMutation({
     mutationFn: async () => {
       if (!studentId) throw new Error('ID do aluno não informado');
-
-      // Tentativa 1: Execução via Função RPC
-      const { error: rpcError } = await supabase.rpc('unlink_student', {
-        p_student_id: studentId,
-      });
-
-      // Tentativa 2: Fallback com UPDATE direto no banco
-      if (rpcError) {
-        console.warn('RPC falhou, executando Fallback direto:', rpcError.message);
-        const { error: updateError } = await supabase
-          .from('profiles')
-          .update({ personal_id: null })
-          .eq('id', studentId);
-
-        if (updateError) throw new Error(updateError.message);
-
-        await supabase
-          .from('workout_plans')
-          .delete()
-          .eq('student_id', studentId);
-      }
+      await api.post(`/api/students/${studentId}/unlink`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries();
+      queryClient.invalidateQueries({ refetchType: 'none' });
 
       showAlertModal({
         title: 'Aluno Desvinculado',
@@ -238,28 +177,25 @@ export default function StudentDetailScreen() {
     onError: (error: any) => {
       showAlertModal({
         title: 'Erro ao Desvincular',
-        message: error.message || 'Não foi possível desvincular o aluno.',
+        message: error?.response?.data?.erro || error.message || 'Não foi possível desvincular o aluno.',
         type: 'danger',
       });
     },
   });
 
+  // --- MUTAÇÃO PARA EXCLUIR PLANO DE TREINO VIA API VPS ---
   const deletePlanMutation = useMutation({
     mutationFn: async (planId: string) => {
-      const { error } = await supabase
-        .from('workout_plans')
-        .delete()
-        .eq('id', planId);
-
-      if (error) throw new Error(error.message);
+      await api.delete(`/api/workout-plans/${planId}`);
       return planId;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: ['personal-student-detail', studentId],
+        refetchType: 'none',
       });
-      queryClient.invalidateQueries({ queryKey: ['student-workouts'] });
-      queryClient.invalidateQueries({ queryKey: ['personal-profile-data'] });
+      queryClient.invalidateQueries({ queryKey: ['student-workouts'], refetchType: 'none' });
+      queryClient.invalidateQueries({ queryKey: ['personal-profile-data'], refetchType: 'none' });
 
       showAlertModal({
         title: 'Sucesso',
@@ -270,7 +206,7 @@ export default function StudentDetailScreen() {
     onError: (error: any) => {
       showAlertModal({
         title: 'Erro',
-        message: error.message || 'Não foi possível excluir o plano.',
+        message: error?.response?.data?.erro || error.message || 'Não foi possível excluir o plano.',
         type: 'danger',
       });
     },
@@ -349,24 +285,22 @@ export default function StudentDetailScreen() {
         </TouchableOpacity>
 
         <View className="flex-1">
-          {/* Nome do aluno com Outfit ExtraBold */}
           <Text
             className="text-xl font-outfit-extrabold text-[#1b1b1d] dark:text-white"
             numberOfLines={1}
           >
             {isLoading && !studentName ? 'Carregando...' : studentName}
           </Text>
-          {/* Subtítulo com DM Sans Medium */}
           <Text className="text-xs font-sans-medium text-[#71717a] dark:text-zinc-400">
             Acompanhamento de progresso
           </Text>
         </View>
       </MotiView>
 
-      {/* 2. ROLAGEM COM ESPAÇAMENTO INFERIOR AUMENTADO */}
+      {/* 2. ROLAGEM COM ESPAÇAMENTO INFERIOR */}
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 120 }} // 🟢 Espaço de sobra para a Navbar Flutuante
+        contentContainerStyle={{ paddingBottom: 120 }}
       >
         {/* CARTÃO DO ALUNO ANIMADO */}
         <MotiView
@@ -386,11 +320,9 @@ export default function StudentDetailScreen() {
                 <User size={28} color="#59C83A" weight="bold" />
               </View>
               <View className="flex-1">
-                {/* Nome no cartão em Outfit Bold */}
                 <Text className="text-lg font-outfit text-[#1b1b1d] dark:text-white">
                   {studentName}
                 </Text>
-                {/* Status em DM Sans Bold */}
                 <Text className="text-xs font-sans-bold text-[#59C83A] mt-0.5">
                   Aluno Ativo
                 </Text>
@@ -418,7 +350,6 @@ export default function StudentDetailScreen() {
             delay: 40,
           }}
         >
-          {/* Título da seção em Outfit Bold */}
           <Text className="text-sm font-outfit-bold text-[#1b1b1d] dark:text-white mb-3">
             Resumo de Atividades
           </Text>
@@ -593,7 +524,6 @@ export default function StudentDetailScreen() {
               className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl border border-[#e2dfe1] dark:border-zinc-800 mb-3"
             >
               <View className="flex-row items-center justify-between mb-2">
-                {/* Nome da ficha em Outfit SemiBold */}
                 <Text className="text-base font-outfit-semibold text-[#1b1b1d] dark:text-white flex-1 mr-2">
                   {plan.name}
                 </Text>

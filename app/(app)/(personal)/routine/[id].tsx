@@ -1,8 +1,9 @@
 // ============================================================================
-// DOCUMENTAÇÃO: TELA DE DETALHES DO MODELO DE TREINO (PERSONAL TRAINER)
+// DOCUMENTAÇÃO: TELA DE DETALHES DO MODELO DE TREINO (PERSONAL - INTEGRADA À VPS)
 // ============================================================================
 // Exibe as informações gerais do modelo da biblioteca (objetivo e descrição)
-// juntamente com a lista de exercícios, séries, repetições e modal de GIF.
+// juntamente com a lista de exercícios, séries, repetições e modal de GIF
+// consultados diretamente na API Express na VPS Oracle Cloud.
 // ============================================================================
 
 import React, { useState, useCallback } from 'react';
@@ -28,13 +29,14 @@ import { useQuery } from '@tanstack/react-query';
 import { Image } from 'expo-image';
 import { MotiView } from 'moti';
 
-import { supabase } from '../../../../lib/supabase';
+// IMPORTAÇÃO DA API CONECTADA À VPS E HELPERS
+import { api } from '../../../../services/api';
 import { getExerciseGif } from '../../../../lib/exerciseGifs';
 
 interface PlanExerciseItem {
   id: string;
   name: string;
-  sets: number;
+  sets: number | string;
   reps: string;
   exercise_id: string;
   exercise?: {
@@ -50,40 +52,32 @@ interface RoutineDetail {
 }
 
 /**
- * Busca os detalhes do modelo de treino e a lista de exercícios vinculados
+ * Busca os detalhes do modelo de treino e a lista de exercícios via API na VPS
  */
 async function fetchRoutineWithExercises(planId: string) {
   if (!planId) throw new Error('ID da rotina não fornecido');
 
-  const { data: plan, error: planError } = await supabase
-    .from('workout_plans')
-    .select('*')
-    .eq('id', planId)
-    .single();
+  const response = await api.get(`/api/workout-plans/detail/${planId}`);
+  const data = response.data;
 
-  if (planError) throw new Error(planError.message);
-
-  const { data: exercises, error: exercisesError } = await supabase
-    .from('plan_exercises')
-    .select(`
-      id,
-      name,
-      sets,
-      reps,
-      order_index,
-      exercise_id,
-      exercise:exercises (
-        gif_key
-      )
-    `)
-    .eq('plan_id', planId)
-    .order('order_index', { ascending: true });
-
-  if (exercisesError) throw new Error(exercisesError.message);
-
+  // Mapeia e formata a resposta do backend para as estruturas do componente
   return {
-    plan: plan as RoutineDetail,
-    exercises: (exercises || []) as PlanExerciseItem[],
+    plan: {
+      id: data.id,
+      name: data.name,
+      description: data.description || '',
+      objective: data.objective || '',
+    } as RoutineDetail,
+    exercises: (data.plan_exercises || []).map((ex: any) => ({
+      id: ex.id,
+      name: ex.name,
+      sets: ex.sets,
+      reps: ex.reps,
+      exercise_id: ex.exercise_id,
+      exercise: {
+        gif_key: ex.gif_key,
+      },
+    })) as PlanExerciseItem[],
   };
 }
 
@@ -95,7 +89,7 @@ export default function PersonalRoutineDetailScreen() {
   const isDark = colorScheme === 'dark';
 
   const handleBack = useCallback(() => {
-    router.navigate('/(personal)/routines');
+    router.navigate('/(personal)/routines' as any);
   }, [router]);
 
   const [selectedExerciseForGif, setSelectedExerciseForGif] = useState<{
@@ -134,7 +128,7 @@ export default function PersonalRoutineDetailScreen() {
           <ArrowLeft size={20} color={isDark ? '#59C83A' : '#1b1b1d'} />
         </TouchableOpacity>
 
-        {/* Título do cabeçalho em Outfit Bold */}
+        {/* Título do cabeçalho */}
         <Text className="text-lg font-outfit text-[#1b1b1d] dark:text-white text-center flex-1" numberOfLines={1}>
           {data?.plan.name || 'Detalhes do Treino'}
         </Text>
@@ -151,7 +145,6 @@ export default function PersonalRoutineDetailScreen() {
         <FlatList
           data={data?.exercises || []}
           keyExtractor={(item) => item.id}
-          // 🟢 paddingBottom: 120 garante espaço limpo acima da navbar flutuante
           contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 120 }}
           showsVerticalScrollIndicator={false}
           ListHeaderComponent={
@@ -166,28 +159,26 @@ export default function PersonalRoutineDetailScreen() {
               }}
               className="mb-6"
             >
-              {/* Nome do Treino em Outfit ExtraBold */}
+              {/* Nome do Treino */}
               <Text className="text-2xl font-outfit-extrabold text-[#1b1b1d] dark:text-white mb-2">
                 {data?.plan.name}
               </Text>
 
-              {data?.plan.objective && (
+              {data?.plan.objective ? (
                 <View className="self-start bg-[#59C83A]/10 px-3 py-1 rounded-full border border-[#59C83A]/30 mb-2">
-                  {/* Objetivo em DM Sans Bold */}
                   <Text style={{ color: '#59C83A' }} className="text-xs font-sans-bold uppercase">
                     Objetivo: {data.plan.objective}
                   </Text>
                 </View>
-              )}
+              ) : null}
 
-              {data?.plan.description && (
-                /* Descrição em DM Sans Medium */
+              {data?.plan.description ? (
                 <Text className="text-sm font-sans-medium text-[#71717a] dark:text-zinc-400">
                   {data.plan.description}
                 </Text>
-              )}
+              ) : null}
 
-              {/* Cabeçalho da Lista em Outfit Bold */}
+              {/* Cabeçalho da Lista */}
               <Text className="text-lg font-outfit text-[#1b1b1d] dark:text-white mt-6 mb-1">
                 Exercícios da Ficha ({data?.exercises.length || 0})
               </Text>
@@ -211,10 +202,8 @@ export default function PersonalRoutineDetailScreen() {
                   <View className="flex-row items-center justify-between mb-3">
                     <View className="flex-row items-center flex-1 mr-2">
                       <View className="w-8 h-8 rounded-lg bg-[#59C83A]/10 items-center justify-center mr-2 border border-[#59C83A]/30">
-                        {/* Índice numérico em Outfit Bold */}
                         <Text className="text-xs font-outfit text-[#59C83A]">{index + 1}</Text>
                       </View>
-                      {/* Nome do Exercício em Outfit SemiBold */}
                       <Text className="text-base font-outfit text-[#1b1b1d] dark:text-white flex-1" numberOfLines={1}>
                         {item.name}
                       </Text>
@@ -233,14 +222,13 @@ export default function PersonalRoutineDetailScreen() {
                       activeOpacity={0.7}
                     >
                       <Eye size={16} color="#59C83A" weight="bold" />
-                      {/* Texto do botão em DM Sans Bold */}
                       <Text style={{ color: '#59C83A' }} className="text-xs font-sans-bold ml-1.5">
                         Ver GIF
                       </Text>
                     </TouchableOpacity>
                   </View>
 
-                  {/* Séries e Repetições em DM Sans */}
+                  {/* Séries e Repetições */}
                   <View className="flex-row items-center gap-4 border-t border-[#e2dfe1] dark:border-zinc-800 pt-2">
                     <View className="flex-row items-center">
                       <Stack size={14} color="#59C83A" weight="bold" />
@@ -273,7 +261,6 @@ export default function PersonalRoutineDetailScreen() {
         <View className="flex-1 bg-black/80 justify-center items-center px-5">
           <View className="w-full bg-white dark:bg-zinc-900 rounded-3xl p-5 border border-[#e2dfe1] dark:border-zinc-800 shadow-2xl">
             <View className="flex-row justify-between items-center mb-4">
-              {/* Título da modal em Outfit ExtraBold */}
               <Text className="text-lg font-outfit-extrabold text-[#1b1b1d] dark:text-white flex-1 pr-2">
                 {selectedExerciseForGif?.name}
               </Text>
@@ -312,7 +299,6 @@ export default function PersonalRoutineDetailScreen() {
               style={{ backgroundColor: '#59C83A' }}
               className="mt-5 py-3 rounded-xl items-center"
             >
-              {/* Botão de Fechar em DM Sans Bold */}
               <Text className="text-white font-sans-bold text-sm">Fechar Visualização</Text>
             </TouchableOpacity>
           </View>

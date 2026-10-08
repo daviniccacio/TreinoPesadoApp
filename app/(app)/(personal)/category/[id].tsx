@@ -1,8 +1,8 @@
 // ============================================================================
-// DOCUMENTAÇÃO: TELA DE EXERCÍCIOS POR CATEGORIA (PERSONAL TRAINER)
+// DOCUMENTAÇÃO: TELA DE EXERCÍCIOS POR CATEGORIA (PERSONAL TRAINER - VPS)
 // ============================================================================
-// Exibe a lista de exercícios cadastrados para uma categoria específica do
-// Supabase, permitindo filtragem em tempo real via busca por texto.
+// Exibe a lista de exercícios cadastrados para uma categoria específica
+// consultados na API da VPS, permitindo filtragem em tempo real via busca.
 // ============================================================================
 
 import React, { useState } from 'react';
@@ -28,33 +28,26 @@ import {
 } from 'phosphor-react-native';
 import { useQuery } from '@tanstack/react-query';
 import { MotiView } from 'moti';
-import { supabase } from '../../../../lib/supabase';
+
+// IMPORTAÇÃO DA API CONECTADA À VPS
+import { api } from '../../../../services/api';
 
 // --- TIPAGENS DE DADOS ---
 interface Exercise {
   id: string;
   name: string;
   category_id: string;
+  gif_key?: string;
 }
 
 /**
- * Busca os exercícios de uma categoria específica no Supabase
+ * Busca os exercícios de uma categoria específica na API da VPS
  */
 async function fetchExercisesByCategory(categoryId: string): Promise<Exercise[]> {
   if (!categoryId) return [];
 
-  const { data, error } = await supabase
-    .from('exercises')
-    .select('*')
-    .eq('category_id', categoryId)
-    .order('name');
-
-  if (error) {
-    console.error('Erro ao buscar exercícios da categoria:', error.message);
-    throw new Error(error.message);
-  }
-
-  return (data || []) as Exercise[];
+  const response = await api.get(`/api/categories/exercises/${categoryId}`);
+  return (response.data || []) as Exercise[];
 }
 
 export default function PersonalCategoryScreen() {
@@ -86,7 +79,7 @@ export default function PersonalCategoryScreen() {
   );
 
   function handleGoBack() {
-    router.replace('/(personal)/exercises');
+    router.replace('/(personal)/exercises' as any);
   }
 
   const safeTopPadding = Math.max(insets?.top || 0, 16);
@@ -112,7 +105,7 @@ export default function PersonalCategoryScreen() {
           <ArrowLeft size={20} color={isDark ? '#59C83A' : '#1b1b1d'} />
         </TouchableOpacity>
 
-        {/* Título da Categoria em Outfit Bold */}
+        {/* Título da Categoria */}
         <Text className="text-lg font-outfit text-[#1b1b1d] dark:text-white">
           {categoryTitle}
         </Text>
@@ -124,7 +117,6 @@ export default function PersonalCategoryScreen() {
       {isLoading ? (
         <View className="flex-1 justify-center items-center">
           <ActivityIndicator size="large" color="#59C83A" />
-          {/* Texto de carregamento em DM Sans Medium */}
           <Text className="mt-3 text-[#414755] dark:text-zinc-400 font-sans-medium text-xs">
             Carregando exercícios...
           </Text>
@@ -137,11 +129,9 @@ export default function PersonalCategoryScreen() {
           className="flex-1 justify-center items-center px-5"
         >
           <WarningCircle size={48} color="#e11d48" />
-          {/* Mensagem de erro em Outfit Bold */}
           <Text className="text-base font-outfit-bold text-[#1b1b1d] dark:text-white mt-2 text-center">
             Não foi possível carregar os exercícios
           </Text>
-          {/* Botão de Tentar Novamente em DM Sans Bold */}
           <TouchableOpacity
             onPress={() => refetch()}
             style={{ backgroundColor: '#59C83A' }}
@@ -154,7 +144,6 @@ export default function PersonalCategoryScreen() {
         <FlatList
           data={filteredExercises}
           keyExtractor={(item) => item.id}
-          // 🟢 paddingBottom: 120 para garantir espaço acima da navbar flutuante
           contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 120 }}
           showsVerticalScrollIndicator={false}
           refreshControl={
@@ -162,6 +151,7 @@ export default function PersonalCategoryScreen() {
               refreshing={isRefetching}
               onRefresh={refetch}
               tintColor="#59C83A"
+              colors={['#59C83A']}
             />
           }
           ListHeaderComponent={
@@ -176,7 +166,6 @@ export default function PersonalCategoryScreen() {
               }}
               className="mb-4"
             >
-              {/* Título da seção em Outfit ExtraBold */}
               <Text className="text-xl font-outfit-extrabold text-[#1b1b1d] dark:text-white mb-3">
                 Exercícios Disponíveis
               </Text>
@@ -184,7 +173,6 @@ export default function PersonalCategoryScreen() {
               {/* BARRINHA DE PESQUISA */}
               <View className="bg-[#f8f9fa] dark:bg-zinc-900 flex-row items-center px-4 py-2.5 rounded-2xl border border-[#e2dfe1] dark:border-zinc-800">
                 <MagnifyingGlass size={18} color={isDark ? '#59C83A' : '#414755'} />
-                {/* Texto da Busca em DM Sans Medium */}
                 <TextInput
                   className="flex-1 ml-2.5 text-[#1b1b1d] dark:text-white text-sm font-sans-medium"
                   placeholder={`Buscar em ${categoryTitle}...`}
@@ -209,7 +197,6 @@ export default function PersonalCategoryScreen() {
               transition={{ type: 'spring', damping: 22, stiffness: 150 }}
               className="py-10 items-center"
             >
-              {/* Texto de lista vazia em DM Sans Medium */}
               <Text className="text-[#414755] dark:text-zinc-400 font-sans-medium text-center text-xs">
                 {searchQuery.trim().length > 0
                   ? `Nenhum exercício encontrado com "${searchQuery}".`
@@ -237,7 +224,7 @@ export default function PersonalCategoryScreen() {
                       categoryId: id,
                       categoryTitle: categoryTitle,
                     },
-                  })
+                  } as any)
                 }
                 className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl mb-3 flex-row items-center justify-between border border-[#e2dfe1] dark:border-zinc-800"
                 activeOpacity={0.8}
@@ -246,7 +233,6 @@ export default function PersonalCategoryScreen() {
                   <View className="w-10 h-10 rounded-xl bg-[#59C83A]/10 items-center justify-center mr-3 border border-[#59C83A]/30">
                     <Barbell size={20} color="#59C83A" weight="bold" />
                   </View>
-                  {/* Nome do exercício em Outfit Bold */}
                   <Text className="text-base font-outfit text-[#1b1b1d] dark:text-white flex-1">
                     {item.name}
                   </Text>

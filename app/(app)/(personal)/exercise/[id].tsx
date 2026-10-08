@@ -1,8 +1,8 @@
 // ============================================================================
-// DOCUMENTAÇÃO: TELA DE DEMONSTRAÇÃO DO EXERCÍCIO (PERSONAL TRAINER)
+// DOCUMENTAÇÃO: TELA DE DEMONSTRAÇÃO DO EXERCÍCIO (PERSONAL TRAINER - VPS)
 // ============================================================================
 // Exibe a execução em GIF animado e as instruções técnicas detalhadas de um
-// exercício específico selecionado no catálogo.
+// exercício específico consultado diretamente na API da VPS Oracle Cloud.
 // ============================================================================
 
 import React, { useState } from 'react';
@@ -21,9 +21,11 @@ import { useQuery } from '@tanstack/react-query';
 import { Image } from 'expo-image';
 import { MotiView } from 'moti';
 
-import { supabase } from '../../../../lib/supabase';
+// IMPORTAÇÕES DA API DA VPS E AUXILIARES
+import { api } from '../../../../services/api';
 import { getExerciseGif } from '../../../../lib/exerciseGifs';
 
+// --- ESTRUTURA DE DADOS ---
 interface ExerciseDetail {
   id: string;
   name: string;
@@ -33,23 +35,13 @@ interface ExerciseDetail {
 }
 
 /**
- * Busca os detalhes do exercício no Supabase
+ * Busca os detalhes do exercício na API Express da VPS
  */
 async function fetchExerciseDetail(exerciseId: string): Promise<ExerciseDetail> {
-  if (!exerciseId) throw new Error('ID do exercício não fornecido');
+  if (!exerciseId) throw new Error('ID do exercício não fornecido.');
 
-  const { data, error } = await supabase
-    .from('exercises')
-    .select('*')
-    .eq('id', exerciseId)
-    .single();
-
-  if (error) {
-    console.error('Erro ao buscar detalhe do exercício:', error.message);
-    throw new Error(error.message);
-  }
-
-  return data as ExerciseDetail;
+  const response = await api.get(`/api/exercises/detail/${exerciseId}`);
+  return response.data as ExerciseDetail;
 }
 
 export default function PersonalExerciseDetailScreen() {
@@ -66,6 +58,7 @@ export default function PersonalExerciseDetailScreen() {
 
   const [isGifLoading, setIsGifLoading] = useState<boolean>(true);
 
+  // --- CONSULTA COM TANSTACK QUERY ---
   const {
     data: exercise,
     isLoading,
@@ -84,9 +77,9 @@ export default function PersonalExerciseDetailScreen() {
       router.replace({
         pathname: '/(personal)/category/[id]',
         params: { id: targetCategory, title: categoryTitle },
-      });
+      } as any);
     } else {
-      router.replace('/(personal)/exercises');
+      router.replace('/(personal)/exercises' as any);
     }
   }
 
@@ -113,7 +106,7 @@ export default function PersonalExerciseDetailScreen() {
           <ArrowLeft size={20} color={isDark ? '#59C83A' : '#1b1b1d'} />
         </TouchableOpacity>
 
-        {/* Título do Cabeçalho em Outfit Bold */}
+        {/* Título do Cabeçalho */}
         <Text className="text-lg font-outfit text-[#1b1b1d] dark:text-white text-center flex-1" numberOfLines={1}>
           Demonstração do Exercício
         </Text>
@@ -125,7 +118,6 @@ export default function PersonalExerciseDetailScreen() {
       {isLoading ? (
         <View className="flex-1 justify-center items-center">
           <ActivityIndicator size="large" color="#59C83A" />
-          {/* Texto em DM Sans Medium */}
           <Text className="mt-3 text-[#414755] dark:text-zinc-400 font-sans-medium text-xs">
             Carregando demonstração...
           </Text>
@@ -138,11 +130,9 @@ export default function PersonalExerciseDetailScreen() {
           className="flex-1 justify-center items-center px-5"
         >
           <WarningCircle size={48} color="#e11d48" />
-          {/* Texto em Outfit Bold */}
           <Text className="text-base font-outfit-bold text-[#1b1b1d] dark:text-white mt-2 text-center">
             Não foi possível carregar os detalhes do exercício
           </Text>
-          {/* Botão em DM Sans Bold */}
           <TouchableOpacity
             onPress={() => refetch()}
             style={{ backgroundColor: '#59C83A' }}
@@ -154,7 +144,6 @@ export default function PersonalExerciseDetailScreen() {
       ) : exercise ? (
         <ScrollView
           className="flex-1 px-5 pt-4"
-          // 🟢 paddingBottom: 120 para rolagem inteiramente desimpedida acima da navbar
           contentContainerStyle={{ paddingBottom: 120 }}
           showsVerticalScrollIndicator={false}
         >
@@ -165,7 +154,6 @@ export default function PersonalExerciseDetailScreen() {
             transition={{ type: 'spring', damping: 22, stiffness: 150, delay: 20 }}
             className="mb-4"
           >
-            {/* Nome do exercício em Outfit ExtraBold */}
             <Text className="text-2xl font-outfit-extrabold text-[#1b1b1d] dark:text-white mb-1">
               {exercise.name}
             </Text>
@@ -181,7 +169,6 @@ export default function PersonalExerciseDetailScreen() {
             {isGifLoading && (
               <View className="absolute inset-0 justify-center items-center bg-[#f8f9fa] dark:bg-zinc-900 z-10">
                 <ActivityIndicator size="large" color="#59C83A" />
-                {/* Texto em DM Sans Medium */}
                 <Text className="text-xs text-[#71717a] dark:text-zinc-400 mt-2 font-sans-medium">
                   Carregando GIF...
                 </Text>
@@ -202,24 +189,6 @@ export default function PersonalExerciseDetailScreen() {
             />
           </MotiView>
 
-          {/* INSTRUÇÕES TÉCNICAS ANIMADAS */}
-          {exercise.instructions && (
-            <MotiView
-              from={{ opacity: 0, translateY: 10 }}
-              animate={{ opacity: 1, translateY: 0 }}
-              transition={{ type: 'spring', damping: 22, stiffness: 150, delay: 60 }}
-              className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl border border-[#e2dfe1] dark:border-zinc-800"
-            >
-              {/* Rótulo de Instruções em DM Sans Bold */}
-              <Text className="text-sm font-sans-bold text-[#59C83A] mb-1">
-                Instruções de Execução:
-              </Text>
-              {/* Texto de Instrução em DM Sans Medium */}
-              <Text className="text-sm text-[#414755] dark:text-zinc-300 leading-6 font-sans-medium">
-                {exercise.instructions}
-              </Text>
-            </MotiView>
-          )}
         </ScrollView>
       ) : null}
     </View>
