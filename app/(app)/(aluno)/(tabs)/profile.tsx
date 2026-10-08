@@ -101,13 +101,12 @@ async function fetchStudentProfileData(userId?: string): Promise<StudentProfileD
     }
   }
 
-  // 2. Busca histórico de treinos para estatísticas (fallback local seguro)
+  // 2. Busca histórico de treinos para estatísticas
   let totalWorkoutsCompleted = 0;
   let totalWorkoutSeconds = 0;
 
   try {
     const workoutsRes = await api.get(`/api/student-workouts/${userId}`);
-    // Simulação ou contagem baseada nos treinos retornados pela API
     totalWorkoutsCompleted = Array.isArray(workoutsRes.data) ? workoutsRes.data.length : 0;
   } catch (err) {
     console.log('Aviso ao consultar estatísticas de treinos:', err);
@@ -135,7 +134,6 @@ async function linkStudentToPersonalByCode(inviteCode: string, userId?: string) 
     throw new Error('Sessão expirada. Faça login novamente.');
   }
 
-  // Como o endpoint de vínculo pode ser adicionado na API, fazemos a chamada ou tratamos via rotaprofiles
   const response = await api.post('/api/profiles/link-personal', {
     userId,
     inviteCode: cleanCode,
@@ -269,12 +267,18 @@ export default function StudentProfileScreen() {
     queryClient.setQueryData(['user-unread-notifications-status', user?.id], false);
   }
 
+  // 🟢 MUTAÇÃO DE VÍNCULO CORRIGIDA COM FORÇAMENTO DE REFETCH
   const linkMutation = useMutation({
     mutationFn: (code: string) => linkStudentToPersonalByCode(code, user?.id),
-    onSuccess: (personalName) => {
+    onSuccess: async (personalName) => {
+      Keyboard.dismiss();
       setIsLinkModalOpen(false);
       setInviteCodeInput('');
-      queryClient.invalidateQueries({ queryKey: ['student-profile-data'] });
+
+      // Invalida e força o refetch imediato ignorando o staleTime
+      await queryClient.invalidateQueries({ queryKey: ['student-profile-data', user?.id] });
+      await refetch();
+
       showAlertModal({
         title: 'Sucesso! 🎉',
         message: `Você foi vinculado com sucesso ao Personal ${personalName}!`,
@@ -283,14 +287,28 @@ export default function StudentProfileScreen() {
       });
     },
     onError: (err: any) => {
+      Keyboard.dismiss();
       showAlertModal({
         title: 'Erro ao Vincular',
-        message: err.message || 'Não foi possível realizar o vínculo.',
+        message: err?.response?.data?.erro || err.message || 'Não foi possível realizar o vínculo.',
         type: 'danger',
         showCancelButton: false,
       });
     },
   });
+
+  function handleConfirmLink() {
+    if (!inviteCodeInput.trim()) {
+      showAlertModal({
+        title: 'Atenção',
+        message: 'Por favor, digite o código de acesso do seu Personal.',
+        type: 'info',
+        showCancelButton: false,
+      });
+      return;
+    }
+    linkMutation.mutate(inviteCodeInput);
+  }
 
   const deleteAccountMutation = useMutation({
     mutationFn: async () => {
@@ -305,7 +323,7 @@ export default function StudentProfileScreen() {
     onError: (err: any) => {
       showAlertModal({
         title: 'Erro ao Excluir',
-        message: err.message || 'Não foi possível excluir sua conta.',
+        message: err?.response?.data?.erro || err.message || 'Não foi possível excluir sua conta.',
         type: 'danger',
         showCancelButton: false,
       });
@@ -324,7 +342,6 @@ export default function StudentProfileScreen() {
     });
   }
 
-  // 🟢 LOGOUT SEGURO INTEGRADO AO AUTHCONTEXT E SECURESTORE
   function handleSignOut() {
     showAlertModal({
       title: 'Sair da Conta',
@@ -630,7 +647,7 @@ export default function StudentProfileScreen() {
                   />
 
                   <TouchableOpacity
-                    onPress={() => linkMutation.mutate(inviteCodeInput)}
+                    onPress={handleConfirmLink}
                     disabled={linkMutation.isPending}
                     className="bg-[#59C83A] py-4 rounded-2xl items-center flex-row justify-center mt-1"
                     activeOpacity={0.8}

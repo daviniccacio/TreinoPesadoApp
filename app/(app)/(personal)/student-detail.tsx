@@ -350,7 +350,7 @@ export default function StudentDetailScreen() {
             delay: 40,
           }}
         >
-          <Text className="text-sm font-outfit-bold text-[#1b1b1d] dark:text-white mb-3">
+          <Text className="text-sm font-outfit text-[#1b1b1d] dark:text-white mb-3">
             Resumo de Atividades
           </Text>
 
