@@ -1,8 +1,7 @@
 // ============================================================================
-// DOCUMENTAÇÃO: TELA INICIAL / HOME (ÁREA DO ALUNO - COM IMAGENS POR CATEGORIA)
+// DOCUMENTAÇÃO: TELA INICIAL / HOME (ÁREA DO ALUNO - CONSUMINDO DA API VPS)
 // ============================================================================
-// Apresenta a saudação ao aluno, atalho rápido para treinos e a grade de 
-// grupos musculares com imagens ilustrativas dinâmicas e individualizadas.
+// Busca as categorias dinâmicas gravadas no banco de dados da VPS.
 // ============================================================================
 
 import React from "react";
@@ -29,7 +28,7 @@ import { useAuth } from "../../../../context/AuthContext";
 interface Category {
   id: string;
   title: string;
-  image_url?: string;
+  image_url: string;
 }
 
 interface StudentHomeData {
@@ -37,21 +36,8 @@ interface StudentHomeData {
   categories: Category[];
 }
 
-// 🟢 DICIONÁRIO DE IMAGENS ILUSTRATIVAS PARA CADA GRUPO MUSCULAR
-const CATEGORY_IMAGES: Record<string, string> = {
-  PEITO: "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?q=80&w=600",
-  COSTAS: "https://images.unsplash.com/photo-1603287681836-b174ce5074c2?q=80&w=600",
-  PERNAS: "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=600",
-  OMBROS: "https://images.unsplash.com/photo-1532029835096-1e102a450536?q=80&w=600",
-  BICEPS: "https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?q=80&w=600",
-  TRICEPS: "https://images.unsplash.com/photo-1530822847156-5df68365db1c?q=80&w=600",
-  ABDOMEN: "https://images.unsplash.com/photo-1517838277536-f5f99be501cd?q=80&w=600",
-  CARDIO: "https://images.unsplash.com/photo-1538805060514-97d9cc17730c?q=80&w=600",
-  DEFAULT: "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=600",
-};
-
 /**
- * Busca o nome do perfil do aluno na VPS e monta a lista de categorias com imagens exclusivas
+ * Busca o nome do usuário e a lista de categorias salvas na VPS
  */
 async function fetchStudentHomeData(userId?: string): Promise<StudentHomeData> {
   let userName = "Atleta";
@@ -73,26 +59,8 @@ async function fetchStudentHomeData(userId?: string): Promise<StudentHomeData> {
   let categories: Category[] = [];
 
   try {
-    const categoriesRes = await api.get("/api/exercises");
-    const exercises = categoriesRes.data;
-
-    const uniqueMap = new Map();
-    if (Array.isArray(exercises)) {
-      exercises.forEach((ex: any) => {
-        const catId = (ex.category_id || "geral").toUpperCase();
-        if (!uniqueMap.has(catId)) {
-          // Seleciona a imagem correspondente ao grupo muscular ou usa a padrão
-          const imageUrl = CATEGORY_IMAGES[catId] || CATEGORY_IMAGES.DEFAULT;
-
-          uniqueMap.set(catId, {
-            id: ex.category_id || "geral",
-            title: catId,
-            image_url: imageUrl,
-          });
-        }
-      });
-      categories = Array.from(uniqueMap.values());
-    }
+    const categoriesRes = await api.get("/api/categories");
+    categories = categoriesRes.data || [];
   } catch (err: any) {
     console.error("⚠️ [Home] Erro ao buscar categorias:", err.message);
   }
@@ -117,7 +85,7 @@ export default function HomeScreen() {
     isRefetching,
     refetch,
   } = useQuery({
-    queryKey: ["student-home-data", user?.id],
+    queryKey: ["student-home-data-v4", user?.id],
     queryFn: () => fetchStudentHomeData(user?.id),
     enabled: !!user?.id,
   });
@@ -199,7 +167,7 @@ export default function HomeScreen() {
             Grupos Musculares
           </Text>
 
-          {/* 3. GRADE DE CATEGORIAS COM IMAGENS INDIVIDUALIZADAS */}
+          {/* 3. GRADE DE CATEGORIAS DINÂMICAS */}
           <View className="flex-row flex-wrap justify-between">
             {categories.map((category, index) => (
               <MotiView
@@ -240,14 +208,14 @@ export default function HomeScreen() {
 
                   <View className="flex-1 justify-end p-3 bg-black/30">
                     <Text
-                      className="text-sm font-outfit text-white"
+                      className="text-lg font-outfit text-white"
                       numberOfLines={1}
                     >
                       {category.title}
                     </Text>
                     <View className="flex-row items-center mt-0.5">
                       <Text className="text-[10px] font-sans-bold text-white/80 mr-1">
-                        Ver treinos
+                        Ver lista
                       </Text>
                       <CaretRight size={10} color="#FFFFFF" weight="bold" />
                     </View>
