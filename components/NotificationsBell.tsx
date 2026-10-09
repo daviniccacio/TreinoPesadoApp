@@ -1,8 +1,8 @@
 // ============================================================================
-// DOCUMENTAÇÃO: COMPONENTE BOTÃO DE SININHO E CENTRAL DE NOTIFICAÇÕES
+// DOCUMENTAÇÃO: COMPONENTE BOTÃO DE SININHO E CENTRAL DE NOTIFICAÇÕES (VPS)
 // ============================================================================
 // Exibe o contador de notificações não lidas e gerencia a modal de exibição
-// e marcação de mensagens lidas em tempo real com TanStack Query.
+// e marcação de mensagens lidas em tempo real utilizando a API na VPS.
 // ============================================================================
 
 import React, { useState } from 'react';
@@ -17,7 +17,10 @@ import {
 } from 'react-native';
 import { Bell, X, Megaphone, Barbell } from 'phosphor-react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '../lib/supabase';
+
+// IMPORTAÇÃO DA API DA VPS E DO CONTEXTO DE AUTENTICAÇÃO
+import { api } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 
 interface NotificationItem {
   id: string;
@@ -34,34 +37,31 @@ export function NotificationBell() {
   const isDark = colorScheme === 'dark';
   const queryClient = useQueryClient();
 
-  // Consulta Notificações do Usuário
+  // 🟢 OBTÉM O USUÁRIO LOGADO DO CONTEXTO DE AUTENTICAÇÃO
+  const { user } = useAuth();
+  const userId = user?.id;
+
+  // 🟢 CONSULTA NOTIFICAÇÕES DO USUÁRIO NA API VPS
   const { data: notifications = [], isLoading } = useQuery({
-    queryKey: ['user-notifications'],
-    queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return [];
-
-      const { data, error } = await supabase
-        .from('notifications')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
-
-      if (error) return [];
-      return data as NotificationItem[];
+    queryKey: ['user-notifications', userId],
+    queryFn: async (): Promise<NotificationItem[]> => {
+      if (!userId) return [];
+      const response = await api.get(`/api/notifications?userId=${userId}`);
+      return response.data || [];
     },
+    enabled: !!userId,
   });
 
-  // Mutação para marcar notificação como lida
+  // 🟢 MUTAÇÃO PARA MARCAR NOTIFICAÇÃO COMO LIDA NA VPS
   const markAsReadMutation = useMutation({
     mutationFn: async (notificationId: string) => {
-      await supabase
-        .from('notifications')
-        .update({ read: true })
-        .eq('id', notificationId);
+      await api.put('/api/notifications/read', { notificationId });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['user-notifications'] });
+      queryClient.invalidateQueries({ queryKey: ['user-notifications', userId] });
+    },
+    onError: (error: any) => {
+      console.error('❌ Erro ao marcar notificação como lida:', error.message);
     },
   });
 
@@ -124,7 +124,6 @@ export function NotificationBell() {
                     }`}
                   >
                     <View className="flex-row items-center mb-1">
-                      {/* 🟢 CORREÇÃO TS2322: Ícones envolvidos em View para evitar o erro de className */}
                       <View className="mr-2">
                         {item.type === 'ANNOUNCEMENT' ? (
                           <Megaphone size={18} color="#59C83A" />

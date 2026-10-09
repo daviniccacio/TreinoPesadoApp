@@ -1,8 +1,11 @@
 // ============================================================================
-// DOCUMENTAÇÃO: PAINEL DE GESTÃO ADMINISTRATIVA (SDK 56+)
+// DOCUMENTAÇÃO: PAINEL DE GESTÃO ADMINISTRATIVA (LOGOUT SEGURO & VPS)
+// ============================================================================
+// Gerencia a listagem de usuários, bloqueio de contas e disparos de notificações,
+// contando com fluxo de encerramento de sessão protegido contra travamentos.
 // ============================================================================
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -34,14 +37,17 @@ import {
 } from 'phosphor-react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { MotiView } from 'moti';
-import { supabase } from '../../../lib/supabase';
+import { useRouter } from 'expo-router';
+
+// IMPORTAÇÃO DA API VPS, CONTEXTOS E COMPONENTES LOCAIS
+import { api } from '../../../services/api';
+import { useAuth } from '../../../context/AuthContext';
+import { useTheme } from '../../../context/ThemeContext';
 import { CustomModal } from '../../../components/CustomModal';
 import {
   sendBroadcastNotification,
   sendNotificationToUser,
 } from '../../../lib/notifications';
-import { useTheme } from '../../../context/ThemeContext';
-import { useRouter } from 'expo-router';
 
 interface UserProfile {
   id: string;
@@ -52,15 +58,14 @@ interface UserProfile {
   created_at: string;
 }
 
+/**
+ * Busca a lista de todos os usuários cadastrados na VPS
+ */
 async function fetchAllUsers(): Promise<UserProfile[]> {
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('id, full_name, role, is_blocked, created_at')
-    .order('full_name', { ascending: true });
+  const response = await api.get('/api/admin/users');
+  const data = response.data || [];
 
-  if (error) throw new Error(error.message);
-
-  return (data || []).map((user: any) => ({
+  return data.map((user: any) => ({
     id: user.id,
     full_name: user.full_name || 'Usuário Sem Nome',
     role: user.role || 'aluno',
@@ -72,21 +77,25 @@ async function fetchAllUsers(): Promise<UserProfile[]> {
 export default function AdminDashboardScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  
-  // 🟢 CONSUMO DO TEMA GLOBAL (PERSISTENTE)
-  const { isDark, toggleTheme } = useTheme();
   const queryClient = useQueryClient();
 
-  const [currentAdminId, setCurrentAdminId] = useState<string>('');
+  // CONTEXTOS GLOBAIS DE TEMA E AUTENTICAÇÃO
+  const { isDark, toggleTheme } = useTheme();
+  const { user, signOut } = useAuth();
+
+  const currentAdminId = user?.id || '';
+
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
 
+  // ESTADOS DOS MODAIS
   const [notifModalVisible, setNotifModalVisible] = useState(false);
   const [notifTarget, setNotifTarget] = useState<UserProfile | 'ALL'>('ALL');
   const [notifTitle, setNotifTitle] = useState('');
   const [notifMessage, setNotifMessage] = useState('');
   const [sendingNotif, setSendingNotif] = useState(false);
 
+  // ESTADO DO MODAL DE ALERTAS
   const [alertConfig, setAlertConfig] = useState<{
     visible: boolean;
     title: string;
@@ -99,14 +108,7 @@ export default function AdminDashboardScreen() {
     type: 'info',
   });
 
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      if (data?.user) {
-        setCurrentAdminId(data.user.id);
-      }
-    });
-  }, []);
-
+  // CONSULTA TANSTACK QUERY CONECTADA À VPS
   const {
     data: users = [],
     isLoading,
@@ -117,6 +119,7 @@ export default function AdminDashboardScreen() {
     queryFn: fetchAllUsers,
   });
 
+  // MUTATION PARA BLOQUEAR / LIBERAR USUÁRIO
   const toggleBlockMutation = useMutation({
     mutationFn: async ({
       userId,
@@ -125,19 +128,27 @@ export default function AdminDashboardScreen() {
       userId: string;
       shouldBlock: boolean;
     }) => {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ is_blocked: shouldBlock })
-        .eq('id', userId);
-
-      if (error) throw new Error(error.message);
+      await api.put('/api/admin/users/block', {
+        userId,
+        shouldBlock,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-users-list'] });
       setSelectedUser(null);
     },
+    onError: (err: any) => {
+      console.error('❌ Erro ao alterar bloqueio:', err.message);
+      setAlertConfig({
+        visible: true,
+        title: 'Erro na Operação',
+        message: err?.response?.data?.error || 'Não foi possível alterar o status do usuário.',
+        type: 'danger',
+      });
+    },
   });
 
+  // DISPARO DE NOTIFICAÇÃO
   async function handleSendNotification() {
     if (!notifTitle.trim() || !notifMessage.trim()) {
       setAlertConfig({
@@ -181,12 +192,12 @@ export default function AdminDashboardScreen() {
             : `Notificação enviada com sucesso para ${notifTarget.full_name}.`,
         type: 'success',
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao disparar notificação:', error);
       setAlertConfig({
         visible: true,
         title: 'Falha no Envio',
-        message: 'Ocorreu um erro ao disparar a notificação. Tente novamente.',
+        message: error?.message || 'Ocorreu um erro ao disparar a notificação. Tente novamente.',
         type: 'danger',
       });
     } finally {
@@ -194,6 +205,30 @@ export default function AdminDashboardScreen() {
     }
   }
 
+  // 🟢 FUNÇÃO DE ENCERRAMENTO DE SESSÃO SEGURA (SEM CONGELAMENTO)
+  async function handleSignOut() {
+    try {
+      // 1. Limpa todos os modais abertos antes de desconectar
+      setNotifModalVisible(false);
+      setSelectedUser(null);
+      setAlertConfig((prev) => ({ ...prev, visible: false }));
+
+      // 2. Cancela consultas ativas do TanStack Query para evitar re-renders na transição
+      queryClient.cancelQueries({ queryKey: ['admin-users-list'] });
+
+      // 3. Executa a desautenticação
+      if (signOut) {
+        await signOut();
+      }
+    } catch (err) {
+      console.error('❌ Erro ao realizar logout:', err);
+    } finally {
+      // 4. Redireciona com segurança usando replace para a tela inicial/login
+      router.replace('/');
+    }
+  }
+
+  // FILTRAGEM E ORDENAÇÃO DE USUÁRIOS
   const filteredUsers = users
     .filter((u) =>
       u.full_name.toLowerCase().includes(searchQuery.toLowerCase().trim())
@@ -208,11 +243,6 @@ export default function AdminDashboardScreen() {
 
   const safeTopPadding = Math.max(insets?.top || 0, 16);
   const safeBottomPadding = Math.max(insets?.bottom || 0, 16);
-
-  async function handleSignOut() {
-    await supabase.auth.signOut();
-    router.replace('/');
-  }
 
   return (
     <View
@@ -250,7 +280,6 @@ export default function AdminDashboardScreen() {
         </View>
 
         <View className="flex-row items-center gap-2">
-          {/* 🟢 ALTERNA O TEMA GLOBAL AO CLICAR */}
           <TouchableOpacity
             onPress={toggleTheme}
             activeOpacity={0.7}
@@ -464,7 +493,6 @@ export default function AdminDashboardScreen() {
               </View>
 
               <View className="flex-row items-center gap-2">
-                {/* 🟢 OCULTA O ÍCONE DE SINO CASO O USUÁRIO SEJA ADMIN */}
                 {item.role !== 'admin' && (
                   <TouchableOpacity
                     onPress={() => {

@@ -1,8 +1,8 @@
 // ============================================================================
-// DOCUMENTAÇÃO: MODAL DE ENVIO DE COMUNICADOS (LAYOUT CORRIGIDO SEM CORTE)
+// DOCUMENTAÇÃO: MODAL DE ENVIO DE COMUNICADOS (INTEGRADO À VPS & SAFE AREA)
 // ============================================================================
-// O espaçamento da área segura (Safe Area) foi transferido para o container
-// de conteúdo do ScrollView, eliminando cortes visuais e rolagem indesejada.
+// Permite ao personal trainer disparar notificações gerais (Broadcast) ou 
+// diretas para alunos vinculados, consumindo a API Node.js/PostgreSQL na VPS.
 // ============================================================================
 
 import React, { useState, useEffect } from 'react';
@@ -22,7 +22,10 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X, Megaphone, PaperPlaneTilt, User, Check } from 'phosphor-react-native';
-import { supabase } from '../lib/supabase';
+
+// IMPORTAÇÃO DA API DA VPS, CONTEXTO DE AUTENTICAÇÃO E BIBLIOTECA DE NOTIFICAÇÕES
+import { api } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import {
   sendBroadcastNotification,
   sendNotificationToUser,
@@ -49,6 +52,9 @@ export function SendNotificationModal({
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
+  // 🟢 OBTÉM O USUÁRIO LOGADO DO CONTEXTO DE AUTENTICAÇÃO
+  const { user } = useAuth();
+
   // 🟢 Margem dinâmica calculada exclusivamente para o final da rolagem
   const safeBottomPadding =
     Platform.OS === 'ios'
@@ -70,34 +76,31 @@ export function SendNotificationModal({
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    if (visible) {
+    if (visible && user?.id) {
       fetchLinkedStudents();
     }
-  }, [visible]);
+  }, [visible, user?.id]);
 
+  /**
+   * Busca a lista de alunos vinculados ao personal trainer logado via API VPS
+   */
   async function fetchLinkedStudents() {
+    if (!user?.id) return;
+
     try {
       setLoadingStudents(true);
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, full_name, email')
-        .eq('personal_id', user.id);
-
-      if (!error && data) {
-        setStudents(data as LinkedStudent[]);
-      }
-    } catch (err) {
-      console.error('Erro ao buscar alunos vinculados:', err);
+      const response = await api.get(`/api/personal/students?personalId=${user.id}`);
+      setStudents(response.data || []);
+    } catch (err: any) {
+      console.error('❌ Erro ao buscar alunos vinculados:', err.message);
     } finally {
       setLoadingStudents(false);
     }
   }
 
+  /**
+   * Processa e dispara o envio da notificação (Broadcast ou Direta)
+   */
   async function handleSend() {
     if (!title.trim() || !message.trim()) {
       setFeedbackMessage('Preencha o título e a mensagem.');
@@ -109,14 +112,14 @@ export function SendNotificationModal({
       return;
     }
 
+    if (!user?.id) {
+      setFeedbackMessage('Usuário não autenticado.');
+      return;
+    }
+
     try {
       setSending(true);
       setFeedbackMessage(null);
-
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) throw new Error('Usuário não autenticado.');
 
       if (sendType === 'BROADCAST') {
         await sendBroadcastNotification(user.id, title.trim(), message.trim());

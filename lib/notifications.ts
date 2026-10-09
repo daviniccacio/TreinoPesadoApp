@@ -1,17 +1,25 @@
 // ============================================================================
-// DOCUMENTAÇÃO: MÓDULO DE REGISTO DE PUSH NOTIFICATIONS (COM VALIDAÇÃO DE USER)
+// DOCUMENTAÇÃO: MÓDULO DE PUSH NOTIFICATIONS E COMUNICADOS (VPS)
 // ============================================================================
-// Gerencia a obtenção do token de notificação Expo e a sincronização segura
-// com a API na VPS, prevenindo requisições inválidas sem sessão ativa.
+// Gerencia a obtenção do token Expo, sincronização com a VPS e o envio
+// de notificações individuais ou comunicados gerais (broadcast).
 // ============================================================================
 
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import { api } from '../services/api';
 
+export interface SendUserNotificationParams {
+  targetUserId: string;
+  senderId?: string;
+  title: string;
+  message: string;
+  type?: string;
+}
+
 /**
  * Registra o token de notificação push no servidor VPS para o usuário informado.
- * @param userId - ID único do usuário autenticado no sistema.
+ * @param userId ID único do usuário autenticado no sistema.
  */
 export async function registerForPushNotificationsAsync(userId?: string): Promise<string | null> {
   // 🟢 1. GUARDA DE SEGURANÇA: Se não houver userId válido, aborta sem tentar requisição HTTP
@@ -87,5 +95,49 @@ async function savePushTokenWithRetry(userId: string, pushToken: string, retries
         await new Promise((resolve) => setTimeout(resolve, 2000));
       }
     }
+  }
+}
+
+/**
+ * 🟢 ENVIAR NOTIFICAÇÃO DIRETA PARA UM USUÁRIO ESPECÍFICO
+ * Dispara uma requisição HTTP para a rota na VPS para notificar um único usuário.
+ */
+export async function sendNotificationToUser(params: SendUserNotificationParams): Promise<void> {
+  const { targetUserId, senderId, title, message, type = 'ANNOUNCEMENT' } = params;
+
+  try {
+    await api.post('/api/notifications/send-to-user', {
+      targetUserId,
+      senderId,
+      title,
+      message,
+      type,
+    });
+    console.log(`✅ [Push Notifications] Notificação enviada para o usuário: ${targetUserId}`);
+  } catch (error: any) {
+    console.error('❌ [Push Notifications] Erro ao enviar notificação individual:', error.message);
+    throw new Error(error?.response?.data?.error || 'Falha ao enviar notificação ao usuário.');
+  }
+}
+
+/**
+ * 🟢 ENVIAR COMUNICADO GERAL (BROADCAST) PARA TODOS OS USUÁRIOS
+ * Dispara uma requisição HTTP para a rota na VPS transmitindo a mensagem a todos.
+ */
+export async function sendBroadcastNotification(
+  senderId: string,
+  title: string,
+  message: string
+): Promise<void> {
+  try {
+    await api.post('/api/notifications/broadcast', {
+      senderId,
+      title,
+      message,
+    });
+    console.log('🚀 [Push Notifications] Comunicado geral transmitido com sucesso!');
+  } catch (error: any) {
+    console.error('❌ [Push Notifications] Erro ao enviar comunicado geral:', error.message);
+    throw new Error(error?.response?.data?.error || 'Falha ao disparar comunicado geral.');
   }
 }

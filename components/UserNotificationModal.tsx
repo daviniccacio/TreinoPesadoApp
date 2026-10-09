@@ -1,9 +1,9 @@
 // ============================================================================
-// DOCUMENTAÇÃO: MODAL DE 3 ÚLTIMAS NOTIFICAÇÕES DO USUÁRIO (COM SAFE AREA)
+// DOCUMENTAÇÃO: MODAL DE 3 ÚLTIMAS NOTIFICAÇÕES DO USUÁRIO (INTEGRADO À VPS)
 // ============================================================================
 // Exibe as 3 notificações mais recentes registradas para o usuário logado,
-// permitindo marcação de leitura individual/coletiva e garantindo espaçamento
-// seguro em relação à barra de navegação nativa do iOS e Android.
+// permitindo marcação de leitura individual/coletiva via API Node.js/Postgres
+// e garantindo espaçamento seguro em relação à barra de navegação nativa.
 // ============================================================================
 
 import React from 'react';
@@ -20,7 +20,10 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Bell, X, Megaphone, Barbell, CheckCircle } from 'phosphor-react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '../lib/supabase';
+
+// IMPORTAÇÃO DA API DA VPS E DO CONTEXTO DE AUTENTICAÇÃO
+import { api } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 
 // --- TIPAGENS DE DADOS ---
 interface NotificationItem {
@@ -38,28 +41,18 @@ interface UserNotificationModalProps {
 }
 
 /**
- * Busca apenas as 3 notificações mais recentes do usuário logado no Supabase.
+ * Busca apenas as 3 notificações mais recentes do usuário logado na VPS.
  */
-async function fetchLatestThreeNotifications(): Promise<NotificationItem[]> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+async function fetchLatestThreeNotifications(userId?: string): Promise<NotificationItem[]> {
+  if (!userId) return [];
 
-  if (!user) return [];
-
-  const { data, error } = await supabase
-    .from('notifications')
-    .select('*')
-    .eq('user_id', user.id)
-    .order('created_at', { ascending: false })
-    .limit(3);
-
-  if (error) {
-    console.error('Erro ao buscar notificações recentes:', error.message);
+  try {
+    const response = await api.get(`/api/notifications/latest?userId=${userId}`);
+    return response.data || [];
+  } catch (error: any) {
+    console.error('❌ Erro ao buscar notificações recentes:', error.message);
     return [];
   }
-
-  return data as NotificationItem[];
 }
 
 export function UserNotificationModal({
@@ -71,52 +64,51 @@ export function UserNotificationModal({
   const isDark = colorScheme === 'dark';
   const queryClient = useQueryClient();
 
+  // 🟢 OBTÉM O USUÁRIO LOGADO DO CONTEXTO DE AUTENTICAÇÃO
+  const { user } = useAuth();
+  const userId = user?.id;
+
   // 🟢 CÁLCULO DINÂMICO DE ESPAÇAMENTO INFERIOR (SAFE AREA)
   const safeBottomPadding =
     Platform.OS === 'ios'
       ? Math.max(insets?.bottom || 0, 20) + 16
       : Math.max(insets?.bottom || 0, 16) + 20;
 
-  // --- CONSULTA COM TANSTACK QUERY ---
+  // --- CONSULTA COM TANSTACK QUERY CONECTADA À VPS ---
   const { data: notifications = [], isLoading } = useQuery({
-    queryKey: ['user-latest-3-notifications'],
-    queryFn: fetchLatestThreeNotifications,
-    enabled: visible,
+    queryKey: ['user-latest-3-notifications', userId],
+    queryFn: () => fetchLatestThreeNotifications(userId),
+    enabled: visible && !!userId,
   });
 
-  // --- MUTAÇÃO PARA MARCAR COMO LIDA INDIVIDUALMENTE ---
+  // --- MUTAÇÃO PARA MARCAR COMO LIDA INDIVIDUALMENTE VIA VPS ---
   const markAsReadMutation = useMutation({
     mutationFn: async (notificationId: string) => {
-      await supabase
-        .from('notifications')
-        .update({ read: true })
-        .eq('id', notificationId);
+      await api.put('/api/notifications/read', { notificationId });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['user-latest-3-notifications'] });
-      queryClient.invalidateQueries({ queryKey: ['user-notifications'] });
+      queryClient.invalidateQueries({ queryKey: ['user-latest-3-notifications', userId] });
+      queryClient.invalidateQueries({ queryKey: ['user-notifications', userId] });
       queryClient.invalidateQueries({ queryKey: ['user-unread-notifications-status'] });
+    },
+    onError: (error: any) => {
+      console.error('❌ Erro ao marcar notificação como lida:', error.message);
     },
   });
 
-  // --- MUTAÇÃO PARA MARCAR TODAS COMO LIDAS ---
+  // --- MUTAÇÃO PARA MARCAR TODAS COMO LIDAS VIA VPS ---
   const markAllAsReadMutation = useMutation({
     mutationFn: async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return;
-
-      await supabase
-        .from('notifications')
-        .update({ read: true })
-        .eq('user_id', user.id)
-        .eq('read', false);
+      if (!userId) return;
+      await api.put('/api/notifications/read-all', { userId });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['user-latest-3-notifications'] });
-      queryClient.invalidateQueries({ queryKey: ['user-notifications'] });
+      queryClient.invalidateQueries({ queryKey: ['user-latest-3-notifications', userId] });
+      queryClient.invalidateQueries({ queryKey: ['user-notifications', userId] });
       queryClient.invalidateQueries({ queryKey: ['user-unread-notifications-status'] });
+    },
+    onError: (error: any) => {
+      console.error('❌ Erro ao marcar todas as notificações como lidas:', error.message);
     },
   });
 
