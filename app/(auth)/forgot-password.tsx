@@ -1,5 +1,8 @@
 // ============================================================================
-// DOCUMENTAÇÃO: TELA 1 - SOLICITAR CÓDIGO DE RECUPERAÇÃO
+// DOCUMENTAÇÃO: TELA 1 - SOLICITAR CÓDIGO DE RECUPERAÇÃO (VERSÃO VPS)
+// ============================================================================
+// Esta tela envia a requisição para a API na VPS, que gera o código OTP e
+// envia o e-mail via Resend, redirecionando o usuário para a tela /verify-otp.
 // ============================================================================
 
 import React, { useState } from "react";
@@ -18,24 +21,8 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { EnvelopeSimple, PaperPlaneRight, ArrowLeft } from "phosphor-react-native";
 import { MotiView } from "moti";
-import { supabase } from "../../lib/supabase";
 import { CustomModal } from "../../components/CustomModal";
-
-function translateSupabaseError(errorMessage: string): string {
-  const msg = errorMessage.toLowerCase();
-
-  if (msg.includes("security purposes") || msg.includes("request this once every") || msg.includes("rate limit")) {
-    const secondsMatch = errorMessage.match(/(\d+)\s*seconds/i);
-    const seconds = secondsMatch ? secondsMatch[1] : "60";
-    return `Aguarde ${seconds} segundos antes de solicitar um novo código.`;
-  }
-
-  if (msg.includes("user not found") || msg.includes("unable to find user")) {
-    return "Não encontramos nenhuma conta cadastrada com este e-mail.";
-  }
-
-  return "Não foi possível enviar o código no momento. Tente novamente em instantes.";
-}
+import { api } from "../../services/api"; // Serviço de chamada HTTP Axios configurado para a VPS
 
 export default function ForgotPasswordScreen() {
   const router = useRouter();
@@ -53,8 +40,13 @@ export default function ForgotPasswordScreen() {
     type: "info" as "success" | "danger" | "info",
   });
 
+  // --------------------------------------------------------------------------
+  // SOLICITAÇÃO DE CÓDIGO OTP VIA API DA VPS
+  // --------------------------------------------------------------------------
   async function handleSendCode() {
-    if (!email.trim()) {
+    const cleanEmail = email.trim();
+
+    if (!cleanEmail) {
       setModalConfig({
         visible: true,
         title: "Atenção",
@@ -67,27 +59,25 @@ export default function ForgotPasswordScreen() {
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email.trim());
+      // Faz a chamada para a nossa API na VPS em vez do Supabase
+      await api.post("/auth/forgot-password", { email: cleanEmail });
 
-      if (error) {
-        setModalConfig({
-          visible: true,
-          title: "Aguarde um Momento ⏱️",
-          message: translateSupabaseError(error.message),
-          type: "danger",
-        });
-      } else {
-        // 🟢 NAVEGAÇÃO AUTOMÁTICA IMEDIATA SEM BLOQUEIO DE MODAL
-        router.push({
-          pathname: "/verify-otp" as any,
-          params: { email: email.trim() },
-        });
-      }
-    } catch (err) {
+      // NAVEGAÇÃO AUTOMÁTICA IMEDIATA PARA A TELA DE VERIFICAÇÃO DO OTP
+      router.push({
+        pathname: "/verify-otp" as any,
+        params: { email: cleanEmail },
+      });
+    } catch (err: any) {
+      console.error("❌ Erro ao solicitar código:", err?.response?.data || err?.message);
+
+      const errorMessage =
+        err?.response?.data?.error ||
+        "Não foi possível enviar o código no momento. Tente novamente em instantes.";
+
       setModalConfig({
         visible: true,
-        title: "Erro",
-        message: "Ocorreu uma falha ao solicitar o código.",
+        title: "Atenção ⚠️",
+        message: errorMessage,
         type: "danger",
       });
     } finally {

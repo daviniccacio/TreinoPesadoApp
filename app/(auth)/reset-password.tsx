@@ -1,8 +1,8 @@
 // ============================================================================
-// DOCUMENTAÇÃO: TELA DE REDEFINIÇÃO DE SENHA COM MEDIDOR ANIMADO E TELA FINAL
+// DOCUMENTAÇÃO: TELA DE REDEFINIÇÃO DE SENHA COM MEDIDOR ANIMADO E TELA FINAL (VPS)
 // ============================================================================
-// Inclui réguas de força de senha animadas, tela dedicada de sucesso sem modais
-// e botão de retorno que faz logout antes de navegar para a tela de login.
+// Inclui réguas de força de senha animadas, envio para a API da VPS e tela
+// dedicada de sucesso sem modais que redireciona para a tela de login.
 // ============================================================================
 
 import React, { useState } from "react";
@@ -17,7 +17,7 @@ import {
   ScrollView,
   Platform,
 } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   LockSimple,
@@ -29,19 +29,23 @@ import {
   WarningCircle,
 } from "phosphor-react-native";
 import { MotiView, MotiText } from "moti";
-import { supabase } from "../../lib/supabase";
+import { api } from "../../services/api"; // Serviço Axios configurado para a VPS
 
 export default function ResetPasswordScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ email?: string; code?: string }>();
   const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
+
+  const email = params.email ?? "";
+  const code = params.code ?? "";
 
   const [newPassword, setNewPassword] = useState<string>("");
   const [confirmPassword, setConfirmPassword] = useState<string>("");
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
-  
+
   // 🟢 ESTADOS DE ERRO E DE SUCESSO DA TELA (SEM MODAIS)
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSuccess, setIsSuccess] = useState<boolean>(false);
@@ -69,8 +73,16 @@ export default function ResetPasswordScreen() {
 
   const strength = getPasswordStrength(newPassword);
 
+  // --------------------------------------------------------------------------
+  // ENVIO DA NOVA SENHA PARA A API DA VPS
+  // --------------------------------------------------------------------------
   async function handleUpdatePassword() {
     setErrorMessage(null);
+
+    if (!email || !code) {
+      setErrorMessage("Sessão inválida. Por favor, solicite um novo código de verificação.");
+      return;
+    }
 
     if (newPassword.length < 6) {
       setErrorMessage("A nova senha deve conter pelo menos 6 caracteres.");
@@ -85,32 +97,27 @@ export default function ResetPasswordScreen() {
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.updateUser({
-        password: newPassword.trim(),
+      // Faz a requisição HTTP POST para a rota /auth/reset-password
+      await api.post("/auth/reset-password", {
+        email: email.trim(),
+        code: code.trim(),
+        newPassword: newPassword.trim(),
       });
 
-      if (error) {
-        setErrorMessage(error.message || "Não foi possível atualizar a senha.");
-      } else {
-        // 🟢 MOSTRA A TELA DE SUCESSO DEDICADA
-        setIsSuccess(true);
-      }
-    } catch (err) {
-      setErrorMessage("Ocorreu uma falha ao salvar a nova senha.");
+      // MOSTRA A TELA DE SUCESSO DEDICADA
+      setIsSuccess(true);
+    } catch (err: any) {
+      console.error("❌ Erro ao redefinir senha:", err?.response?.data || err?.message);
+      const msg = err?.response?.data?.error || "Ocorreu uma falha ao salvar a nova senha.";
+      setErrorMessage(msg);
     } finally {
       setLoading(false);
     }
   }
 
-  // 🟢 FUNÇÃO DE RETORNO AO LOGIN COM ENCERRAMENTO EXPLÍCITO DE SESSÃO
-  async function handleGoToLogin() {
-    try {
-      await supabase.auth.signOut();
-    } catch (err) {
-      // Ignora erro ao limpar sessão
-    } finally {
-      router.replace("/(auth)/login" as any);
-    }
+  // 🟢 FUNÇÃO DE RETORNO AO LOGIN
+  function handleGoToLogin() {
+    router.replace("/(auth)/login" as any);
   }
 
   const safeTopPadding = Math.max(insets?.top || 0, 16);
@@ -145,7 +152,7 @@ export default function ResetPasswordScreen() {
 
           {/* SUBTÍTULO */}
           <Text className="text-xs font-sans-regular text-[#71717a] dark:text-zinc-400 text-center mb-8 leading-relaxed px-4">
-            Sua senha foi atualizada. Agora você já pode acessar a sua conta com a nova credencial.
+            Sua senha foi atualizada no sistema. Agora você já pode acessar a sua conta com a nova credencial.
           </Text>
 
           {/* BOTÃO PARA IR AO LOGIN */}

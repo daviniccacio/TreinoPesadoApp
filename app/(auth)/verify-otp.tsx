@@ -1,8 +1,8 @@
 // ============================================================================
-// DOCUMENTAÇÃO: TELA DE VERIFICAÇÃO COM SUPORTE A AUTO-FILL NATIVO (iOS/ANDROID)
+// DOCUMENTAÇÃO: TELA DE VERIFICAÇÃO OTP COM SUPORTE A AUTO-FILL NATIVO (VPS)
 // ============================================================================
-// Inclui suporte aos atributos textContentType="oneTimeCode" e autoComplete="one-time-code"
-// permitindo que o teclado sugira e preencha automaticamente o código de 6 dígitos.
+// Esta tela valida o código de 6 dígitos via API da VPS (POST /auth/verify-otp)
+// mantendo suporte ao autopreenchimento nativo do iOS e Android.
 // ============================================================================
 
 import React, { useState, useRef, useEffect } from "react";
@@ -20,7 +20,7 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ArrowLeft, ShieldCheck, WarningCircle } from "phosphor-react-native";
 import { MotiView } from "moti";
-import { supabase } from "../../lib/supabase";
+import { api } from "../../services/api"; // Serviço Axios configurado para a VPS
 
 export default function VerifyOtpScreen() {
   const router = useRouter();
@@ -43,6 +43,9 @@ export default function VerifyOtpScreen() {
     }
   }, [code]);
 
+  // --------------------------------------------------------------------------
+  // VERIFICAÇÃO DO CÓDIGO OTP NA API DA VPS
+  // --------------------------------------------------------------------------
   async function verifyOtpAutomatically(otpString: string) {
     if (!email) {
       setErrorMessage("E-mail não identificado. Volte e tente novamente.");
@@ -53,25 +56,29 @@ export default function VerifyOtpScreen() {
     setErrorMessage(null);
 
     try {
-      const { error } = await supabase.auth.verifyOtp({
-        email,
-        token: otpString,
-        type: "recovery",
+      // Chamada HTTP para a rota /auth/verify-otp da VPS
+      await api.post("/auth/verify-otp", {
+        email: email.trim(),
+        code: otpString.trim(),
       });
 
-      if (error) {
-        setShakeKey((prev) => prev + 1);
-        setCode(["", "", "", "", "", ""]);
-        setErrorMessage("Código de verificação incorreto ou expirado.");
-        inputRefs.current[0]?.focus();
-      } else {
-        router.push({
-          pathname: "/reset-password" as any,
-          params: { email, code: otpString },
-        });
-      }
-    } catch (err) {
-      setErrorMessage("Falha de conexão ao verificar o código.");
+      // Redireciona para a tela de criar nova senha passando os parâmetros
+      router.push({
+        pathname: "/reset-password" as any,
+        params: { email: email.trim(), code: otpString.trim() },
+      });
+    } catch (err: any) {
+      console.error("❌ Erro ao verificar OTP:", err?.response?.data || err?.message);
+      
+      // Efeito visual de tremer e reset dos campos em caso de erro
+      setShakeKey((prev) => prev + 1);
+      setCode(["", "", "", "", "", ""]);
+      
+      const responseError = err?.response?.data?.error || "Código de verificação incorreto ou expirado.";
+      setErrorMessage(responseError);
+      
+      // Retorna o foco para o primeiro campo de digitação
+      inputRefs.current[0]?.focus();
     } finally {
       setLoading(false);
     }
@@ -108,14 +115,8 @@ export default function VerifyOtpScreen() {
     }
   }
 
-  async function handleGoBack() {
-    try {
-      await supabase.auth.signOut();
-    } catch (err) {
-      // Ignora erro ao limpar sessão
-    } finally {
-      router.back();
-    }
+  function handleGoBack() {
+    router.back();
   }
 
   const safeTopPadding = Math.max(insets?.top || 0, 16);
@@ -204,13 +205,11 @@ export default function VerifyOtpScreen() {
                   }}
                   className="text-xl font-outfit-bold text-[#1b1b1d] dark:text-white text-center w-full h-full"
                   keyboardType="number-pad"
-                  // 🟢 O primeiro campo aceita até 6 caracteres para permitir a colagem automática do Auto-Fill do sistema
                   maxLength={index === 0 ? 6 : 1}
                   value={digit}
                   onChangeText={(text) => handleOtpChange(text, index)}
                   onKeyPress={(e) => handleKeyPress(e, index)}
                   autoFocus={index === 0}
-                  // 🟢 SUPORTE COMPLETO AO AUTO-FILL DO SISTEMA OPERACIONAL
                   textContentType="oneTimeCode"
                   autoComplete="one-time-code"
                 />
