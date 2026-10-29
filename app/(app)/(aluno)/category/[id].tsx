@@ -125,7 +125,7 @@ export default function CategoryScreen() {
           damping: 22,
           stiffness: 150,
           delay: index * 40, // Cascata ritmada por card
-        }}
+        } as any}
       >
         <TouchableOpacity
           onPress={() =>
@@ -183,7 +183,7 @@ export default function CategoryScreen() {
           type: 'spring',
           damping: 24,
           stiffness: 160,
-        }}
+        } as any}
         className="flex-row items-center justify-between px-5 py-3 border-b border-[#f0edef] dark:border-zinc-800"
       >
         <TouchableOpacity
@@ -214,7 +214,7 @@ export default function CategoryScreen() {
         <MotiView
           from={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          transition={{ type: 'timing', duration: 250 }}
+          transition={{ type: 'timing', duration: 250 } as any}
           className="flex-1 justify-center items-center px-5"
         >
           <WarningCircle size={48} color="#e11d48" />
@@ -239,7 +239,9 @@ export default function CategoryScreen() {
           refreshControl={
             <RefreshControl
               refreshing={isRefetching}
-              onRefresh={refetch}
+              onRefresh={() => {
+                void refetch();
+              }}
               tintColor="#59C83A"
               colors={['#59C83A']}
             />
@@ -253,7 +255,7 @@ export default function CategoryScreen() {
                 damping: 22,
                 stiffness: 150,
                 delay: 30,
-              }}
+              } as any}
               className="mb-4"
             >
               <Text className="text-xl font-outfit-extrabold text-[#1b1b1d] dark:text-white mb-3">
@@ -284,7 +286,7 @@ export default function CategoryScreen() {
             <MotiView
               from={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              transition={{ type: 'timing', duration: 200 }}
+              transition={{ type: 'timing', duration: 200 } as any}
               className="py-10 items-center"
             >
               <Text className="text-[#414755] dark:text-zinc-400 font-sans-medium text-center text-xs">

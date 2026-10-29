@@ -464,7 +464,7 @@ export default function MyWorkoutsScreen() {
       <MotiView
         from={{ opacity: 0, translateY: -8 }}
         animate={{ opacity: 1, translateY: 0 }}
-        transition={{ type: "spring", damping: 24, stiffness: 160 }}
+        transition={{ type: "spring", damping: 24, stiffness: 160 } as any}
         className="flex-row items-center justify-between mb-4"
       >
         <View>
@@ -504,7 +504,7 @@ export default function MyWorkoutsScreen() {
                   damping: 22,
                   stiffness: 160,
                   delay: index * 40,
-                }}
+                } as any}
               >
                 <TouchableOpacity
                   activeOpacity={0.7}
@@ -538,7 +538,9 @@ export default function MyWorkoutsScreen() {
         refreshControl={
           <RefreshControl
             refreshing={isRefetching}
-            onRefresh={refetch}
+            onRefresh={() => {
+                void refetch();
+              }}
             tintColor="#59C83A"
             colors={["#59C83A"]}
           />
@@ -555,7 +557,7 @@ export default function MyWorkoutsScreen() {
           <MotiView
             from={{ opacity: 0, scale: 0.97 }}
             animate={{ opacity: 1, scale: 1 }}
-            transition={{ type: "timing", duration: 250 }}
+            transition={{ type: "timing", duration: 250 } as any}
             className="bg-[#f8f9fa] dark:bg-zinc-900 p-8 rounded-2xl border border-dashed border-[#e2dfe1] dark:border-zinc-800 items-center my-2"
           >
             <Barbell size={40} color={isDark ? "#71717a" : "#a1a1aa"} />
@@ -584,7 +586,7 @@ export default function MyWorkoutsScreen() {
                   damping: 22,
                   stiffness: 150,
                   delay: index * 40,
-                }}
+                } as any}
               >
                 <TouchableOpacity
                   activeOpacity={0.85}

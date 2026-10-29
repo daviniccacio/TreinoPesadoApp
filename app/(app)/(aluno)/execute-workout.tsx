@@ -569,7 +569,7 @@ export default function ExecuteWorkoutScreen() {
           type: "spring",
           damping: 24,
           stiffness: 160,
-        }}
+        } as any}
         className="flex-row items-center justify-between mb-4 border-b border-[#e2dfe1] dark:border-zinc-800 pb-3"
       >
         <TouchableOpacity
@@ -613,7 +613,7 @@ export default function ExecuteWorkoutScreen() {
           damping: 22,
           stiffness: 150,
           delay: 30,
-        }}
+        } as any}
         className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl mb-4 border border-[#e2dfe1] dark:border-zinc-800 items-center justify-center"
       >
         <Text className="text-[10px] font-sans-bold text-[#59C83A] uppercase tracking-wider mb-1">
@@ -702,7 +702,7 @@ export default function ExecuteWorkoutScreen() {
                 type: "spring",
                 damping: 22,
                 stiffness: 150,
-              }}
+              } as any}
               className={`p-4 rounded-2xl mb-4 border ${
                 isExerciseDone
                   ? "bg-zinc-100/70 dark:bg-zinc-900/40 border-dashed border-zinc-300 dark:border-zinc-800"

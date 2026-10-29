@@ -138,7 +138,7 @@ export default function StudentWorkoutHistoryScreen() {
           type: 'spring',
           damping: 24,
           stiffness: 160,
-        }}
+        } as any}
         className="flex-row items-center mb-5"
       >
         <TouchableOpacity
@@ -167,7 +167,9 @@ export default function StudentWorkoutHistoryScreen() {
         refreshControl={
           <RefreshControl
             refreshing={isRefetching}
-            onRefresh={refetch}
+            onRefresh={() => {
+              void refetch();
+            }}
             colors={['#59C83A']}
             tintColor="#59C83A"
           />
@@ -182,7 +184,7 @@ export default function StudentWorkoutHistoryScreen() {
             damping: 22,
             stiffness: 150,
             delay: 40,
-          }}
+          } as any}
           className="flex-row gap-3 mb-6"
         >
           {/* Card 1: Total de Treinos */}
@@ -225,7 +227,7 @@ export default function StudentWorkoutHistoryScreen() {
             damping: 22,
             stiffness: 160,
             delay: 80,
-          }}
+          } as any}
         >
           {/* Título da seção em Outfit ExtraBold */}
           <Text className="text-base font-outfit-extrabold text-[#1b1b1d] dark:text-white mb-3">
@@ -245,7 +247,7 @@ export default function StudentWorkoutHistoryScreen() {
           <MotiView
             from={{ opacity: 0, scale: 0.96 }}
             animate={{ opacity: 1, scale: 1 }}
-            transition={{ type: 'timing', duration: 250 }}
+            transition={{ type: 'timing', duration: 250 } as any}
             className="bg-[#f8f9fa] dark:bg-zinc-900 p-8 rounded-2xl border border-dashed border-[#e2dfe1] dark:border-zinc-800 items-center my-2"
           >
             <Barbell size={40} color={isDark ? '#71717a' : '#808591'} />
@@ -267,7 +269,7 @@ export default function StudentWorkoutHistoryScreen() {
                 damping: 22,
                 stiffness: 150,
                 delay: index * 40,
-              }}
+              } as any}
               className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl mb-3 border border-[#e2dfe1] dark:border-zinc-800 flex-row items-center justify-between"
             >
               <View className="flex-1 mr-3">

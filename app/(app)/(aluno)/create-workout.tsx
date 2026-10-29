@@ -49,7 +49,7 @@ const DAYS_OF_WEEK = [
   "Sexta",
 ];
 
-// 🟢 FUNÇÃO UTILITÁRIA PARA FORMATAR AS CATEGORIAS DE FORMA AMIGÁVEL E BONITA
+// FUNÇÃO UTILITÁRIA PARA FORMATAR AS CATEGORIAS DE FORMA AMIGÁVEL
 function formatCategoryLabel(rawCategory?: string): string {
   if (!rawCategory) return "Geral";
   const normalized = rawCategory.trim().toLowerCase();
@@ -70,7 +70,6 @@ function formatCategoryLabel(rawCategory?: string): string {
 
   if (mapLabels[normalized]) return mapLabels[normalized];
 
-  // Caso seja uma categoria nova no banco, coloca a primeira letra em maiúscula
   return rawCategory.charAt(0).toUpperCase() + rawCategory.slice(1).toLowerCase();
 }
 
@@ -184,9 +183,9 @@ export default function CreateOrEditWorkoutScreen() {
     workoutTitle.trim().length > 0 ||
     workoutDescription.trim().length > 0;
 
-  // PROTEÇÃO CONTRA SAÍDA ACIDENTAL DA TELA
+  // 🟢 CORREÇÃO DOS ERROS DE TIPAGEM NO EVENTO 'beforeRemove'
   useEffect(() => {
-    const unsubscribe = navigation.addListener("beforeRemove", (e) => {
+    const unsubscribe = (navigation as any).addListener("beforeRemove", (e: any) => {
       if (!isFormDirty || isSaved) {
         return;
       }
@@ -202,7 +201,7 @@ export default function CreateOrEditWorkoutScreen() {
         cancelText: "Continuar Editando",
         showCancelButton: true,
         onConfirm: () => {
-          navigation.dispatch(e.data.action);
+          (navigation as any).dispatch(e.data.action);
         },
       });
     });
@@ -378,7 +377,7 @@ export default function CreateOrEditWorkoutScreen() {
     setSelectedExercises((prev) => prev.filter((_, i) => i !== index));
   }
 
-  // 🟢 ITEM DO MODAL MEMORIZADO COM FORMATADOR DE CATEGORIA
+  // ITEM DO MODAL MEMORIZADO COM FORMATADOR DE CATEGORIA
   const renderModalExerciseItem = useCallback(
     ({ item }: { item: ExerciseOption }) => {
       const isAdded = selectedExercises.some((e) => e.exercise_id === item.id);
@@ -398,7 +397,6 @@ export default function CreateOrEditWorkoutScreen() {
             className="flex-row justify-between items-center"
           >
             <View className="flex-1 mr-2">
-              {/* 🟢 NOME DA CATEGORIA FORMATADO E SEM UPPERCASE */}
               <Text className="text-xs font-sans-bold text-[#59C83A]">
                 {formatCategoryLabel(item.category_id)}
               </Text>
@@ -422,7 +420,7 @@ export default function CreateOrEditWorkoutScreen() {
             <MotiView
               from={{ opacity: 0, scale: 0.96 }}
               animate={{ opacity: 1, scale: 1 }}
-              transition={{ type: "timing", duration: 200 }}
+              transition={{ type: "timing", duration: 200 } as any}
               className="w-full h-52 bg-white dark:bg-zinc-900 rounded-xl overflow-hidden mt-3 border border-[#e2dfe1] dark:border-zinc-800 items-center justify-center"
             >
               <Image
@@ -615,7 +613,7 @@ export default function CreateOrEditWorkoutScreen() {
           type: "spring",
           damping: 24,
           stiffness: 160,
-        }}
+        } as any}
         className="flex-row items-center justify-between mb-5"
       >
         <TouchableOpacity
@@ -654,7 +652,7 @@ export default function CreateOrEditWorkoutScreen() {
               damping: 22,
               stiffness: 150,
               delay: 30,
-            }}
+            } as any}
           >
             <Text className="text-xs font-sans-bold text-[#71717a] dark:text-zinc-400 uppercase mb-1.5">
               Nome do Treino
@@ -727,7 +725,7 @@ export default function CreateOrEditWorkoutScreen() {
               damping: 22,
               stiffness: 150,
               delay: 60,
-            }}
+            } as any}
             className="flex-row items-center justify-between mb-3"
           >
             <Text className="text-base font-outfit-extrabold text-[#1b1b1d] dark:text-white">
@@ -750,7 +748,7 @@ export default function CreateOrEditWorkoutScreen() {
             <MotiView
               from={{ opacity: 0, scale: 0.96 }}
               animate={{ opacity: 1, scale: 1 }}
-              transition={{ type: "timing", duration: 250 }}
+              transition={{ type: "timing", duration: 250 } as any}
             >
               <TouchableOpacity
                 onPress={handleOpenAddExerciseModal}
@@ -776,12 +774,11 @@ export default function CreateOrEditWorkoutScreen() {
                   damping: 22,
                   stiffness: 150,
                   delay: index * 40,
-                }}
+                } as any}
                 className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl mb-3 border border-[#e2dfe1] dark:border-zinc-800"
               >
                 <View className="flex-row items-center justify-between mb-3">
                   <View className="flex-1 mr-2">
-                    {/* 🟢 CATEGORIA FORMATADA NO CARD SELECIONADO (SEM UPPERCASE) */}
                     <Text className="text-xs font-sans-bold text-[#59C83A]">
                       {formatCategoryLabel(exercise.category_id)}
                     </Text>
@@ -853,7 +850,7 @@ export default function CreateOrEditWorkoutScreen() {
               damping: 22,
               stiffness: 150,
               delay: 90,
-            }}
+            } as any}
           >
             <TouchableOpacity
               onPress={handleSaveWorkout}
@@ -944,7 +941,6 @@ export default function CreateOrEditWorkoutScreen() {
                               : "bg-[#f8f9fa] dark:bg-zinc-950 border-[#e2dfe1] dark:border-zinc-800"
                           }`}
                         >
-                          {/* 🟢 RÓTULO DO FILTRO FORMATADO E SEM UPPERCASE */}
                           <Text
                             className={`text-xs font-sans-bold ${
                               isActive

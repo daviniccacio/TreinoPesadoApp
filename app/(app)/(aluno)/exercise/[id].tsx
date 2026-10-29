@@ -118,7 +118,7 @@ export default function ExerciseDetailScreen() {
       <MotiView
         from={{ opacity: 0, translateY: -8 }}
         animate={{ opacity: 1, translateY: 0 }}
-        transition={{ type: 'spring', damping: 24, stiffness: 160 }}
+        transition={{ type: 'spring', damping: 24, stiffness: 160 } as any}
         className="flex-row items-center justify-between px-5 py-3 border-b border-[#f0edef] dark:border-zinc-800"
       >
         <TouchableOpacity
@@ -151,7 +151,7 @@ export default function ExerciseDetailScreen() {
           <MotiView
             from={{ opacity: 0, translateY: 10 }}
             animate={{ opacity: 1, translateY: 0 }}
-            transition={{ type: 'spring', damping: 22, stiffness: 150, delay: 30 }}
+            transition={{ type: 'spring', damping: 22, stiffness: 150, delay: 30 } as any}
             className="mb-4"
           >
             <Text className="text-2xl font-outfit-extrabold text-[#1b1b1d] dark:text-white mb-2">
@@ -169,7 +169,7 @@ export default function ExerciseDetailScreen() {
           <MotiView
             from={{ opacity: 0, scale: 0.96, translateY: 10 }}
             animate={{ opacity: 1, scale: 1, translateY: 0 }}
-            transition={{ type: 'spring', damping: 22, stiffness: 150, delay: 60 }}
+            transition={{ type: 'spring', damping: 22, stiffness: 150, delay: 60 } as any}
             className="w-full h-72 bg-white dark:bg-white rounded-3xl overflow-hidden mb-6 items-center justify-center p-2 border border-[#e2dfe1] dark:border-zinc-800 relative"
           >
             {isGifLoading && (
@@ -197,7 +197,7 @@ export default function ExerciseDetailScreen() {
           <MotiView
             from={{ opacity: 0, translateY: 10 }}
             animate={{ opacity: 1, translateY: 0 }}
-            transition={{ type: 'spring', damping: 22, stiffness: 150, delay: 90 }}
+            transition={{ type: 'spring', damping: 22, stiffness: 150, delay: 90 } as any}
             className="flex-row justify-between mb-6"
           >
             <View className="w-[31%] bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl items-center border border-[#e2dfe1] dark:border-zinc-800">
@@ -223,7 +223,7 @@ export default function ExerciseDetailScreen() {
           <MotiView
             from={{ opacity: 0, translateY: 12 }}
             animate={{ opacity: 1, translateY: 0 }}
-            transition={{ type: 'spring', damping: 22, stiffness: 150, delay: 120 }}
+            transition={{ type: 'spring', damping: 22, stiffness: 150, delay: 120 } as any}
             className="bg-[#f8f9fa] dark:bg-zinc-900 p-5 rounded-3xl border border-[#e2dfe1] dark:border-zinc-800"
           >
             <View className="flex-row items-center justify-between mb-4 pb-3 border-b border-[#e2dfe1] dark:border-zinc-800/80">

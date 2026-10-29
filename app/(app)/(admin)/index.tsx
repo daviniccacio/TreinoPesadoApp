@@ -401,7 +401,9 @@ export default function AdminDashboardScreen() {
           refreshControl={
             <RefreshControl
               refreshing={isRefetching}
-              onRefresh={refetch}
+              onRefresh={() => {
+                void refetch();
+              }}
               tintColor="#59C83A"
             />
           }

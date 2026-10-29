@@ -115,7 +115,9 @@ export default function HomeScreen() {
           refreshControl={
             <RefreshControl
               refreshing={isRefetching}
-              onRefresh={refetch}
+              onRefresh={() => {
+                void refetch();
+              }}
               tintColor="#59C83A"
               colors={["#59C83A"]}
             />
@@ -129,7 +131,7 @@ export default function HomeScreen() {
               type: "spring",
               damping: 18,
               stiffness: 120,
-            }}
+            } as any}
             className="my-3"
           >
             {/* Título Principal em Outfit ExtraBold */}
@@ -151,7 +153,7 @@ export default function HomeScreen() {
               damping: 15,
               stiffness: 130,
               delay: 40,
-            }}
+            } as any}
             className="mb-5"
           >
             <TouchableOpacity
@@ -196,7 +198,7 @@ export default function HomeScreen() {
                   stiffness: 110,
                   mass: 0.8,
                   delay: index * 40,
-                }}
+                } as any}
                 style={{ width: "48.5%" }}
                 className="mb-3"
               >

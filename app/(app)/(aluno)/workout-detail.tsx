@@ -134,7 +134,7 @@ export default function StudentWorkoutDetailScreen() {
           type: 'spring',
           damping: 24,
           stiffness: 160,
-        }}
+        } as any}
         className="flex-row items-center mb-5"
       >
         <TouchableOpacity
@@ -170,7 +170,7 @@ export default function StudentWorkoutDetailScreen() {
         <MotiView
           from={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          transition={{ type: 'timing', duration: 250 }}
+          transition={{ type: 'timing', duration: 250 } as any}
           className="flex-1 justify-center items-center px-6"
         >
           <Info size={40} color="#ef4444" />
@@ -197,7 +197,7 @@ export default function StudentWorkoutDetailScreen() {
               damping: 22,
               stiffness: 150,
               delay: 30,
-            }}
+            } as any}
             className="bg-[#f8f9fa] dark:bg-zinc-900 p-5 rounded-3xl border border-[#e2dfe1] dark:border-zinc-800 mb-4"
           >
             <View className="flex-row items-center justify-between mb-3">
@@ -260,7 +260,7 @@ export default function StudentWorkoutDetailScreen() {
               damping: 22,
               stiffness: 150,
               delay: 60,
-            }}
+            } as any}
           >
             <TouchableOpacity
               activeOpacity={0.8}
@@ -289,7 +289,7 @@ export default function StudentWorkoutDetailScreen() {
               damping: 22,
               stiffness: 150,
               delay: 90,
-            }}
+            } as any}
           >
             {/* Título da Seção em Outfit ExtraBold */}
             <Text className="text-base font-outfit-extrabold text-[#1b1b1d] dark:text-white mb-1">
@@ -305,7 +305,7 @@ export default function StudentWorkoutDetailScreen() {
             <MotiView
               from={{ opacity: 0, scale: 0.96 }}
               animate={{ opacity: 1, scale: 1 }}
-              transition={{ type: 'timing', duration: 250 }}
+              transition={{ type: 'timing', duration: 250 } as any}
               className="p-6 items-center border border-dashed border-[#e2dfe1] dark:border-zinc-800 rounded-2xl"
             >
               <Barbell size={32} color={isDark ? '#71717a' : '#a1a1aa'} />
@@ -325,7 +325,7 @@ export default function StudentWorkoutDetailScreen() {
                   damping: 22,
                   stiffness: 150,
                   delay: index * 40,
-                }}
+                } as any}
               >
                 <TouchableOpacity
                   activeOpacity={0.7}

@@ -203,7 +203,7 @@ export default function CustomWorkoutDetailScreen() {
           type: 'spring',
           damping: 24,
           stiffness: 160,
-        }}
+        } as any}
         className="flex-row items-center justify-between px-5 py-3 border-b border-[#f0edef] dark:border-zinc-800"
       >
         <TouchableOpacity
@@ -272,7 +272,7 @@ export default function CustomWorkoutDetailScreen() {
               damping: 22,
               stiffness: 150,
               delay: 30,
-            }}
+            } as any}
           >
             {/* Título Principal em Outfit ExtraBold */}
             <Text className="text-2xl font-outfit-extrabold text-[#1b1b1d] dark:text-white mb-1">
@@ -295,7 +295,7 @@ export default function CustomWorkoutDetailScreen() {
                 damping: 22,
                 stiffness: 150,
                 delay: index * 40,
-              }}
+              } as any}
             >
               <TouchableOpacity
                 onPress={() =>
