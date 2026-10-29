@@ -101,7 +101,7 @@ export default function PersonalCategoryScreen() {
           type: 'spring',
           damping: 24,
           stiffness: 160,
-        }}
+        } as any}
         className="flex-row items-center justify-between px-5 py-3 border-b border-[#f0edef] dark:border-zinc-800"
       >
         <TouchableOpacity
@@ -133,7 +133,7 @@ export default function PersonalCategoryScreen() {
         <MotiView
           from={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          transition={{ type: 'spring', damping: 22, stiffness: 150 }}
+          transition={{ type: 'spring', damping: 22, stiffness: 150 } as any}
           className="flex-1 justify-center items-center px-5"
         >
           <WarningCircle size={48} color="#e11d48" />
@@ -160,7 +160,7 @@ export default function PersonalCategoryScreen() {
           refreshControl={
             <RefreshControl
               refreshing={isRefetching}
-              onRefresh={refetch}
+              onRefresh={async () => { await refetch(); }}
               tintColor="#59C83A"
             />
           }
@@ -173,7 +173,7 @@ export default function PersonalCategoryScreen() {
                 damping: 22,
                 stiffness: 150,
                 delay: 20,
-              }}
+              } as any}
               className="mb-4"
             >
               {/* Título da seção em Outfit ExtraBold */}
@@ -206,7 +206,7 @@ export default function PersonalCategoryScreen() {
             <MotiView
               from={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
-              transition={{ type: 'spring', damping: 22, stiffness: 150 }}
+              transition={{ type: 'spring', damping: 22, stiffness: 150 } as any}
               className="py-10 items-center"
             >
               {/* Texto de lista vazia em DM Sans Medium */}
@@ -226,7 +226,7 @@ export default function PersonalCategoryScreen() {
                 damping: 22,
                 stiffness: 150,
                 delay: index * 40,
-              }}
+              } as any}
             >
               <TouchableOpacity
                 onPress={() =>

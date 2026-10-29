@@ -123,7 +123,7 @@ export default function PersonalRoutineDetailScreen() {
           type: 'spring',
           damping: 24,
           stiffness: 160,
-        }}
+        } as any}
         className="flex-row items-center justify-between px-5 py-3 border-b border-[#f0edef] dark:border-zinc-800"
       >
         <TouchableOpacity
@@ -163,7 +163,7 @@ export default function PersonalRoutineDetailScreen() {
                 damping: 22,
                 stiffness: 150,
                 delay: 20,
-              }}
+              } as any}
               className="mb-6"
             >
               {/* Nome do Treino em Outfit ExtraBold */}
@@ -205,7 +205,7 @@ export default function PersonalRoutineDetailScreen() {
                   damping: 22,
                   stiffness: 150,
                   delay: index * 40,
-                }}
+                } as any}
               >
                 <View className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl mb-3 border border-[#e2dfe1] dark:border-zinc-800">
                   <View className="flex-row items-center justify-between mb-3">

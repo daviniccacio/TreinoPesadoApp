@@ -3,7 +3,7 @@
 // ============================================================================
 // Exibe dados cadastrais, código de acesso para alunos, estatísticas de trabalho,
 // alternância de tema global, política de privacidade, exclusão definitiva de conta,
-// logout e revalidação de dados no foco da aba para prevenir telas em branco.
+// logout e revalidação de dados com animações Moti ajustadas com 'as const'.
 // ============================================================================
 
 import React, { useState, useCallback } from 'react';
@@ -69,7 +69,7 @@ interface PrivacyButtonProps {
  * Componente do botão da Política de Privacidade com abertura externa
  */
 export function PrivacyPolicyButton({
-  policyUrl = 'https://politicadeprivacidadetreinopesadoapp.netlify.app/',
+  policyUrl = 'https://treinopesadoacademia.com.br/politica-de-privacidade/app',
 }: PrivacyButtonProps) {
   const handleOpenLink = async () => {
     const supported = await Linking.canOpenURL(policyUrl);
@@ -332,7 +332,7 @@ export default function PersonalProfileScreen() {
         <MotiView
           from={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
-          transition={{ type: 'timing', duration: 250 }}
+          transition={{ type: 'timing', duration: 250 } as any}
           className="items-center"
         >
           <WarningCircle size={48} color="#ef4444" />
@@ -363,8 +363,6 @@ export default function PersonalProfileScreen() {
     );
   }
 
-  // 🟢 CORREÇÃO DOS ERROS TS18048 (Linhas 369-373):
-  // Uso de Optional Chaining (`?.`) e Coalescência Nula (`??`) para garantia do TypeScript.
   const fullName = profile?.fullName ?? 'Personal Trainer';
   const email = profile?.email ?? '';
   const inviteCode = profile?.inviteCode ?? 'PERS-XXXX';
@@ -385,7 +383,7 @@ export default function PersonalProfileScreen() {
           type: 'spring',
           damping: 24,
           stiffness: 160,
-        }}
+        } as any}
         className={`px-5 py-4 border-b flex-row justify-between items-center ${
           isDark ? 'border-zinc-800' : 'border-[#e2dfe1]'
         }`}
@@ -578,7 +576,7 @@ export default function PersonalProfileScreen() {
               <Sun size={16} color={!isDark ? '#59C83A' : '#9ca3af'} weight="bold" />
               <Text
                 className={`font-sans-bold text-xs ${
-                  !isDark ? 'text-[#59C83A]' : 'text-zinc-400'
+                  !isDark ? '#59C83A' : 'text-zinc-400'
                 }`}
               >
                 Claro
@@ -598,7 +596,7 @@ export default function PersonalProfileScreen() {
               <Moon size={16} color={isDark ? '#59C83A' : '#9ca3af'} weight="bold" />
               <Text
                 className={`font-sans-bold text-xs ${
-                  isDark ? 'text-[#59C83A]' : 'text-[#71717a]'
+                  isDark ? '#59C83A' : 'text-[#71717a]'
                 }`}
               >
                 Escuro
@@ -679,7 +677,7 @@ export default function PersonalProfileScreen() {
         <MotiView
           from={{ opacity: 0, translateY: 10 }}
           animate={{ opacity: 1, translateY: 0 }}
-          transition={{ type: 'timing', duration: 250 }}
+          transition={{ type: 'timing', duration: 250 } as any}
         >
           <TouchableOpacity
             onPress={handleSignOut}

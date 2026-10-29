@@ -38,7 +38,7 @@ function AnimatedTabItem({ focused, children }: AnimatedTabItemProps) {
           type: "spring",
           damping: 22,
           stiffness: 160,
-        }}
+        } as any}
       >
         {children}
       </MotiView>

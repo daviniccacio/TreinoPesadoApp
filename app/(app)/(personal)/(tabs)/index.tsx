@@ -105,7 +105,7 @@ export default function PersonalStudentsScreen() {
           type: 'spring',
           damping: 24,
           stiffness: 160,
-        }}
+        } as any}
         className="flex-row items-center justify-between mb-5"
       >
         <View className="flex-1 mr-2">
@@ -134,7 +134,7 @@ export default function PersonalStudentsScreen() {
           damping: 22,
           stiffness: 150,
           delay: 30,
-        }}
+        } as any}
         className="flex-row items-center bg-[#f8f9fa] dark:bg-zinc-900 border border-[#e2dfe1] dark:border-zinc-800 rounded-2xl px-4 py-3 mb-5"
       >
         <MagnifyingGlass size={20} color={isDark ? '#59C83A' : '#71717a'} />
@@ -174,7 +174,7 @@ export default function PersonalStudentsScreen() {
             type: 'spring',
             damping: 22,
             stiffness: 150,
-          }}
+          } as any}
           className="flex-1 justify-center items-center px-6"
         >
           <View className="w-16 h-16 rounded-3xl bg-[#f8f9fa] dark:bg-zinc-900 items-center justify-center border border-[#e2dfe1] dark:border-zinc-800 mb-3">
@@ -197,7 +197,9 @@ export default function PersonalStudentsScreen() {
           refreshControl={
             <RefreshControl
               refreshing={isRefetching}
-              onRefresh={refetch}
+              onRefresh={() => {
+                void refetch();
+              }}
               tintColor="#59C83A"
               colors={['#59C83A']}
             />
@@ -211,7 +213,7 @@ export default function PersonalStudentsScreen() {
                 damping: 22,
                 stiffness: 150,
                 delay: index * 40,
-              }}
+              } as any}
             >
               <TouchableOpacity
                 activeOpacity={0.7}

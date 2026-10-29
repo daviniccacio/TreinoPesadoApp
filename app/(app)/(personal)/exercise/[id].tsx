@@ -102,7 +102,7 @@ export default function PersonalExerciseDetailScreen() {
           type: 'spring',
           damping: 24,
           stiffness: 160,
-        }}
+        } as any}
         className="flex-row items-center justify-between px-5 py-3 border-b border-[#f0edef] dark:border-zinc-800"
       >
         <TouchableOpacity
@@ -134,7 +134,7 @@ export default function PersonalExerciseDetailScreen() {
         <MotiView
           from={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          transition={{ type: 'spring', damping: 22, stiffness: 150 }}
+          transition={{ type: 'spring', damping: 22, stiffness: 150 } as any}
           className="flex-1 justify-center items-center px-5"
         >
           <WarningCircle size={48} color="#e11d48" />
@@ -162,7 +162,7 @@ export default function PersonalExerciseDetailScreen() {
           <MotiView
             from={{ opacity: 0, translateY: 10 }}
             animate={{ opacity: 1, translateY: 0 }}
-            transition={{ type: 'spring', damping: 22, stiffness: 150, delay: 20 }}
+            transition={{ type: 'spring', damping: 22, stiffness: 150, delay: 20 } as any}
             className="mb-4"
           >
             {/* Nome do exercício em Outfit ExtraBold */}
@@ -175,7 +175,7 @@ export default function PersonalExerciseDetailScreen() {
           <MotiView
             from={{ opacity: 0, scale: 0.95, translateY: 10 }}
             animate={{ opacity: 1, scale: 1, translateY: 0 }}
-            transition={{ type: 'spring', damping: 22, stiffness: 150, delay: 40 }}
+            transition={{ type: 'spring', damping: 22, stiffness: 150, delay: 40 } as any}
             className="w-full h-72 bg-[#fffffffc] dark:bg-[#fffffffc] rounded-3xl overflow-hidden mb-6 items-center justify-center p-2 border border-[#e2dfe1] dark:border-zinc-800 relative"
           >
             {isGifLoading && (
@@ -207,7 +207,7 @@ export default function PersonalExerciseDetailScreen() {
             <MotiView
               from={{ opacity: 0, translateY: 10 }}
               animate={{ opacity: 1, translateY: 0 }}
-              transition={{ type: 'spring', damping: 22, stiffness: 150, delay: 60 }}
+              transition={{ type: 'spring', damping: 22, stiffness: 150, delay: 60 } as any}
               className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl border border-[#e2dfe1] dark:border-zinc-800"
             >
               {/* Rótulo de Instruções em DM Sans Bold */}

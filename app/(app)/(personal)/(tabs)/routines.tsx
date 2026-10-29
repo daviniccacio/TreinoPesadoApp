@@ -388,7 +388,7 @@ export default function PersonalRoutinesScreen() {
           type: 'spring',
           damping: 24,
           stiffness: 160,
-        }}
+        } as any}
         className="flex-row justify-between items-center mb-6 border-b border-[#f0edef] dark:border-zinc-800 pb-4"
       >
         <View className="flex-1 mr-2">
@@ -422,7 +422,7 @@ export default function PersonalRoutinesScreen() {
             type: 'spring',
             damping: 22,
             stiffness: 150,
-          }}
+          } as any}
           className="flex-1 justify-center items-center px-6"
         >
           <Books size={48} color={isDark ? '#71717a' : '#a1a1aa'} />
@@ -442,7 +442,9 @@ export default function PersonalRoutinesScreen() {
           refreshControl={
             <RefreshControl
               refreshing={isRefetching}
-              onRefresh={refetch}
+              onRefresh={() => {
+                void refetch();
+              }}
               tintColor="#59C83A"
             />
           }
@@ -458,7 +460,7 @@ export default function PersonalRoutinesScreen() {
                   damping: 22,
                   stiffness: 150,
                   delay: index * 40,
-                }}
+                } as any}
               >
                 <View className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl mb-3 border border-[#e2dfe1] dark:border-zinc-800 flex-row items-center justify-between">
                   <TouchableOpacity

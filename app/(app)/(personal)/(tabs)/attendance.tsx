@@ -176,7 +176,7 @@ export default function PersonalAttendanceScreen() {
             type: 'spring',
             damping: 24,
             stiffness: 160,
-          }}
+          } as any}
         >
           <Text className="text-2xl font-outfit-extrabold text-[#1b1b1d] dark:text-white">
             Frequência de Treinos
@@ -195,7 +195,7 @@ export default function PersonalAttendanceScreen() {
             damping: 22,
             stiffness: 150,
             delay: 30,
-          }}
+          } as any}
           className="flex-row gap-3 mb-5"
         >
           <View className="flex-1 bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl border border-[#e2dfe1] dark:border-zinc-800">
@@ -264,8 +264,9 @@ export default function PersonalAttendanceScreen() {
           refreshControl={
             <RefreshControl
               refreshing={isRefetching}
-              onRefresh={refetch}
-              tintColor="#59C83A"
+              onRefresh={() => {
+                void refetch();
+              }} tintColor="#59C83A"
             />
           }
           ListEmptyComponent={
@@ -276,7 +277,7 @@ export default function PersonalAttendanceScreen() {
                 type: 'spring',
                 damping: 22,
                 stiffness: 150,
-              }}
+              } as any}
               className="bg-[#f8f9fa] dark:bg-zinc-900 p-8 rounded-2xl border border-dashed border-[#e2dfe1] dark:border-zinc-800 items-center my-2"
             >
               <CalendarCheck size={40} color={isDark ? '#71717a' : '#808591'} />
@@ -298,7 +299,7 @@ export default function PersonalAttendanceScreen() {
                 damping: 22,
                 stiffness: 150,
                 delay: index * 40,
-              }}
+              } as any}
             >
               <View className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl mb-3 border border-[#e2dfe1] dark:border-zinc-800">
                 <View className="flex-row items-center justify-between mb-1.5">

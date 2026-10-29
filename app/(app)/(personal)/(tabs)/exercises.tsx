@@ -69,7 +69,7 @@ export default function PersonalExercisesScreen() {
           type: 'spring',
           damping: 24,
           stiffness: 160,
-        }}
+        } as any}
         className="px-5 py-4 border-b border-[#f0edef] dark:border-zinc-800"
       >
         {/* Título com a fonte Outfit ExtraBold */}
@@ -109,7 +109,7 @@ export default function PersonalExercisesScreen() {
                   damping: 22,
                   stiffness: 150,
                   delay: index * 50, // Efeito cascata progressivo para cada cartão
-                }}
+                } as any}
                 className="w-[48%] mb-4"
               >
                 <TouchableOpacity

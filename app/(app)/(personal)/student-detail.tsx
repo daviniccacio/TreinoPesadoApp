@@ -337,7 +337,7 @@ export default function StudentDetailScreen() {
           type: 'spring',
           damping: 24,
           stiffness: 160,
-        }}
+        } as any}
         className="flex-row items-center mb-6"
       >
         <TouchableOpacity
@@ -377,7 +377,7 @@ export default function StudentDetailScreen() {
             damping: 22,
             stiffness: 150,
             delay: 20,
-          }}
+          } as any}
           className="bg-[#f8f9fa] dark:bg-zinc-900 p-5 rounded-3xl border border-[#e2dfe1] dark:border-zinc-800 mb-6"
         >
           <View className="flex-row items-center justify-between">
@@ -416,7 +416,7 @@ export default function StudentDetailScreen() {
             damping: 22,
             stiffness: 150,
             delay: 40,
-          }}
+          } as any}
         >
           {/* Título da seção em Outfit Bold */}
           <Text className="text-sm font-outfit-bold text-[#1b1b1d] dark:text-white mb-3">
@@ -477,7 +477,7 @@ export default function StudentDetailScreen() {
             damping: 22,
             stiffness: 150,
             delay: 60,
-          }}
+          } as any}
         >
           <Text className="text-sm font-outfit text-[#1b1b1d] dark:text-white mb-3">
             Prescrever Treino
@@ -515,7 +515,7 @@ export default function StudentDetailScreen() {
             damping: 22,
             stiffness: 150,
             delay: 80,
-          }}
+          } as any}
         >
           <TouchableOpacity
             activeOpacity={0.7}
@@ -551,7 +551,7 @@ export default function StudentDetailScreen() {
             damping: 22,
             stiffness: 150,
             delay: 100,
-          }}
+          } as any}
         >
           <Text className="text-sm font-outfit text-[#1b1b1d] dark:text-white mb-3">
             Planos de Treino do Aluno ({workoutPlans.length})
@@ -566,7 +566,7 @@ export default function StudentDetailScreen() {
               type: 'spring',
               damping: 22,
               stiffness: 150,
-            }}
+            } as any }
             className="bg-[#f8f9fa] dark:bg-zinc-900 p-6 rounded-2xl border border-dashed border-[#e2dfe1] dark:border-zinc-800 items-center justify-center"
           >
             <Barbell size={32} color={isDark ? '#71717a' : '#a1a1aa'} />
@@ -589,7 +589,7 @@ export default function StudentDetailScreen() {
                 damping: 22,
                 stiffness: 150,
                 delay: index * 40,
-              }}
+              } as any}
               className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl border border-[#e2dfe1] dark:border-zinc-800 mb-3"
             >
               <View className="flex-row items-center justify-between mb-2">

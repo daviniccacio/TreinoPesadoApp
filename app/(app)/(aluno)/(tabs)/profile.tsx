@@ -184,7 +184,7 @@ async function linkStudentToPersonalByCode(inviteCode: string) {
  * Botão para abertura externa da Política de Privacidade.
  */
 export function PrivacyPolicyButton({
-  policyUrl = 'https://politicadeprivacidadetreinopesadoapp.netlify.app/',
+  policyUrl = 'https://treinopesadoacademia.com.br/politica-de-privacidade/app',
 }: PrivacyButtonProps) {
   const handleOpenLink = async () => {
     const supported = await Linking.canOpenURL(policyUrl);
@@ -450,7 +450,7 @@ export default function StudentProfileScreen() {
         <MotiView
           from={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
-          transition={{ type: 'timing', duration: 250 }}
+          transition={{ type: 'timing', duration: 250 } as any}
           className="items-center"
         >
           <WarningCircle size={48} color="#ef4444" />
@@ -797,7 +797,7 @@ export default function StudentProfileScreen() {
         <MotiView
           from={{ opacity: 0, translateY: 12 }}
           animate={{ opacity: 1, translateY: 0 }}
-          transition={{ type: 'timing', duration: 250 }}
+          transition={{ type: 'timing', duration: 250 } as any}
         >
           <TouchableOpacity
             onPress={handleSignOut}

@@ -84,7 +84,7 @@ const OBJECTIVE_OPTIONS = ['Hipertrofia', 'Emagrecimento', 'Resistência', 'For�
 
 export default function CreateWorkoutPlanScreen() {
   const router = useRouter();
-  const navigation = useNavigation(); // 🟢 NAVEGAÇÃO NATIVA PARA INTERCEPTAR A SAÍDA
+  const navigation = useNavigation(); // NAVEGAÇÃO NATIVA PARA INTERCEPTAR A SAÍDA
   const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
@@ -105,7 +105,7 @@ export default function CreateWorkoutPlanScreen() {
   const [selectedExercises, setSelectedExercises] = useState<SelectedExerciseItem[]>([]);
   const [saving, setSaving] = useState(false);
   const [loadingPlanData, setLoadingPlanData] = useState(false);
-  const [isSaved, setIsSaved] = useState(false); // 🟢 BANDEIRA QUE PERMITE SAÍDA APÓS SALVAR
+  const [isSaved, setIsSaved] = useState(false); // BANDEIRA QUE PERMITE SAÍDA APÓS SALVAR
 
   // --- ESTADOS DO MODAL DE EXERCÍCIOS ---
   const [isModalVisible, setIsModalVisible] = useState(false);
@@ -167,12 +167,12 @@ export default function CreateWorkoutPlanScreen() {
     });
   }
 
-  // 🟢 IDENTIFICA SE HÁ ALTERAÇÕES NÃO SALVAS NO FORMULÁRIO
+  // IDENTIFICA SE HÁ ALTERAÇÕES NÃO SALVAS NO FORMULÁRIO
   const isFormDirty = selectedExercises.length > 0 || planName.trim().length > 0 || description.trim().length > 0;
 
-  // 🟢 HOOK QUE INTERCEPTA A TENTATIVA DE SAÍDA DA TELA
+  // 🟢 CORREÇÃO DOS ERROS DE TIPAGEM NO EVENTO 'beforeRemove'
   useEffect(() => {
-    const unsubscribe = navigation.addListener('beforeRemove', (e) => {
+    const unsubscribe = (navigation as any).addListener('beforeRemove', (e: any) => {
       // Se não houver alterações ou se o plano acabou de ser salvo, permite a saída normal
       if (!isFormDirty || isSaved) {
         return;
@@ -475,7 +475,7 @@ export default function CreateWorkoutPlanScreen() {
         queryClient.invalidateQueries({ queryKey: ['personal-profile-data'] });
         queryClient.invalidateQueries({ queryKey: ['personal-library-routines'] });
 
-        setIsSaved(true); // 🟢 MARCA COMO SALVO COM SUCESSO
+        setIsSaved(true); // MARCA COMO SALVO COM SUCESSO
         showAlertModal({
           title: 'Sucesso! 🎉',
           message: 'Plano de treino atualizado com sucesso!',
@@ -519,7 +519,7 @@ export default function CreateWorkoutPlanScreen() {
         queryClient.invalidateQueries({ queryKey: ['student-workouts'] });
         queryClient.invalidateQueries({ queryKey: ['personal-profile-data'] });
 
-        setIsSaved(true); // 🟢 MARCA COMO SALVO COM SUCESSO
+        setIsSaved(true); // MARCA COMO SALVO COM SUCESSO
         showAlertModal({
           title: 'Sucesso! 🎉',
           message: 'Plano de treino criado com sucesso!',
@@ -539,7 +539,7 @@ export default function CreateWorkoutPlanScreen() {
     }
   }
 
-  // FILTRAGEM DINÂMICA DE EXERCÍCIOS
+  // FILTRAGEM DINÂMICAS DE EXERCÍCIOS
   const filteredRegisteredExercises = registeredExercises.filter((ex: RegisteredExercise) => {
     const matchesSearch = ex.name.toLowerCase().includes(searchQuery.toLowerCase().trim());
     const matchesCategory =
@@ -623,7 +623,7 @@ export default function CreateWorkoutPlanScreen() {
           type: 'spring',
           damping: 24,
           stiffness: 160,
-        }}
+        } as any}
         className="flex-row items-center justify-between my-4"
       >
         <View className="flex-row items-center flex-1 mr-2">
@@ -675,7 +675,7 @@ export default function CreateWorkoutPlanScreen() {
             damping: 22,
             stiffness: 150,
             delay: 20,
-          }}
+          } as any}
           className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl border border-[#e2dfe1] dark:border-zinc-800 mb-5"
         >
           <Text className="text-xs font-sans-bold text-[#1b1b1d] dark:text-white mb-1.5">
@@ -758,7 +758,7 @@ export default function CreateWorkoutPlanScreen() {
             damping: 22,
             stiffness: 150,
             delay: 40,
-          }}
+          } as any}
           className="mb-5"
         >
           <TouchableOpacity
@@ -782,7 +782,7 @@ export default function CreateWorkoutPlanScreen() {
             damping: 22,
             stiffness: 150,
             delay: 60,
-          }}
+          } as any}
         >
           <Text className="text-base font-outfit-extrabold text-[#1b1b1d] dark:text-white mb-3">
             Exercícios Selecionados ({selectedExercises.length})
@@ -797,7 +797,7 @@ export default function CreateWorkoutPlanScreen() {
               type: 'spring',
               damping: 22,
               stiffness: 150,
-            }}
+            } as any}
             className="p-8 items-center justify-center border border-dashed border-[#e2dfe1] dark:border-zinc-800 rounded-2xl"
           >
             <Barbell size={32} color={isDark ? '#52525b' : '#a1a1aa'} />
@@ -816,7 +816,7 @@ export default function CreateWorkoutPlanScreen() {
                 damping: 22,
                 stiffness: 150,
                 delay: index * 40,
-              }}
+              } as any}
               className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl border border-[#e2dfe1] dark:border-zinc-800 mb-3"
             >
               <View className="flex-row items-center justify-between mb-3">
