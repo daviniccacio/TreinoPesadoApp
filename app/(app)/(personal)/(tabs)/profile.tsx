@@ -1,9 +1,9 @@
 // ============================================================================
-// DOCUMENTAÇÃO: TELA DE PERFIL PROFISSIONAL (PERSONAL TRAINER) COM SKELETON
+// DOCUMENTAÇÃO: TELA DE PERFIL DO PERSONAL TRAINER COM TIPAGEM E MODAL
 // ============================================================================
-// Exibe dados cadastrais, código de acesso para alunos, estatísticas de trabalho,
-// alternância de tema global, política de privacidade, exclusão definitiva de conta,
-// logout e revalidação de dados com suporte a Skeleton Loading.
+// Exibe resumo profissional, código de acesso para alunos, métricas de trabalho,
+// alternância de tema global e modal interativo para exibição e edição de dados,
+// completamente ajustado contra erros de compilação do TypeScript.
 // ============================================================================
 
 import React, { useState, useCallback } from 'react';
@@ -14,6 +14,11 @@ import {
   ScrollView,
   ActivityIndicator,
   Linking,
+  Modal,
+  TextInput,
+  TouchableWithoutFeedback,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -31,23 +36,28 @@ import {
   Key,
   Trash,
   WarningCircle,
+  Phone,
+  CalendarBlank,
+  X,
+  Check,
+  EnvelopeSimple,
 } from 'phosphor-react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { MotiView } from 'moti';
+
 import { supabase } from '../../../../lib/supabase';
 import { CustomModal } from '../../../../components/CustomModal';
 import { SendNotificationModal } from '../../../../components/SendNotificationModal';
-import { Skeleton } from '../../../../components/SkeletonLoading'; // 🟢 Importação do Skeleton
-
-// IMPORTAÇÃO DO CONTEXTO DE TEMA GLOBAL PERSISTENTE
+import { Skeleton } from '../../../../components/SkeletonLoading';
 import { useTheme } from '../../../../context/ThemeContext';
 
 // --- TIPAGENS DE DADOS ---
 interface PersonalProfileData {
   fullName: string;
   email: string;
-  inviteCode: string;
+  phone: string;
   birthDate: string;
+  inviteCode: string;
   libraryTemplatesCount: number;
   linkedStudentsCount: number;
 }
@@ -66,7 +76,37 @@ interface PrivacyButtonProps {
   policyUrl?: string;
 }
 
-// 🟢 SUBCOMPONENTE DE SKELETON PARA O PERFIL DO PERSONAL
+// ============================================================================
+// FUNÇÕES AUXILIARES DE FORMATAÇÃO E MÁSCARA
+// ============================================================================
+
+/** Formata número de telefone em tempo real: (XX) XXXXX-XXXX */
+function maskPhone(value: string): string {
+  const cleanValue = value.replace(/\D/g, '');
+  if (cleanValue.length <= 10) {
+    return cleanValue
+      .replace(/(\d{2})(\d)/, '($1) $2')
+      .replace(/(\d{4})(\d)/, '$1-$2')
+      .replace(/(-\d{4})\d+?$/, '$1');
+  }
+  return cleanValue
+    .replace(/(\d{2})(\d)/, '($1) $2')
+    .replace(/(\d{5})(\d)/, '$1-$2')
+    .replace(/(-\d{4})\d+?$/, '$1');
+}
+
+/** Converte datas no formato YYYY-MM-DD para DD/MM/AAAA */
+function formatISOToDate(isoString?: string | null): string {
+  if (!isoString) return 'Não informada';
+  const parts = isoString.split('-');
+  if (parts.length === 3) {
+    const [year, month, day] = parts;
+    return `${day}/${month}/${year}`;
+  }
+  return isoString;
+}
+
+// SUBCOMPONENTE DE SKELETON PARA O PERFIL DO PERSONAL
 function PersonalProfileSkeleton({ isDark }: { isDark: boolean }) {
   return (
     <ScrollView
@@ -78,76 +118,32 @@ function PersonalProfileSkeleton({ isDark }: { isDark: boolean }) {
       }}
       showsVerticalScrollIndicator={false}
     >
-      {/* Skeleton do Cabeçalho */}
       <Skeleton width={120} height={24} borderRadius={8} className="mb-6" />
 
-      {/* Skeleton do Card de Usuário (Avatar + Nome + Email) */}
+      {/* Avatar + Nome + Email */}
       <View className="items-center mb-6">
         <Skeleton width={96} height={96} borderRadius={48} className="mb-3" />
         <Skeleton width="55%" height={24} borderRadius={8} className="mb-2" />
         <Skeleton width="40%" height={16} borderRadius={6} />
       </View>
 
-      {/* Skeleton do Card do Código de Acesso */}
-      <View
-        className={`p-4 rounded-2xl mb-6 border ${
-          isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-[#e2dfe1]'
-        }`}
-      >
-        <View className="flex-row items-center justify-between">
-          <View className="flex-row items-center flex-1 mr-2 gap-3">
-            <Skeleton width={40} height={40} borderRadius={12} />
-            <View className="flex-1">
-              <Skeleton width="70%" height={12} borderRadius={4} className="mb-2" />
-              <Skeleton width="50%" height={22} borderRadius={6} />
-            </View>
-          </View>
-          <Skeleton width={60} height={32} borderRadius={12} />
-        </View>
-      </View>
+      {/* Card Código de Acesso */}
+      <Skeleton width="100%" height={70} borderRadius={16} className="mb-6" />
 
-      {/* Skeleton das Estatísticas de Trabalho */}
+      {/* Card de Atalho das Informações Pessoais */}
+      <Skeleton width="100%" height={60} borderRadius={16} className="mb-6" />
+
+      {/* Estatísticas */}
       <Skeleton width={160} height={20} borderRadius={6} className="mb-3" />
       <View className="flex-row justify-between gap-3 mb-6">
-        <View
-          className={`flex-1 p-4 rounded-2xl items-center border ${
-            isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-[#e2dfe1]'
-          }`}
-        >
-          <Skeleton width={28} height={28} borderRadius={8} className="mb-2" />
-          <Skeleton width={32} height={24} borderRadius={6} className="mb-1" />
-          <Skeleton width="75%" height={12} borderRadius={4} />
-        </View>
-
-        <View
-          className={`flex-1 p-4 rounded-2xl items-center border ${
-            isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-[#e2dfe1]'
-          }`}
-        >
-          <Skeleton width={28} height={28} borderRadius={8} className="mb-2" />
-          <Skeleton width={32} height={24} borderRadius={6} className="mb-1" />
-          <Skeleton width="75%" height={12} borderRadius={4} />
-        </View>
-      </View>
-
-      {/* Skeleton das Opções de Conta */}
-      <Skeleton width={140} height={20} borderRadius={6} className="mb-3" />
-      <View
-        className={`rounded-2xl border p-2 ${
-          isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-[#e2dfe1]'
-        }`}
-      >
-        <Skeleton width="100%" height={44} borderRadius={12} className="mb-2" />
-        <Skeleton width="100%" height={44} borderRadius={12} className="mb-2" />
-        <Skeleton width="100%" height={44} borderRadius={12} />
+        <Skeleton width="48%" height={100} borderRadius={16} />
+        <Skeleton width="48%" height={100} borderRadius={16} />
       </View>
     </ScrollView>
   );
 }
 
-/**
- * Componente do botão da Política de Privacidade com abertura externa
- */
+/** Componente do botão da Política de Privacidade com abertura externa */
 export function PrivacyPolicyButton({
   policyUrl = 'https://treinopesadoacademia.com.br/politica-de-privacidade/app',
 }: PrivacyButtonProps) {
@@ -175,9 +171,7 @@ export function PrivacyPolicyButton({
   );
 }
 
-/**
- * Busca os dados do perfil, código de acesso e métricas do Personal Trainer no Supabase
- */
+/** Busca dados do perfil do Personal Trainer no Supabase */
 async function fetchPersonalProfileData(): Promise<PersonalProfileData> {
   const {
     data: { user },
@@ -190,7 +184,7 @@ async function fetchPersonalProfileData(): Promise<PersonalProfileData> {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('full_name, invite_code')
+    .select('full_name, invite_code, phone, birth_date')
     .eq('id', user.id)
     .single();
 
@@ -213,8 +207,9 @@ async function fetchPersonalProfileData(): Promise<PersonalProfileData> {
   return {
     fullName,
     email: user.email || '',
+    phone: profile?.phone || '',
+    birthDate: profile?.birth_date || '',
     inviteCode: profile?.invite_code || 'PERS-XXXX',
-    birthDate: user.user_metadata?.birth_date || '',
     libraryTemplatesCount: libraryCount || 0,
     linkedStudentsCount: studentsCount || 0,
   };
@@ -224,14 +219,15 @@ export default function PersonalProfileScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
-
-  // SUBSCRITO AO TEMA GLOBAL PERSISTENTE
   const { isDark, toggleTheme } = useTheme();
 
   // ESTADOS DOS MODAIS
   const [modalVisible, setModalVisible] = useState(false);
+  const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editPhone, setEditPhone] = useState('');
 
-  // ESTADO DO MODAL PERSONALIZADO REUTILIZÁVEL DE ALERTA
+  // ESTADO DO MODAL DE ALERTA
   const [modalConfig, setModalConfig] = useState<{
     visible: boolean;
     title: string;
@@ -276,7 +272,7 @@ export default function PersonalProfileScreen() {
     });
   }
 
-  // CONSULTA DE PERFIL COM TANSTACK QUERY E TRATAMENTO DE REVALIDAÇÃO
+  // CONSULTA DE PERFIL COM TANSTACK QUERY
   const {
     data: profile,
     isLoading,
@@ -288,15 +284,50 @@ export default function PersonalProfileScreen() {
     queryKey: ['personal-profile-data'],
     queryFn: fetchPersonalProfileData,
     staleTime: 1000 * 60 * 5,
-    gcTime: 1000 * 60 * 10,
   });
 
-  // Força o recarregamento dos dados assim que a aba recebe o foco na tela
   useFocusEffect(
     useCallback(() => {
       refetch();
     }, [refetch])
   );
+
+  // MUTAÇÃO DE ATUALIZAÇÃO DE PERFIL DO PERSONAL
+  const updateProfileMutation = useMutation({
+    mutationFn: async ({ name, phone }: { name: string; phone: string }) => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) throw new Error('Usuário não autenticado.');
+
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          full_name: name.trim(),
+          phone: phone.trim() || null,
+        })
+        .eq('id', user.id);
+
+      if (error) throw new Error(error.message);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['personal-profile-data'] });
+      setIsInfoModalOpen(false);
+      showAlertModal({
+        title: 'Perfil Atualizado! 🎉',
+        message: 'Seus dados foram salvos com sucesso.',
+        type: 'success',
+      });
+    },
+    onError: (err: any) => {
+      showAlertModal({
+        title: 'Erro ao Salvar',
+        message: err.message || 'Não foi possível atualizar as informações.',
+        type: 'danger',
+      });
+    },
+  });
 
   // MUTAÇÃO DE EXCLUSÃO DEFINITIVA DE CONTA
   const deleteAccountMutation = useMutation({
@@ -326,10 +357,33 @@ export default function PersonalProfileScreen() {
         title: 'Erro ao Excluir',
         message: err.message || 'Não foi possível excluir sua conta no momento.',
         type: 'danger',
-        showCancelButton: false,
       });
     },
   });
+
+  function handleOpenInfoModal() {
+    if (profile) {
+      setEditName(profile.fullName || '');
+      setEditPhone(profile.phone || '');
+    }
+    setIsInfoModalOpen(true);
+  }
+
+  function handleSaveInfo() {
+    if (!editName.trim() || editName.trim().length < 3) {
+      showAlertModal({
+        title: 'Nome Inválido',
+        message: 'Por favor, informe seu nome completo com pelo menos 3 caracteres.',
+        type: 'info',
+      });
+      return;
+    }
+
+    updateProfileMutation.mutate({
+      name: editName,
+      phone: editPhone,
+    });
+  }
 
   function handleDeleteAccount() {
     showAlertModal({
@@ -353,33 +407,23 @@ export default function PersonalProfileScreen() {
       cancelText: 'Cancelar',
       showCancelButton: true,
       onConfirm: async () => {
-        try {
-          const { error } = await supabase.auth.signOut();
-          if (error) {
-            showAlertModal({
-              title: 'Erro ao sair',
-              message: error.message,
-              type: 'danger',
-            });
-            return;
-          }
-          queryClient.clear();
-          router.replace('/(auth)/login');
-        } catch (err) {
-          console.error('Erro ao processar logout:', err);
-          showAlertModal({
-            title: 'Erro',
-            message: 'Não foi possível encerrar a sessão.',
-            type: 'danger',
-          });
-        }
+        await supabase.auth.signOut();
+        queryClient.clear();
+        router.replace('/(auth)/login');
       },
     });
   }
 
   const safeTopPadding = Math.max(insets?.top || 0, 16);
+  const safeBottomPadding = Math.max(insets?.bottom || 0, 16);
 
-  // 🟢 ESTADO 1: CARREGANDO COM SKELETON
+  // EXTRAÇÃO SEGURA DOS DADOS DO PERFIL (EVITA ERROS DE 'UNDEFINED')
+  const fullName = profile?.fullName ?? 'Personal Trainer';
+  const email = profile?.email ?? '';
+  const inviteCode = profile?.inviteCode ?? 'PERS-XXXX';
+  const libraryCount = profile?.libraryTemplatesCount ?? 0;
+  const linkedStudentsCount = profile?.linkedStudentsCount ?? 0;
+
   if (isLoading && !isRefetching && !profile) {
     return (
       <View
@@ -391,7 +435,6 @@ export default function PersonalProfileScreen() {
     );
   }
 
-  // ESTADO 2: ERRO NA CONEXÃO / SESSÃO
   if ((isError || !profile) && !isLoading) {
     return (
       <View
@@ -400,62 +443,33 @@ export default function PersonalProfileScreen() {
         }`}
         style={{ paddingTop: safeTopPadding }}
       >
-        <MotiView
-          from={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ type: 'timing', duration: 250 } as any}
-          className="items-center"
+        <WarningCircle size={48} color="#ef4444" />
+        <Text
+          className={`text-base font-outfit-bold mt-3 text-center ${
+            isDark ? 'text-white' : 'text-[#1b1b1d]'
+          }`}
         >
-          <WarningCircle size={48} color="#ef4444" />
-          <Text
-            className={`text-base font-outfit-bold mt-3 text-center ${
-              isDark ? 'text-white' : 'text-[#1b1b1d]'
-            }`}
-          >
-            Não foi possível carregar o perfil
-          </Text>
-          <Text
-            className={`text-xs font-sans-medium text-center mt-1 mb-5 ${
-              isDark ? 'text-zinc-400' : 'text-[#71717a]'
-            }`}
-          >
-            {(error as Error)?.message || 'Ocorreu um problema de conexão com o banco de dados.'}
-          </Text>
-
-          <TouchableOpacity
-            onPress={() => refetch()}
-            style={{ backgroundColor: '#59C83A' }}
-            className="px-6 py-3 rounded-2xl active:opacity-90"
-          >
-            <Text className="text-xs font-sans-bold text-white">Tentar Novamente</Text>
-          </TouchableOpacity>
-        </MotiView>
+          Não foi possível carregar o perfil
+        </Text>
+        <TouchableOpacity
+          onPress={() => refetch()}
+          style={{ backgroundColor: '#59C83A' }}
+          className="px-6 py-3 rounded-2xl active:opacity-90 mt-4"
+        >
+          <Text className="text-xs font-sans-bold text-white">Tentar Novamente</Text>
+        </TouchableOpacity>
       </View>
     );
   }
 
-  const fullName = profile?.fullName ?? 'Personal Trainer';
-  const email = profile?.email ?? '';
-  const inviteCode = profile?.inviteCode ?? 'PERS-XXXX';
-  const libraryCount = profile?.libraryTemplatesCount ?? 0;
-  const linkedStudentsCount = profile?.linkedStudentsCount ?? 0;
-
-  // ESTADO 3: EXIBIÇÃO NORMAL
   return (
     <View
       className={`flex-1 pb-4 ${isDark ? 'bg-zinc-950' : 'bg-[#f8f9fa]'}`}
       style={{ paddingTop: safeTopPadding }}
     >
-      {/* 1. CABEÇALHO ANIMADO */}
-      <MotiView
-        from={{ opacity: 0, translateY: -12 }}
-        animate={{ opacity: 1, translateY: 0 }}
-        transition={{
-          type: 'spring',
-          damping: 24,
-          stiffness: 160,
-        } as any}
-        className={`px-5 py-4 border-b flex-row justify-between items-center ${
+      {/* 1. CABEÇALHO */}
+      <View
+        className={`px-5 py-4 border-b ${
           isDark ? 'border-zinc-800' : 'border-[#e2dfe1]'
         }`}
       >
@@ -466,7 +480,7 @@ export default function PersonalProfileScreen() {
         >
           Meu Perfil
         </Text>
-      </MotiView>
+      </View>
 
       {/* 2. SCROLLVIEW */}
       <ScrollView
@@ -478,10 +492,10 @@ export default function PersonalProfileScreen() {
         }}
         showsVerticalScrollIndicator={false}
       >
-        {/* 3. CARTÃO DO USUÁRIO */}
+        {/* CARTÃO DO USUÁRIO */}
         <MotiView
-          from={{ opacity: 0, scale: 0.95, translateY: 10 }}
-          animate={{ opacity: 1, scale: 1, translateY: 0 }}
+          from={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
           className="items-center mb-6"
         >
           <View
@@ -506,10 +520,10 @@ export default function PersonalProfileScreen() {
           </Text>
         </MotiView>
 
-        {/* 4. CARD DO CÓDIGO DE ACESSO */}
+        {/* CÓDIGO DE ACESSO */}
         <MotiView
-          from={{ opacity: 0, translateY: 10, scale: 0.97 }}
-          animate={{ opacity: 1, translateY: 0, scale: 1 }}
+          from={{ opacity: 0, translateY: 10 }}
+          animate={{ opacity: 1, translateY: 0 }}
           className="bg-[#59C83A]/10 border border-[#59C83A]/30 p-4 rounded-2xl mb-6 flex-row items-center justify-between"
         >
           <View className="flex-row items-center flex-1 mr-2">
@@ -520,7 +534,6 @@ export default function PersonalProfileScreen() {
               <Text className="text-xs font-sans-bold text-[#59C83A]">
                 Seu Código de Acesso para Alunos
               </Text>
-
               <Text
                 className={`text-xl font-outfit-extrabold mt-0.5 tracking-wider ${
                   isDark ? 'text-white' : 'text-[#1b1b1d]'
@@ -546,7 +559,39 @@ export default function PersonalProfileScreen() {
           </TouchableOpacity>
         </MotiView>
 
-        {/* 5. RESUMO DE ATIVIDADES */}
+        {/* CARD CLICÁVEL: INFORMAÇÕES PESSOAIS */}
+        <TouchableOpacity
+          onPress={handleOpenInfoModal}
+          activeOpacity={0.7}
+          className={`p-4 rounded-2xl mb-6 border flex-row items-center justify-between ${
+            isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-[#e2dfe1]'
+          }`}
+        >
+          <View className="flex-row items-center gap-3">
+            <View className="w-10 h-10 rounded-xl bg-[#59C83A]/10 items-center justify-center border border-[#59C83A]/30">
+              <User size={20} color="#59C83A" weight="bold" />
+            </View>
+            <View>
+              <Text
+                className={`font-outfit text-base ${
+                  isDark ? 'text-white' : 'text-[#1b1b1d]'
+                }`}
+              >
+                Informações Pessoais
+              </Text>
+              <Text
+                className={`text-xs font-sans-medium ${
+                  isDark ? 'text-zinc-400' : 'text-[#71717a]'
+                }`}
+              >
+                Toque para ver ou editar seus dados
+              </Text>
+            </View>
+          </View>
+          <CaretRight size={18} color={isDark ? '#a1a1aa' : '#71717a'} />
+        </TouchableOpacity>
+
+        {/* VISÃO GERAL DO TRABALHO */}
         <MotiView
           from={{ opacity: 0, translateY: 10 }}
           animate={{ opacity: 1, translateY: 0 }}
@@ -614,7 +659,7 @@ export default function PersonalProfileScreen() {
           </View>
         </MotiView>
 
-        {/* 6. SELETOR DE TEMA */}
+        {/* SELETOR DE TEMA */}
         <MotiView
           from={{ opacity: 0, translateY: 10 }}
           animate={{ opacity: 1, translateY: 0 }}
@@ -676,7 +721,7 @@ export default function PersonalProfileScreen() {
           </View>
         </MotiView>
 
-        {/* 7. OPÇÕES DA CONTA */}
+        {/* OPÇÕES DA CONTA */}
         <MotiView
           from={{ opacity: 0, translateY: 10 }}
           animate={{ opacity: 1, translateY: 0 }}
@@ -696,7 +741,6 @@ export default function PersonalProfileScreen() {
                 : 'bg-white border-[#e2dfe1]'
             }`}
           >
-            {/* ENVIAR COMUNICADOS / NOTIFICAÇÕES */}
             <TouchableOpacity
               onPress={() => setModalVisible(true)}
               className={`flex-row items-center justify-between p-4 border-b ${
@@ -717,12 +761,10 @@ export default function PersonalProfileScreen() {
               <CaretRight size={18} color={isDark ? '#a1a1aa' : '#414755'} />
             </TouchableOpacity>
 
-            {/* PRIVACIDADE COM LINK EXTERNO */}
             <View className={`border-b ${isDark ? 'border-zinc-800' : 'border-[#e2dfe1]'}`}>
               <PrivacyPolicyButton />
             </View>
 
-            {/* EXCLUIR MINHA CONTA */}
             <TouchableOpacity
               onPress={handleDeleteAccount}
               disabled={deleteAccountMutation.isPending}
@@ -744,11 +786,10 @@ export default function PersonalProfileScreen() {
           </View>
         </MotiView>
 
-        {/* 8. BOTÃO DE SAIR */}
+        {/* BOTÃO DE SAIR */}
         <MotiView
           from={{ opacity: 0, translateY: 10 }}
           animate={{ opacity: 1, translateY: 0 }}
-          transition={{ type: 'timing', duration: 250 } as any}
         >
           <TouchableOpacity
             onPress={handleSignOut}
@@ -767,13 +808,168 @@ export default function PersonalProfileScreen() {
         </MotiView>
       </ScrollView>
 
+      {/* MODAL DE INFORMAÇÕES PESSOAIS E EDIÇÃO */}
+      <Modal
+        visible={isInfoModalOpen}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setIsInfoModalOpen(false)}
+      >
+        <TouchableWithoutFeedback onPress={() => setIsInfoModalOpen(false)}>
+          <View className="flex-1 bg-black/60 justify-end">
+            <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
+              <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+              >
+                <View
+                  className={`rounded-t-3xl p-6 border-t ${
+                    isDark
+                      ? 'bg-zinc-900 border-zinc-800'
+                      : 'bg-white border-[#e2dfe1]'
+                  }`}
+                  style={{ paddingBottom: safeBottomPadding + 10 }}
+                >
+                  {/* CABEÇALHO DO MODAL */}
+                  <View className="flex-row items-center justify-between mb-5 pb-3 border-b border-[#e2dfe1] dark:border-zinc-800">
+                    <View className="flex-row items-center gap-2">
+                      <ShieldCheck size={22} color="#59C83A" weight="bold" />
+                      <Text
+                        className={`text-lg font-outfit-extrabold ${
+                          isDark ? 'text-white' : 'text-[#1b1b1d]'
+                        }`}
+                      >
+                        Informações Pessoais
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      onPress={() => setIsInfoModalOpen(false)}
+                      className="w-8 h-8 rounded-full bg-zinc-100 dark:bg-zinc-800 items-center justify-center"
+                    >
+                      <X size={18} color={isDark ? '#ffffff' : '#1b1b1d'} />
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* CAMPO NOME (EDITÁVEL) */}
+                  <View className="mb-4">
+                    <Text className="text-xs font-sans-bold uppercase tracking-wider text-[#71717a] dark:text-zinc-400 mb-1.5 ml-1">
+                      Nome Completo
+                    </Text>
+                    <View className="flex-row items-center bg-[#f8f9fa] dark:bg-zinc-950 border border-[#e2dfe1] dark:border-zinc-800 rounded-2xl px-3 py-2.5">
+                      <View className="mr-2">
+                        <User size={18} color="#59C83A" weight="bold" />
+                      </View>
+                      <TextInput
+                        className={`flex-1 text-sm font-sans-medium ${
+                          isDark ? 'text-white' : 'text-[#1b1b1d]'
+                        }`}
+                        value={editName}
+                        onChangeText={setEditName}
+                        placeholder="Seu nome"
+                        placeholderTextColor={isDark ? '#71717a' : '#a09da1'}
+                      />
+                    </View>
+                  </View>
+
+                  {/* CAMPO E-MAIL (LEITURA APENAS) */}
+                  <View className="mb-4">
+                    <Text className="text-xs font-sans-bold uppercase tracking-wider text-[#71717a] dark:text-zinc-400 mb-1.5 ml-1">
+                      E-mail Cadastrado (Apenas Leitura)
+                    </Text>
+                    <View className="flex-row items-center bg-zinc-100 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-800 rounded-2xl px-3 py-3 opacity-80">
+                      <View className="mr-2">
+                        <EnvelopeSimple
+                          size={18}
+                          color={isDark ? '#a1a1aa' : '#71717a'}
+                          weight="bold"
+                        />
+                      </View>
+                      <Text
+                        className={`flex-1 text-sm font-sans-medium ${
+                          isDark ? 'text-zinc-300' : 'text-zinc-700'
+                        }`}
+                      >
+                        {profile?.email || ''}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* CAMPO TELEFONE (EDITÁVEL COM MÁSCARA) */}
+                  <View className="mb-4">
+                    <Text className="text-xs font-sans-bold uppercase tracking-wider text-[#71717a] dark:text-zinc-400 mb-1.5 ml-1">
+                      Telefone / WhatsApp
+                    </Text>
+                    <View className="flex-row items-center bg-[#f8f9fa] dark:bg-zinc-950 border border-[#e2dfe1] dark:border-zinc-800 rounded-2xl px-3 py-2.5">
+                      <View className="mr-2">
+                        <Phone size={18} color="#59C83A" weight="bold" />
+                      </View>
+                      <TextInput
+                        className={`flex-1 text-sm font-sans-medium ${
+                          isDark ? 'text-white' : 'text-[#1b1b1d]'
+                        }`}
+                        value={editPhone}
+                        onChangeText={(val) => setEditPhone(maskPhone(val))}
+                        placeholder="(99) 99999-9999"
+                        placeholderTextColor={isDark ? '#71717a' : '#a09da1'}
+                        keyboardType="numeric"
+                        maxLength={15}
+                      />
+                    </View>
+                  </View>
+
+                  {/* CAMPO DATA DE NASCIMENTO (LEITURA APENAS) */}
+                  <View className="mb-6">
+                    <Text className="text-xs font-sans-bold uppercase tracking-wider text-[#71717a] dark:text-zinc-400 mb-1.5 ml-1">
+                      Data de Nascimento (Apenas Leitura)
+                    </Text>
+                    <View className="flex-row items-center bg-zinc-100 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-800 rounded-2xl px-3 py-3 opacity-80">
+                      <View className="mr-2">
+                        <CalendarBlank
+                          size={18}
+                          color={isDark ? '#a1a1aa' : '#71717a'}
+                          weight="bold"
+                        />
+                      </View>
+                      <Text
+                        className={`flex-1 text-sm font-sans-medium ${
+                          isDark ? 'text-zinc-300' : 'text-zinc-700'
+                        }`}
+                      >
+                        {formatISOToDate(profile?.birthDate)}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* BOTÃO SALVAR */}
+                  <TouchableOpacity
+                    onPress={handleSaveInfo}
+                    disabled={updateProfileMutation.isPending}
+                    className="bg-[#59C83A] p-4 rounded-2xl flex-row items-center justify-center shadow-sm active:opacity-90"
+                  >
+                    {updateProfileMutation.isPending ? (
+                      <ActivityIndicator color="#FFFFFF" size="small" />
+                    ) : (
+                      <>
+                        <Check size={20} color="#FFFFFF" weight="bold" />
+                        <Text className="text-white font-sans-bold text-base ml-2">
+                          Salvar Alterações
+                        </Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </KeyboardAvoidingView>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
+
       {/* COMPONENTE DO MODAL DE ENVIAR NOTIFICAÇÕES */}
       <SendNotificationModal
         visible={modalVisible}
         onClose={() => setModalVisible(false)}
       />
 
-      {/* COMPONENTE DO MODAL PERSONALIZADO REUTILIZÁVEL DE ALERTA */}
+      {/* COMPONENTE DO MODAL DE ALERTA */}
       <CustomModal
         visible={modalConfig.visible}
         isDark={isDark}

@@ -1,3 +1,10 @@
+// ============================================================================
+// DOCUMENTAÇÃO: TELA DE CADASTRO COM MÁSCARAS AUTOMÁTICAS E VALIDAÇÃO ZOD
+// ============================================================================
+// Permite o cadastro de Alunos e Personais capturando Nome, E-mail, Telefone,
+// Data de Nascimento, Senha e Tipo de Conta com formatação em tempo real.
+// ============================================================================
+
 import React, { useState } from "react";
 import {
   View,
@@ -23,6 +30,8 @@ import {
   ArrowRight,
   Sparkle,
   PersonSimpleRun,
+  Phone,
+  CalendarBlank,
 } from 'phosphor-react-native';
 import { z } from 'zod';
 import { MotiView } from 'moti';
@@ -34,9 +43,75 @@ const BRAND_GREEN = '#59C83A';
 const BRAND_GREEN_DEEP = '#2F7A16';
 const HERO_BG = '#0F1F0A';
 
+// ============================================================================
+// FUNÇÕES AUXILIARES DE MÁSCARA E FORMATAÇÃO
+// ============================================================================
+
+/** Formata o telefone em tempo real: (XX) XXXXX-XXXX ou (XX) XXXX-XXXX */
+function maskPhone(value: string): string {
+  const cleanValue = value.replace(/\D/g, ""); // Remove tudo que não for número
+
+  if (cleanValue.length <= 10) {
+    return cleanValue
+      .replace(/(\d{2})(\d)/, "($1) $2")
+      .replace(/(\d{4})(\d)/, "$1-$2")
+      .replace(/(-\d{4})\d+?$/, "$1");
+  }
+
+  return cleanValue
+    .replace(/(\d{2})(\d)/, "($1) $2")
+    .replace(/(\d{5})(\d)/, "$1-$2")
+    .replace(/(-\d{4})\d+?$/, "$1");
+}
+
+/** Formata a data de nascimento em tempo real: DD/MM/AAAA */
+function maskDate(value: string): string {
+  const cleanValue = value.replace(/\D/g, ""); // Remove tudo que não for número
+
+  return cleanValue
+    .replace(/(\d{2})(\d)/, "$1/$2")
+    .replace(/(\d{2})\/(\d{2})(\d)/, "$1/$2/$3")
+    .replace(/(\/\d{4})\d+?$/, "$1");
+}
+
+/** Converte a data de DD/MM/AAAA para YYYY-MM-DD (padrão DATE do PostgreSQL) */
+function parseDateToISO(dateString: string): string | null {
+  const parts = dateString.split("/");
+  if (parts.length === 3) {
+    const [day, month, year] = parts;
+    if (day.length === 2 && month.length === 2 && year.length === 4) {
+      return `${year}-${month}-${day}`;
+    }
+  }
+  return null;
+}
+
+// ============================================================================
+// ESQUEMA DE VALIDAÇÃO ZOD
+// ============================================================================
 const registerSchema = z.object({
   name: z.string().min(3, "O nome deve ter pelo menos 3 caracteres."),
   email: z.string().email("Digite um e-mail válido."),
+  phone: z
+    .string()
+    .min(14, "Digite um telefone válido com DDD ex: (99) 99999-9999."),
+  birthDate: z
+    .string()
+    .length(10, "A data de nascimento deve estar no formato DD/MM/AAAA.")
+    .refine((val) => {
+      const parts = val.split("/");
+      if (parts.length !== 3) return false;
+      const day = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10);
+      const year = parseInt(parts[2], 10);
+      const currentYear = new Date().getFullYear();
+
+      if (isNaN(day) || isNaN(month) || isNaN(year)) return false;
+      if (month < 1 || month > 12) return false;
+      if (day < 1 || day > 31) return false;
+      if (year < 1920 || year > currentYear) return false;
+      return true;
+    }, "Digite uma data de nascimento válida."),
   password: z
     .string()
     .min(8, "A senha deve ter pelo menos 8 caracteres.")
@@ -49,13 +124,13 @@ const registerSchema = z.object({
   role: z.enum(["aluno", "personal"]),
 });
 
-/** Anel de pulso animado — mesmo componente usado no Login, mantém a identidade consistente. */
+/** Anel de pulso animado do hero */
 function PulseRing({ delay = 0, size = 96 }: { delay?: number; size?: number }) {
   return (
     <MotiView
       from={{ scale: 0.7, opacity: 0.35 }}
       animate={{ scale: 1.55, opacity: 0 }}
-      transition={{ type: 'timing', duration: 2800, loop: true, delay }}
+      transition={{ type: 'timing', duration: 2800, loop: true, delay } as any}
       style={{
         position: 'absolute',
         width: size,
@@ -68,7 +143,7 @@ function PulseRing({ delay = 0, size = 96 }: { delay?: number; size?: number }) 
   );
 }
 
-/** Selo/badge premium do hero — idêntico ao do Login (glow permanente + disco com profundidade). */
+/** Selo/badge premium do hero */
 function EnergyBadge() {
   return (
     <View className="items-center justify-center" style={{ width: 100, height: 100 }}>
@@ -150,14 +225,17 @@ export default function RegisterScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
 
+  // ESTADOS DOS CAMPOS
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [birthDate, setBirthDate] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<"aluno" | "personal">("aluno");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  // ESTADO DO MODAL PERSONALIZADO DE ALERTA
+  // ESTADO DO MODAL PERSONALIZADO
   const [modalConfig, setModalConfig] = useState<{
     visible: boolean;
     title: string;
@@ -210,10 +288,22 @@ export default function RegisterScreen() {
     });
   }
 
+  // ATUALIZA O TELEFONE APLICANDO MÁSCARA AUTOMÁTICA
+  function handlePhoneChange(text: string) {
+    setPhone(maskPhone(text));
+  }
+
+  // ATUALIZA A DATA APLICANDO MÁSCARA AUTOMÁTICA
+  function handleDateChange(text: string) {
+    setBirthDate(maskDate(text));
+  }
+
   async function handleRegister() {
     const validationResult = registerSchema.safeParse({
       name: name.trim(),
       email: email.trim(),
+      phone: phone.trim(),
+      birthDate: birthDate.trim(),
       password,
       role,
     });
@@ -231,6 +321,8 @@ export default function RegisterScreen() {
     setLoading(true);
 
     try {
+      const formattedBirthDate = parseDateToISO(birthDate);
+
       const { error } = await supabase.auth.signUp({
         email: email.trim(),
         password: password,
@@ -239,6 +331,8 @@ export default function RegisterScreen() {
             full_name: name.trim(),
             name: name.trim(),
             role: role,
+            phone: phone.trim(),
+            birth_date: formattedBirthDate,
           },
         },
       });
@@ -288,7 +382,7 @@ export default function RegisterScreen() {
           bounces={false}
         >
           {/* ============================================================ */}
-          {/* HERO EDITORIAL — mesma linguagem visual do Login              */}
+          {/* HERO EDITORIAL                                               */}
           {/* ============================================================ */}
           <View
             style={{
@@ -329,7 +423,7 @@ export default function RegisterScreen() {
               <MotiView
                 from={{ opacity: 0, translateY: -10 }}
                 animate={{ opacity: 1, translateY: 0 }}
-                transition={{ type: 'spring', damping: 24, stiffness: 160 }}
+                transition={{ type: 'spring', damping: 24, stiffness: 160 } as any}
                 className="flex-1 pr-3"
               >
                 <Text className="font-outfit text-white text-[34px] leading-[36px]">
@@ -351,12 +445,12 @@ export default function RegisterScreen() {
           </View>
 
           {/* ============================================================ */}
-          {/* FORMULÁRIO                                                    */}
+          {/* FORMULÁRIO DE CADASTRO                                       */}
           {/* ============================================================ */}
           <MotiView
             from={{ opacity: 0, translateY: 12 }}
             animate={{ opacity: 1, translateY: 0 }}
-            transition={{ type: 'spring', damping: 22, stiffness: 150, delay: 80 }}
+            transition={{ type: 'spring', damping: 22, stiffness: 150, delay: 80 } as any}
             className="px-6 pt-8"
             style={{ paddingBottom: safeBottomPadding }}
           >
@@ -414,7 +508,7 @@ export default function RegisterScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* Campo Nome */}
+            {/* Campo Nome Completo */}
             <View className="mb-3">
               <Text className="font-sans-bold text-xs uppercase tracking-wider text-[#71717a] dark:text-zinc-400 mb-2 ml-1">
                 Nome completo
@@ -456,6 +550,54 @@ export default function RegisterScreen() {
                   onChangeText={setEmail}
                   keyboardType="email-address"
                   autoCapitalize="none"
+                />
+              </View>
+            </View>
+
+            {/* 🟢 Campo Telefone / WhatsApp */}
+            <View className="mb-3">
+              <Text className="font-sans-bold text-xs uppercase tracking-wider text-[#71717a] dark:text-zinc-400 mb-2 ml-1">
+                Telefone / WhatsApp
+              </Text>
+              <View className="flex-row items-center bg-[#f8f9fa] dark:bg-zinc-900 rounded-2xl pl-2 pr-4 py-2 border border-[#e2dfe1] dark:border-zinc-800">
+                <View
+                  className="w-9 h-9 rounded-full items-center justify-center mr-3"
+                  style={{ backgroundColor: isDark ? 'rgba(89,200,58,0.15)' : 'rgba(89,200,58,0.1)' }}
+                >
+                  <Phone size={18} color={BRAND_GREEN} weight="bold" />
+                </View>
+                <TextInput
+                  className="font-sans-medium flex-1 text-[#1b1b1d] dark:text-white text-base"
+                  placeholder="(99) 99999-9999"
+                  placeholderTextColor={isDark ? '#71717a' : '#a09da1'}
+                  value={phone}
+                  onChangeText={handlePhoneChange}
+                  keyboardType="numeric"
+                  maxLength={15}
+                />
+              </View>
+            </View>
+
+            {/* 🟢 Campo Data de Nascimento */}
+            <View className="mb-3">
+              <Text className="font-sans-bold text-xs uppercase tracking-wider text-[#71717a] dark:text-zinc-400 mb-2 ml-1">
+                Data de Nascimento
+              </Text>
+              <View className="flex-row items-center bg-[#f8f9fa] dark:bg-zinc-900 rounded-2xl pl-2 pr-4 py-2 border border-[#e2dfe1] dark:border-zinc-800">
+                <View
+                  className="w-9 h-9 rounded-full items-center justify-center mr-3"
+                  style={{ backgroundColor: isDark ? 'rgba(89,200,58,0.15)' : 'rgba(89,200,58,0.1)' }}
+                >
+                  <CalendarBlank size={18} color={BRAND_GREEN} weight="bold" />
+                </View>
+                <TextInput
+                  className="font-sans-medium flex-1 text-[#1b1b1d] dark:text-white text-base"
+                  placeholder="DD/MM/AAAA"
+                  placeholderTextColor={isDark ? '#71717a' : '#a09da1'}
+                  value={birthDate}
+                  onChangeText={handleDateChange}
+                  keyboardType="numeric"
+                  maxLength={10}
                 />
               </View>
             </View>

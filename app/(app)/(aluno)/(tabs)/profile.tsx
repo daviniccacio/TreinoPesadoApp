@@ -1,9 +1,9 @@
 // ============================================================================
-// DOCUMENTAÇÃO: TELA DE PERFIL DO ALUNO COM SKELETON LOADING
+// DOCUMENTAÇÃO: TELA DE PERFIL DO ALUNO COM MODAL DE DADOS E SKELETON
 // ============================================================================
 // Inclui gerenciamento de perfil, estatísticas, vínculo com personal, notificações,
-// alteração de tema sem delay, links de privacidade, exclusão de conta,
-// revalidação automática de dados e esqueletos visuais durante o carregamento.
+// modal de informações pessoais (visualização/edição), exclusão de conta,
+// revalidação automática de dados e proteção contra erros do TypeScript.
 // ============================================================================
 
 import React, { useState, useCallback } from 'react';
@@ -40,6 +40,10 @@ import {
   ArrowSquareOut,
   Trash,
   WarningCircle,
+  Phone,
+  CalendarBlank,
+  EnvelopeSimple,
+  Check,
 } from 'phosphor-react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { MotiView } from 'moti';
@@ -47,12 +51,14 @@ import { supabase } from '../../../../lib/supabase';
 import { CustomModal } from '../../../../components/CustomModal';
 import { UserNotificationModal } from '../../../../components/UserNotificationModal';
 import { useTheme } from '../../../../context/ThemeContext';
-import { Skeleton } from '../../../../components/SkeletonLoading'; // 🟢 Importação do Skeleton
+import { Skeleton } from '../../../../components/SkeletonLoading';
 
 // --- INTERFACES E TIPAGENS ---
 interface StudentProfileData {
   fullName: string;
   email: string;
+  phone: string;
+  birthDate: string;
   personalName: string | null;
   totalWorkoutsCompleted: number;
   totalWorkoutMinutes: number;
@@ -72,7 +78,37 @@ interface PrivacyButtonProps {
   policyUrl?: string;
 }
 
-// 🟢 SUBCOMPONENTE DE SKELETON PARA O PERFIL DO ALUNO
+// ============================================================================
+// FUNÇÕES AUXILIARES DE FORMATAÇÃO E MÁSCARA
+// ============================================================================
+
+/** Formata número de telefone em tempo real: (XX) XXXXX-XXXX */
+function maskPhone(value: string): string {
+  const cleanValue = value.replace(/\D/g, '');
+  if (cleanValue.length <= 10) {
+    return cleanValue
+      .replace(/(\d{2})(\d)/, '($1) $2')
+      .replace(/(\d{4})(\d)/, '$1-$2')
+      .replace(/(-\d{4})\d+?$/, '$1');
+  }
+  return cleanValue
+    .replace(/(\d{2})(\d)/, '($1) $2')
+    .replace(/(\d{5})(\d)/, '$1-$2')
+    .replace(/(-\d{4})\d+?$/, '$1');
+}
+
+/** Converte datas no formato YYYY-MM-DD para DD/MM/AAAA */
+function formatISOToDate(isoString?: string | null): string {
+  if (!isoString) return 'Não informada';
+  const parts = isoString.split('-');
+  if (parts.length === 3) {
+    const [year, month, day] = parts;
+    return `${day}/${month}/${year}`;
+  }
+  return isoString;
+}
+
+// SUBCOMPONENTE DE SKELETON PARA O PERFIL DO ALUNO
 function ProfileSkeleton() {
   return (
     <ScrollView
@@ -80,7 +116,6 @@ function ProfileSkeleton() {
       contentContainerStyle={{ paddingBottom: 120 }}
       className="flex-1 pt-6"
     >
-      {/* Skeleton do Avatar e Infos Principais */}
       <View className="items-center mb-6">
         <Skeleton width={96} height={96} borderRadius={48} className="mb-3" />
         <Skeleton width={180} height={24} borderRadius={6} className="mb-2" />
@@ -88,11 +123,11 @@ function ProfileSkeleton() {
         <Skeleton width={160} height={26} borderRadius={14} />
       </View>
 
-      {/* Skeleton Seção Instrutor */}
+      <Skeleton width="100%" height={60} borderRadius={16} className="mb-5" />
+
       <Skeleton width={80} height={18} borderRadius={4} className="mb-3" />
       <Skeleton width="100%" height={68} borderRadius={16} className="mb-5" />
 
-      {/* Skeleton Cards Estatísticos */}
       <View className="flex-row justify-between mb-6">
         <View className="w-[48%]">
           <Skeleton width="100%" height={110} borderRadius={16} />
@@ -102,20 +137,16 @@ function ProfileSkeleton() {
         </View>
       </View>
 
-      {/* Skeleton Seção Aparência */}
       <Skeleton width={90} height={18} borderRadius={4} className="mb-3" />
       <Skeleton width="100%" height={52} borderRadius={16} className="mb-6" />
 
-      {/* Skeleton Seção Configurações */}
       <Skeleton width={120} height={18} borderRadius={4} className="mb-3" />
       <Skeleton width="100%" height={150} borderRadius={16} className="mb-6" />
     </ScrollView>
   );
 }
 
-/**
- * Busca os dados do perfil do aluno e o resumo estatístico de treinos no Supabase.
- */
+/** Busca os dados do perfil do aluno no Supabase */
 async function fetchStudentProfileData(): Promise<StudentProfileData> {
   const {
     data: { user },
@@ -126,7 +157,7 @@ async function fetchStudentProfileData(): Promise<StudentProfileData> {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('full_name, personal_id')
+    .select('full_name, personal_id, phone, birth_date')
     .eq('id', user.id)
     .maybeSingle();
 
@@ -175,15 +206,15 @@ async function fetchStudentProfileData(): Promise<StudentProfileData> {
   return {
     fullName,
     email: user.email || '',
+    phone: profile?.phone || '',
+    birthDate: profile?.birth_date || '',
     personalName,
     totalWorkoutsCompleted,
     totalWorkoutMinutes: totalWorkoutSeconds,
   };
 }
 
-/**
- * Realiza o vínculo do aluno com o Personal Trainer utilizando o código de convite.
- */
+/** Realiza o vínculo do aluno com o Personal Trainer pelo código */
 async function linkStudentToPersonalByCode(inviteCode: string) {
   const cleanCode = inviteCode.trim().toUpperCase();
 
@@ -221,9 +252,7 @@ async function linkStudentToPersonalByCode(inviteCode: string) {
   return foundPersonalName;
 }
 
-/**
- * Botão para abertura externa da Política de Privacidade.
- */
+/** Botão da Política de Privacidade */
 export function PrivacyPolicyButton({
   policyUrl = 'https://treinopesadoacademia.com.br/politica-de-privacidade/app',
 }: PrivacyButtonProps) {
@@ -261,6 +290,10 @@ export default function StudentProfileScreen() {
   // --- ESTADOS DOS MODAIS ---
   const [isLinkModalOpen, setIsLinkModalOpen] = useState<boolean>(false);
   const [isNotificationModalOpen, setIsNotificationModalOpen] = useState<boolean>(false);
+  const [isInfoModalOpen, setIsInfoModalOpen] = useState<boolean>(false);
+
+  const [editName, setEditName] = useState<string>('');
+  const [editPhone, setEditPhone] = useState<string>('');
   const [inviteCodeInput, setInviteCodeInput] = useState<string>('');
 
   const [modalConfig, setModalConfig] = useState<{
@@ -280,7 +313,7 @@ export default function StudentProfileScreen() {
     confirmText: 'Entendi',
     cancelText: 'Cancelar',
     showCancelButton: true,
-    onConfirm: () => { },
+    onConfirm: () => {},
   });
 
   function showAlertModal({
@@ -349,6 +382,70 @@ export default function StudentProfileScreen() {
     },
     staleTime: 1000 * 10,
   });
+
+  // MUTAÇÃO PARA ATUALIZAR NOME E TELEFONE DO ALUNO
+  const updateProfileMutation = useMutation({
+    mutationFn: async ({ name, phone }: { name: string; phone: string }) => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) throw new Error('Usuário não autenticado.');
+
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          full_name: name.trim(),
+          phone: phone.trim() || null,
+        })
+        .eq('id', user.id);
+
+      if (error) throw new Error(error.message);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['student-profile-data'] });
+      setIsInfoModalOpen(false);
+      showAlertModal({
+        title: 'Perfil Atualizado! 🎉',
+        message: 'Seus dados foram salvos com sucesso.',
+        type: 'success',
+        showCancelButton: false,
+      });
+    },
+    onError: (err: any) => {
+      showAlertModal({
+        title: 'Erro ao Salvar',
+        message: err.message || 'Não foi possível atualizar as informações.',
+        type: 'danger',
+        showCancelButton: false,
+      });
+    },
+  });
+
+  function handleOpenInfoModal() {
+    if (profile) {
+      setEditName(profile.fullName || '');
+      setEditPhone(profile.phone || '');
+    }
+    setIsInfoModalOpen(true);
+  }
+
+  function handleSaveInfo() {
+    if (!editName.trim() || editName.trim().length < 3) {
+      showAlertModal({
+        title: 'Nome Inválido',
+        message: 'Por favor, informe seu nome completo com pelo menos 3 caracteres.',
+        type: 'info',
+        showCancelButton: false,
+      });
+      return;
+    }
+
+    updateProfileMutation.mutate({
+      name: editName,
+      phone: editPhone,
+    });
+  }
 
   function handleOpenNotifications() {
     setIsNotificationModalOpen(true);
@@ -458,6 +555,13 @@ export default function StudentProfileScreen() {
       ? Math.max(insets?.bottom || 0, 20) + 16
       : Math.max(insets?.bottom || 0, 16) + 20;
 
+  // EXTRAÇÃO SEGURA DOS DADOS DO PERFIL
+  const fullName = profile?.fullName ?? 'Atleta';
+  const email = profile?.email ?? '';
+  const personalName = profile?.personalName ?? null;
+  const totalWorkoutsCompleted = profile?.totalWorkoutsCompleted ?? 0;
+  const totalWorkoutMinutes = profile?.totalWorkoutMinutes ?? 0;
+
   return (
     <View
       className={`flex-1 px-5 pb-4 ${isDark ? 'bg-zinc-950' : 'bg-[#f8f9fa]'}`}
@@ -524,7 +628,7 @@ export default function StudentProfileScreen() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: 120 }}
         >
-          {/* 2. CARTÃO DO ALUNO */}
+          {/* CARTÃO DO ALUNO */}
           <MotiView
             from={{ opacity: 0, scale: 0.95, translateY: 10 }}
             animate={{ opacity: 1, scale: 1, translateY: 0 }}
@@ -542,26 +646,56 @@ export default function StudentProfileScreen() {
                 isDark ? 'text-white' : 'text-[#1b1b1d]'
               }`}
             >
-              {profile?.fullName}
+              {fullName}
             </Text>
             <Text
               className={`text-sm font-sans-medium mt-0.5 ${
                 isDark ? 'text-zinc-400' : 'text-[#414755]'
               }`}
             >
-              {profile?.email}
+              {email}
             </Text>
 
             <View className="mt-2 bg-[#59C83A]/10 border border-[#59C83A]/30 px-3 py-1 rounded-full flex-row items-center">
               <Text className="text-xs font-sans-bold text-[#59C83A]">
-                {profile?.personalName
-                  ? `Personal: ${profile.personalName}`
-                  : 'Sem Personal Vinculado'}
+                {personalName ? `Personal: ${personalName}` : 'Sem Personal Vinculado'}
               </Text>
             </View>
           </MotiView>
 
-          {/* 3. INSTRUTOR */}
+          {/* 🟢 CARD CLICÁVEL: INFORMAÇÕES PESSOAIS */}
+          <TouchableOpacity
+            onPress={handleOpenInfoModal}
+            activeOpacity={0.7}
+            className={`p-4 rounded-2xl mb-5 border flex-row items-center justify-between ${
+              isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-[#e2dfe1]'
+            }`}
+          >
+            <View className="flex-row items-center gap-3">
+              <View className="w-10 h-10 rounded-xl bg-[#59C83A]/10 items-center justify-center border border-[#59C83A]/30">
+                <User size={20} color="#59C83A" weight="bold" />
+              </View>
+              <View>
+                <Text
+                  className={`font-outfit text-base ${
+                    isDark ? 'text-white' : 'text-[#1b1b1d]'
+                  }`}
+                >
+                  Informações Pessoais
+                </Text>
+                <Text
+                  className={`text-xs font-sans-medium ${
+                    isDark ? 'text-zinc-400' : 'text-[#71717a]'
+                  }`}
+                >
+                  Toque para ver ou editar seus dados
+                </Text>
+              </View>
+            </View>
+            <CaretRight size={18} color={isDark ? '#a1a1aa' : '#71717a'} />
+          </TouchableOpacity>
+
+          {/* INSTRUTOR */}
           <MotiView
             from={{ opacity: 0, translateY: 12 }}
             animate={{ opacity: 1, translateY: 0 }}
@@ -603,7 +737,7 @@ export default function StudentProfileScreen() {
                         isDark ? 'text-zinc-400' : 'text-[#71717a]'
                       }`}
                     >
-                      {profile?.personalName
+                      {personalName
                         ? 'Trocar ou redefinir seu instrutor'
                         : 'Inserir código de acesso do personal'}
                     </Text>
@@ -614,7 +748,7 @@ export default function StudentProfileScreen() {
             </View>
           </MotiView>
 
-          {/* 4. CARDS ESTATÍSTICOS */}
+          {/* CARDS ESTATÍSTICOS */}
           <MotiView
             from={{ opacity: 0, translateY: 12 }}
             animate={{ opacity: 1, translateY: 0 }}
@@ -642,7 +776,7 @@ export default function StudentProfileScreen() {
                   isDark ? 'text-white' : 'text-[#1b1b1d]'
                 }`}
               >
-                {profile?.totalWorkoutsCompleted || 0}
+                {totalWorkoutsCompleted}
               </Text>
             </View>
 
@@ -668,12 +802,12 @@ export default function StudentProfileScreen() {
                   isDark ? 'text-white' : 'text-[#1b1b1d]'
                 }`}
               >
-                {formatWorkoutTime(profile?.totalWorkoutMinutes || 0)}
+                {formatWorkoutTime(totalWorkoutMinutes)}
               </Text>
             </View>
           </MotiView>
 
-          {/* 5. SEÇÃO APARÊNCIA */}
+          {/* SEÇÃO APARÊNCIA */}
           <MotiView
             from={{ opacity: 0, translateY: 12 }}
             animate={{ opacity: 1, translateY: 0 }}
@@ -735,7 +869,7 @@ export default function StudentProfileScreen() {
             </View>
           </MotiView>
 
-          {/* 6. CONFIGURAÇÕES */}
+          {/* CONFIGURAÇÕES */}
           <MotiView
             from={{ opacity: 0, translateY: 12 }}
             animate={{ opacity: 1, translateY: 0 }}
@@ -834,11 +968,10 @@ export default function StudentProfileScreen() {
             </View>
           </MotiView>
 
-          {/* 7. BOTÃO SAIR */}
+          {/* BOTÃO SAIR */}
           <MotiView
             from={{ opacity: 0, translateY: 12 }}
             animate={{ opacity: 1, translateY: 0 }}
-            transition={{ type: 'timing', duration: 250 } as any}
           >
             <TouchableOpacity
               onPress={handleSignOut}
@@ -857,6 +990,160 @@ export default function StudentProfileScreen() {
           </MotiView>
         </ScrollView>
       )}
+
+      {/* 🟢 MODAL DE INFORMAÇÕES PESSOAIS E EDIÇÃO */}
+      <Modal
+        visible={isInfoModalOpen}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setIsInfoModalOpen(false)}
+      >
+        <TouchableWithoutFeedback onPress={() => setIsInfoModalOpen(false)}>
+          <View className="flex-1 bg-black/60 justify-end">
+            <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
+              <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+              >
+                <View
+                  className={`rounded-t-3xl p-6 border-t ${
+                    isDark
+                      ? 'bg-zinc-900 border-zinc-800'
+                      : 'bg-white border-[#e2dfe1]'
+                  }`}
+                  style={{ paddingBottom: safeModalBottomPadding }}
+                >
+                  <View className="flex-row items-center justify-between mb-5 pb-3 border-b border-[#e2dfe1] dark:border-zinc-800">
+                    <View className="flex-row items-center gap-2">
+                      <ShieldCheck size={22} color="#59C83A" weight="bold" />
+                      <Text
+                        className={`text-lg font-outfit-extrabold ${
+                          isDark ? 'text-white' : 'text-[#1b1b1d]'
+                        }`}
+                      >
+                        Informações Pessoais
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      onPress={() => setIsInfoModalOpen(false)}
+                      className="w-8 h-8 rounded-full bg-zinc-100 dark:bg-zinc-800 items-center justify-center"
+                    >
+                      <X size={18} color={isDark ? '#ffffff' : '#1b1b1d'} />
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* NOME COMPLETO */}
+                  <View className="mb-4">
+                    <Text className="text-xs font-sans-bold uppercase tracking-wider text-[#71717a] dark:text-zinc-400 mb-1.5 ml-1">
+                      Nome Completo
+                    </Text>
+                    <View className="flex-row items-center bg-[#f8f9fa] dark:bg-zinc-950 border border-[#e2dfe1] dark:border-zinc-800 rounded-2xl px-3 py-2.5">
+                      <View className="mr-2">
+                        <User size={18} color="#59C83A" weight="bold" />
+                      </View>
+                      <TextInput
+                        className={`flex-1 text-sm font-sans-medium ${
+                          isDark ? 'text-white' : 'text-[#1b1b1d]'
+                        }`}
+                        value={editName}
+                        onChangeText={setEditName}
+                        placeholder="Seu nome"
+                        placeholderTextColor={isDark ? '#71717a' : '#a09da1'}
+                      />
+                    </View>
+                  </View>
+
+                  {/* E-MAIL (SOMENTE LEITURA) */}
+                  <View className="mb-4">
+                    <Text className="text-xs font-sans-bold uppercase tracking-wider text-[#71717a] dark:text-zinc-400 mb-1.5 ml-1">
+                      E-mail Cadastrado (Apenas Leitura)
+                    </Text>
+                    <View className="flex-row items-center bg-zinc-100 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-800 rounded-2xl px-3 py-3 opacity-80">
+                      <View className="mr-2">
+                        <EnvelopeSimple
+                          size={18}
+                          color={isDark ? '#a1a1aa' : '#71717a'}
+                          weight="bold"
+                        />
+                      </View>
+                      <Text
+                        className={`flex-1 text-sm font-sans-medium ${
+                          isDark ? 'text-zinc-300' : 'text-zinc-700'
+                        }`}
+                      >
+                        {profile?.email || ''}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* TELEFONE (EDITÁVEL) */}
+                  <View className="mb-4">
+                    <Text className="text-xs font-sans-bold uppercase tracking-wider text-[#71717a] dark:text-zinc-400 mb-1.5 ml-1">
+                      Telefone / WhatsApp
+                    </Text>
+                    <View className="flex-row items-center bg-[#f8f9fa] dark:bg-zinc-950 border border-[#e2dfe1] dark:border-zinc-800 rounded-2xl px-3 py-2.5">
+                      <View className="mr-2">
+                        <Phone size={18} color="#59C83A" weight="bold" />
+                      </View>
+                      <TextInput
+                        className={`flex-1 text-sm font-sans-medium ${
+                          isDark ? 'text-white' : 'text-[#1b1b1d]'
+                        }`}
+                        value={editPhone}
+                        onChangeText={(val) => setEditPhone(maskPhone(val))}
+                        placeholder="(99) 99999-9999"
+                        placeholderTextColor={isDark ? '#71717a' : '#a09da1'}
+                        keyboardType="numeric"
+                        maxLength={15}
+                      />
+                    </View>
+                  </View>
+
+                  {/* DATA DE NASCIMENTO (SOMENTE LEITURA) */}
+                  <View className="mb-6">
+                    <Text className="text-xs font-sans-bold uppercase tracking-wider text-[#71717a] dark:text-zinc-400 mb-1.5 ml-1">
+                      Data de Nascimento (Apenas Leitura)
+                    </Text>
+                    <View className="flex-row items-center bg-zinc-100 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-800 rounded-2xl px-3 py-3 opacity-80">
+                      <View className="mr-2">
+                        <CalendarBlank
+                          size={18}
+                          color={isDark ? '#a1a1aa' : '#71717a'}
+                          weight="bold"
+                        />
+                      </View>
+                      <Text
+                        className={`flex-1 text-sm font-sans-medium ${
+                          isDark ? 'text-zinc-300' : 'text-zinc-700'
+                        }`}
+                      >
+                        {formatISOToDate(profile?.birthDate)}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* BOTÃO SALVAR */}
+                  <TouchableOpacity
+                    onPress={handleSaveInfo}
+                    disabled={updateProfileMutation.isPending}
+                    className="bg-[#59C83A] p-4 rounded-2xl flex-row items-center justify-center shadow-sm active:opacity-90"
+                  >
+                    {updateProfileMutation.isPending ? (
+                      <ActivityIndicator color="#FFFFFF" size="small" />
+                    ) : (
+                      <>
+                        <Check size={20} color="#FFFFFF" weight="bold" />
+                        <Text className="text-white font-sans-bold text-base ml-2">
+                          Salvar Alterações
+                        </Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </KeyboardAvoidingView>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
 
       {/* MODAL CÓDIGO PERSONAL */}
       <Modal visible={isLinkModalOpen} animationType="slide" transparent>
