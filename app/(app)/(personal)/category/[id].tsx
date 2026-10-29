@@ -1,8 +1,8 @@
 // ============================================================================
-// DOCUMENTAÇÃO: TELA DE EXERCÍCIOS POR CATEGORIA (PERSONAL TRAINER)
+// DOCUMENTAÇÃO: TELA DE EXERCÍCIOS POR CATEGORIA (PERSONAL TRAINER) COM SKELETON
 // ============================================================================
 // Exibe a lista de exercícios cadastrados para uma categoria específica do
-// Supabase, permitindo filtragem em tempo real via busca por texto.
+// Supabase, permitindo filtragem em tempo real e esqueletos animadores de transição.
 // ============================================================================
 
 import React, { useState } from 'react';
@@ -11,7 +11,6 @@ import {
   Text,
   TouchableOpacity,
   FlatList,
-  ActivityIndicator,
   RefreshControl,
   TextInput,
   useColorScheme,
@@ -29,12 +28,30 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { MotiView } from 'moti';
 import { supabase } from '../../../../lib/supabase';
+import { Skeleton } from '../../../../components/SkeletonLoading'; // 🟢 Importação do Skeleton
 
 // --- TIPAGENS DE DADOS ---
 interface Exercise {
   id: string;
   name: string;
   category_id: string;
+}
+
+// 🟢 SUBCOMPONENTE DE SKELETON PARA ITEM DA LISTA DE EXERCÍCIOS
+function CategoryExerciseSkeleton() {
+  return (
+    <View className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl mb-3 flex-row items-center justify-between border border-[#e2dfe1] dark:border-zinc-800">
+      <View className="flex-row items-center flex-1 mr-3">
+        {/* Skeleton do Ícone de Anilha */}
+        <Skeleton width={40} height={40} borderRadius={12} className="mr-3" />
+        {/* Skeleton do Nome do Exercício */}
+        <Skeleton width="60%" height={18} borderRadius={6} />
+      </View>
+
+      {/* Skeleton do Botão de Seta */}
+      <Skeleton width={36} height={36} borderRadius={18} />
+    </View>
+  );
 }
 
 /**
@@ -112,7 +129,6 @@ export default function PersonalCategoryScreen() {
           <ArrowLeft size={20} color={isDark ? '#59C83A' : '#1b1b1d'} />
         </TouchableOpacity>
 
-        {/* Título da Categoria em Outfit Bold */}
         <Text className="text-lg font-outfit text-[#1b1b1d] dark:text-white">
           {categoryTitle}
         </Text>
@@ -120,14 +136,14 @@ export default function PersonalCategoryScreen() {
         <View className="w-10" />
       </MotiView>
 
-      {/* 2. CONTEÚDO PRINCIPAL */}
+      {/* 2. CONTEÚDO PRINCIPAL (SKELETON OU LISTA DE EXERCÍCIOS) */}
       {isLoading ? (
-        <View className="flex-1 justify-center items-center">
-          <ActivityIndicator size="large" color="#59C83A" />
-          {/* Texto de carregamento em DM Sans Medium */}
-          <Text className="mt-3 text-[#414755] dark:text-zinc-400 font-sans-medium text-xs">
-            Carregando exercícios...
-          </Text>
+        <View className="flex-1 px-5 pt-4">
+          <Skeleton width={180} height={24} borderRadius={6} className="mb-3" />
+          <Skeleton width="100%" height={46} borderRadius={16} className="mb-5" />
+          {Array.from({ length: 6 }).map((_, index) => (
+            <CategoryExerciseSkeleton key={`category-exercise-skeleton-${index}`} />
+          ))}
         </View>
       ) : isError ? (
         <MotiView
@@ -137,11 +153,9 @@ export default function PersonalCategoryScreen() {
           className="flex-1 justify-center items-center px-5"
         >
           <WarningCircle size={48} color="#e11d48" />
-          {/* Mensagem de erro em Outfit Bold */}
           <Text className="text-base font-outfit-bold text-[#1b1b1d] dark:text-white mt-2 text-center">
             Não foi possível carregar os exercícios
           </Text>
-          {/* Botão de Tentar Novamente em DM Sans Bold */}
           <TouchableOpacity
             onPress={() => refetch()}
             style={{ backgroundColor: '#59C83A' }}
@@ -154,7 +168,6 @@ export default function PersonalCategoryScreen() {
         <FlatList
           data={filteredExercises}
           keyExtractor={(item) => item.id}
-          // 🟢 paddingBottom: 120 para garantir espaço acima da navbar flutuante
           contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 120 }}
           showsVerticalScrollIndicator={false}
           refreshControl={
@@ -176,7 +189,6 @@ export default function PersonalCategoryScreen() {
               } as any}
               className="mb-4"
             >
-              {/* Título da seção em Outfit ExtraBold */}
               <Text className="text-xl font-outfit-extrabold text-[#1b1b1d] dark:text-white mb-3">
                 Exercícios Disponíveis
               </Text>
@@ -184,7 +196,6 @@ export default function PersonalCategoryScreen() {
               {/* BARRINHA DE PESQUISA */}
               <View className="bg-[#f8f9fa] dark:bg-zinc-900 flex-row items-center px-4 py-2.5 rounded-2xl border border-[#e2dfe1] dark:border-zinc-800">
                 <MagnifyingGlass size={18} color={isDark ? '#59C83A' : '#414755'} />
-                {/* Texto da Busca em DM Sans Medium */}
                 <TextInput
                   className="flex-1 ml-2.5 text-[#1b1b1d] dark:text-white text-sm font-sans-medium"
                   placeholder={`Buscar em ${categoryTitle}...`}
@@ -209,7 +220,6 @@ export default function PersonalCategoryScreen() {
               transition={{ type: 'spring', damping: 22, stiffness: 150 } as any}
               className="py-10 items-center"
             >
-              {/* Texto de lista vazia em DM Sans Medium */}
               <Text className="text-[#414755] dark:text-zinc-400 font-sans-medium text-center text-xs">
                 {searchQuery.trim().length > 0
                   ? `Nenhum exercício encontrado com "${searchQuery}".`
@@ -246,7 +256,6 @@ export default function PersonalCategoryScreen() {
                   <View className="w-10 h-10 rounded-xl bg-[#59C83A]/10 items-center justify-center mr-3 border border-[#59C83A]/30">
                     <Barbell size={20} color="#59C83A" weight="bold" />
                   </View>
-                  {/* Nome do exercício em Outfit Bold */}
                   <Text className="text-base font-outfit text-[#1b1b1d] dark:text-white flex-1">
                     {item.name}
                   </Text>

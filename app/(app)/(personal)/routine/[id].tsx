@@ -1,5 +1,5 @@
 // ============================================================================
-// DOCUMENTAÇÃO: TELA DE DETALHES DO MODELO DE TREINO (PERSONAL TRAINER)
+// DOCUMENTAÇÃO: TELA DE DETALHES DO MODELO DE TREINO (PERSONAL TRAINER) COM SKELETON
 // ============================================================================
 // Exibe as informações gerais do modelo da biblioteca (objetivo e descrição)
 // juntamente com a lista de exercícios, séries, repetições e modal de GIF.
@@ -30,6 +30,7 @@ import { MotiView } from 'moti';
 
 import { supabase } from '../../../../lib/supabase';
 import { getExerciseGif } from '../../../../lib/exerciseGifs';
+import { Skeleton } from '../../../../components/SkeletonLoading'; // 🟢 Importação do Skeleton
 
 interface PlanExerciseItem {
   id: string;
@@ -47,6 +48,43 @@ interface RoutineDetail {
   name: string;
   description: string;
   objective: string;
+}
+
+// 🟢 SUBCOMPONENTE DE SKELETON PARA OS DETALHES DO TREINO
+function RoutineDetailSkeleton() {
+  return (
+    <View className="flex-1 px-5 pt-4">
+      {/* Skeleton do Título do Treino */}
+      <Skeleton width="65%" height={28} borderRadius={8} className="mb-2" />
+      {/* Skeleton do Badge de Objetivo */}
+      <Skeleton width={130} height={24} borderRadius={12} className="mb-2" />
+      {/* Skeleton da Descrição */}
+      <Skeleton width="85%" height={16} borderRadius={6} className="mb-6" />
+
+      {/* Skeleton do Título da Seção */}
+      <Skeleton width={180} height={20} borderRadius={6} className="mb-4" />
+
+      {/* Lista de Skeletons dos Exercícios */}
+      {Array.from({ length: 4 }).map((_, index) => (
+        <View
+          key={`routine-exercise-skeleton-${index}`}
+          className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl mb-3 border border-[#e2dfe1] dark:border-zinc-800"
+        >
+          <View className="flex-row items-center justify-between mb-3">
+            <View className="flex-row items-center flex-1 mr-2">
+              <Skeleton width={32} height={32} borderRadius={8} className="mr-2" />
+              <Skeleton width="60%" height={16} borderRadius={6} />
+            </View>
+            <Skeleton width={75} height={28} borderRadius={12} />
+          </View>
+          <View className="flex-row items-center gap-4 border-t border-[#e2dfe1] dark:border-zinc-800 pt-2">
+            <Skeleton width={80} height={14} borderRadius={4} />
+            <Skeleton width={80} height={14} borderRadius={4} />
+          </View>
+        </View>
+      ))}
+    </View>
+  );
 }
 
 /**
@@ -134,7 +172,6 @@ export default function PersonalRoutineDetailScreen() {
           <ArrowLeft size={20} color={isDark ? '#59C83A' : '#1b1b1d'} />
         </TouchableOpacity>
 
-        {/* Título do cabeçalho em Outfit Bold */}
         <Text className="text-lg font-outfit text-[#1b1b1d] dark:text-white text-center flex-1" numberOfLines={1}>
           {data?.plan.name || 'Detalhes do Treino'}
         </Text>
@@ -142,16 +179,13 @@ export default function PersonalRoutineDetailScreen() {
         <View className="w-10" />
       </MotiView>
 
-      {/* 2. CONTEÚDO DO TREINO */}
+      {/* 2. CONTEÚDO DO TREINO (SKELETON OU CONTEÚDO REAL) */}
       {isLoading ? (
-        <View className="flex-1 justify-center items-center">
-          <ActivityIndicator size="large" color="#59C83A" />
-        </View>
+        <RoutineDetailSkeleton />
       ) : (
         <FlatList
           data={data?.exercises || []}
           keyExtractor={(item) => item.id}
-          // 🟢 paddingBottom: 120 garante espaço limpo acima da navbar flutuante
           contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 120 }}
           showsVerticalScrollIndicator={false}
           ListHeaderComponent={
@@ -166,14 +200,12 @@ export default function PersonalRoutineDetailScreen() {
               } as any}
               className="mb-6"
             >
-              {/* Nome do Treino em Outfit ExtraBold */}
               <Text className="text-2xl font-outfit-extrabold text-[#1b1b1d] dark:text-white mb-2">
                 {data?.plan.name}
               </Text>
 
               {data?.plan.objective && (
                 <View className="self-start bg-[#59C83A]/10 px-3 py-1 rounded-full border border-[#59C83A]/30 mb-2">
-                  {/* Objetivo em DM Sans Bold */}
                   <Text style={{ color: '#59C83A' }} className="text-xs font-sans-bold uppercase">
                     Objetivo: {data.plan.objective}
                   </Text>
@@ -181,13 +213,11 @@ export default function PersonalRoutineDetailScreen() {
               )}
 
               {data?.plan.description && (
-                /* Descrição em DM Sans Medium */
                 <Text className="text-sm font-sans-medium text-[#71717a] dark:text-zinc-400">
                   {data.plan.description}
                 </Text>
               )}
 
-              {/* Cabeçalho da Lista em Outfit Bold */}
               <Text className="text-lg font-outfit text-[#1b1b1d] dark:text-white mt-6 mb-1">
                 Exercícios da Ficha ({data?.exercises.length || 0})
               </Text>
@@ -211,16 +241,13 @@ export default function PersonalRoutineDetailScreen() {
                   <View className="flex-row items-center justify-between mb-3">
                     <View className="flex-row items-center flex-1 mr-2">
                       <View className="w-8 h-8 rounded-lg bg-[#59C83A]/10 items-center justify-center mr-2 border border-[#59C83A]/30">
-                        {/* Índice numérico em Outfit Bold */}
                         <Text className="text-xs font-outfit text-[#59C83A]">{index + 1}</Text>
                       </View>
-                      {/* Nome do Exercício em Outfit SemiBold */}
                       <Text className="text-base font-outfit text-[#1b1b1d] dark:text-white flex-1" numberOfLines={1}>
                         {item.name}
                       </Text>
                     </View>
 
-                    {/* BOTÃO PARA ABRIR O GIF EM MODAL */}
                     <TouchableOpacity
                       onPress={() => {
                         setIsGifLoading(true);
@@ -233,14 +260,12 @@ export default function PersonalRoutineDetailScreen() {
                       activeOpacity={0.7}
                     >
                       <Eye size={16} color="#59C83A" weight="bold" />
-                      {/* Texto do botão em DM Sans Bold */}
                       <Text style={{ color: '#59C83A' }} className="text-xs font-sans-bold ml-1.5">
                         Ver GIF
                       </Text>
                     </TouchableOpacity>
                   </View>
 
-                  {/* Séries e Repetições em DM Sans */}
                   <View className="flex-row items-center gap-4 border-t border-[#e2dfe1] dark:border-zinc-800 pt-2">
                     <View className="flex-row items-center">
                       <Stack size={14} color="#59C83A" weight="bold" />
@@ -273,7 +298,6 @@ export default function PersonalRoutineDetailScreen() {
         <View className="flex-1 bg-black/80 justify-center items-center px-5">
           <View className="w-full bg-white dark:bg-zinc-900 rounded-3xl p-5 border border-[#e2dfe1] dark:border-zinc-800 shadow-2xl">
             <View className="flex-row justify-between items-center mb-4">
-              {/* Título da modal em Outfit ExtraBold */}
               <Text className="text-lg font-outfit-extrabold text-[#1b1b1d] dark:text-white flex-1 pr-2">
                 {selectedExerciseForGif?.name}
               </Text>
@@ -312,7 +336,6 @@ export default function PersonalRoutineDetailScreen() {
               style={{ backgroundColor: '#59C83A' }}
               className="mt-5 py-3 rounded-xl items-center"
             >
-              {/* Botão de Fechar em DM Sans Bold */}
               <Text className="text-white font-sans-bold text-sm">Fechar Visualização</Text>
             </TouchableOpacity>
           </View>

@@ -2,7 +2,8 @@
 // DOCUMENTAÇÃO: CATÁLOGO DE CATEGORIAS DE EXERCÍCIOS (PERSONAL TRAINER)
 // ============================================================================
 // Exibe uma grade (grid) de categorias de exercícios cadastradas no Supabase
-// utilizando animações Moti, tipografia customizada e suporte a modo escuro.
+// utilizando animações Moti, tipografia customizada, suporte a modo escuro
+// e efeito de carregamento gradual em formato de Skeleton Loading.
 // ============================================================================
 
 import React from 'react';
@@ -11,7 +12,6 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
-  ActivityIndicator,
   useColorScheme,
 } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -19,14 +19,25 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CaretRight } from 'phosphor-react-native';
 import { useQuery } from '@tanstack/react-query';
 import { MotiView } from 'moti';
-import { Image } from 'expo-image'; // 🟢 Otimizado para alta performance e cache de imagens
+import { Image } from 'expo-image';
 import { supabase } from '../../../../lib/supabase';
+import { Skeleton } from '../../../../components/SkeletonLoading'; // 🟢 Importação do Skeleton
 
 // --- TIPAGENS DE DADOS ---
 interface Category {
   id: string;
   title: string;
   image_url: string;
+}
+
+// 🟢 SUBCOMPONENTE DE SKELETON PARA O CARD DE CATEGORIA (GRADE 2 COLUNAS)
+function CategoryCardSkeleton() {
+  return (
+    <View className="w-[48%] mb-4">
+      {/* Bloco de esqueleto que simula o card h-44 com cantos arredondados */}
+      <Skeleton width="100%" height={176} borderRadius={16} />
+    </View>
+  );
 }
 
 /**
@@ -72,29 +83,39 @@ export default function PersonalExercisesScreen() {
         } as any}
         className="px-5 py-4 border-b border-[#f0edef] dark:border-zinc-800"
       >
-        {/* Título com a fonte Outfit ExtraBold */}
         <Text className="text-2xl font-outfit-extrabold text-[#1b1b1d] dark:text-white">
           Catálogo de Exercícios
         </Text>
-        {/* Subtítulo com a fonte DM Sans Medium */}
         <Text className="text-xs font-sans-medium text-[#71717a] dark:text-zinc-400 mt-0.5">
           Consulte demonstrações e instruções da academia
         </Text>
       </MotiView>
 
-      {/* 2. CONTEÚDO PRINCIPAL (INDICADOR DE CARREGAMENTO OU GRADE) */}
+      {/* 2. CONTEÚDO PRINCIPAL (SKELETON LOADING OU GRADE DE CATEGORIAS) */}
       {isLoading ? (
-        <View className="flex-1 justify-center items-center">
-          <ActivityIndicator size="large" color="#59C83A" />
-        </View>
-      ) : (
-        /* 🟢 SCROLLVIEW CORRIGIDO COM contentContainerStyle E ESPAÇO PARA A NAVBAR */
         <ScrollView
           className="flex-1"
           contentContainerStyle={{
             paddingHorizontal: 20,
             paddingTop: 16,
-            paddingBottom: 120, // Garante que os cards inferiores fiquem acima da Navbar Flutuante
+            paddingBottom: 120,
+          }}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Grade de Skeletons em 2 colunas */}
+          <View className="flex-row flex-wrap justify-between">
+            {Array.from({ length: 6 }).map((_, index) => (
+              <CategoryCardSkeleton key={`category-skeleton-${index}`} />
+            ))}
+          </View>
+        </ScrollView>
+      ) : (
+        <ScrollView
+          className="flex-1"
+          contentContainerStyle={{
+            paddingHorizontal: 20,
+            paddingTop: 16,
+            paddingBottom: 120,
           }}
           showsVerticalScrollIndicator={false}
         >
@@ -108,7 +129,7 @@ export default function PersonalExercisesScreen() {
                   type: 'spring',
                   damping: 22,
                   stiffness: 150,
-                  delay: index * 50, // Efeito cascata progressivo para cada cartão
+                  delay: index * 50,
                 } as any}
                 className="w-[48%] mb-4"
               >
@@ -122,7 +143,6 @@ export default function PersonalExercisesScreen() {
                   className="w-full h-44 rounded-2xl overflow-hidden relative bg-[#f8f9fa] dark:bg-zinc-900 border border-[#e2dfe1] dark:border-zinc-800"
                   activeOpacity={0.8}
                 >
-                  {/* Imagem de Capa renderizada via expo-image */}
                   {category.image_url ? (
                     <Image
                       source={{ uri: category.image_url }}
@@ -132,14 +152,11 @@ export default function PersonalExercisesScreen() {
                     />
                   ) : null}
 
-                  {/* Gradiente escuro com textos explicativos sobrepostos */}
                   <View className="absolute inset-0 bg-black/45 justify-end p-3">
-                    {/* Título da Categoria com Outfit Bold */}
                     <Text className="text-white text-lg font-outfit leading-tight">
                       {category.title}
                     </Text>
 
-                    {/* Botão Indicativo com DM Sans Bold */}
                     <View className="flex-row items-center mt-1">
                       <Text className="text-white/90 text-xs font-sans-bold mr-1">
                         Ver lista

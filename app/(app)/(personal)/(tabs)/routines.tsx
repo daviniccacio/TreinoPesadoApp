@@ -1,9 +1,8 @@
 // ============================================================================
-// DOCUMENTAÇÃO: BIBLIOTECA DE ROTINAS DA APLICAÇÃO (PERSONAL TRAINER) - CORRIGIDA
+// DOCUMENTAÇÃO: BIBLIOTECA DE ROTINAS DA APLICAÇÃO (PERSONAL TRAINER)
 // ============================================================================
 // Exibe os modelos de treinos reutilizáveis do Personal, permitindo criar,
-// editar, excluir e atribuir cópias das fichas diretamente aos alunos com
-// tratamento de Modais nativos sem sobreposição ou travamentos.
+// editar, excluir e atribuir cópias das fichas aos alunos com Skeletons.
 // ============================================================================
 
 import React, { useState, useCallback } from 'react';
@@ -34,6 +33,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { MotiView } from 'moti';
 import { supabase } from '../../../../lib/supabase';
 import { CustomModal } from '../../../../components/CustomModal';
+import { Skeleton } from '../../../../components/SkeletonLoading'; // 🟢 Importação do Skeleton
 
 // --- TIPAGENS DE DADOS ---
 interface RoutineItem {
@@ -58,6 +58,32 @@ interface ShowAlertModalOptions {
   cancelText?: string;
   showCancelButton?: boolean;
   onConfirm?: () => void;
+}
+
+// 🟢 SUBCOMPONENTE DE SKELETON PARA CARD DE MODELO DE ROTINA
+function RoutineCardSkeleton() {
+  return (
+    <View className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl mb-3 border border-[#e2dfe1] dark:border-zinc-800 flex-row items-center justify-between">
+      <View className="flex-row items-center flex-1 mr-2">
+        {/* Skeleton do Ícone de Halter */}
+        <Skeleton width={48} height={48} borderRadius={16} className="mr-3" />
+
+        <View className="flex-1">
+          {/* Skeleton do Nome da Ficha */}
+          <Skeleton width="70%" height={16} borderRadius={6} className="mb-2" />
+          {/* Skeleton da quantidade de exercícios / objetivo */}
+          <Skeleton width="45%" height={12} borderRadius={4} />
+        </View>
+      </View>
+
+      {/* Skeleton dos 3 botões de ação na direita */}
+      <View className="flex-row items-center gap-2">
+        <Skeleton width={36} height={36} borderRadius={12} />
+        <Skeleton width={36} height={36} borderRadius={12} />
+        <Skeleton width={36} height={36} borderRadius={12} />
+      </View>
+    </View>
+  );
 }
 
 /**
@@ -192,16 +218,11 @@ export default function PersonalRoutinesScreen() {
     }
   }
 
-  /**
-   * 🟢 CORREÇÃO DO BUG: Fecha o modal de alunos primeiro antes de disparar a confirmação
-   */
   function handleSelectStudentFromModal(studentId: string, studentName: string) {
     if (!selectedRoutine) return;
 
-    // 1. Fecha o modal de seleção de alunos
     setStudentsModalVisible(false);
 
-    // 2. Aguarda a transição de fechamento do modal nativo antes de abrir o CustomModal
     setTimeout(() => {
       confirmAndAssignToStudent(selectedRoutine, studentId, studentName);
     }, 200);
@@ -409,10 +430,12 @@ export default function PersonalRoutinesScreen() {
         </TouchableOpacity>
       </MotiView>
 
-      {/* 2. CONTEÚDO DA LISTA OU ESTADO VAZIO */}
+      {/* 2. CONTEÚDO DA LISTA OU SKELETON LOADING */}
       {loadingRoutines ? (
-        <View className="flex-1 justify-center items-center">
-          <ActivityIndicator size="large" color="#59C83A" />
+        <View className="flex-1">
+          {Array.from({ length: 5 }).map((_, index) => (
+            <RoutineCardSkeleton key={`routine-skeleton-${index}`} />
+          ))}
         </View>
       ) : routines.length === 0 ? (
         <MotiView

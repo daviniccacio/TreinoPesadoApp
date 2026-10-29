@@ -1,12 +1,16 @@
+// ============================================================================
+// DOCUMENTAÇÃO: PONTO DE ENTRADA DO GRUPO (APP) COM SKELETON LOADING
+// ============================================================================
+// Lê a 'role' do usuário no Supabase e redireciona para a área correspondente.
+// Exibe um Skeleton de transição enquanto consulta o perfil no banco de dados.
+// ============================================================================
+
 import React, { useEffect, useState } from 'react';
-import { View, ActivityIndicator } from 'react-native';
+import { View } from 'react-native';
 import { Redirect } from 'expo-router';
 import { supabase } from '../../lib/supabase';
+import { Skeleton } from '../../components/SkeletonLoading'; // 🟢 Importação do Skeleton reutilizável
 
-/**
- * Ponto de entrada do grupo (app).
- * Lê a 'role' do usuário no Supabase e redireciona para a área correspondente (Aluno ou Personal).
- */
 export default function AppGroupIndex() {
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState<'aluno' | 'personal' | null>(null);
@@ -38,7 +42,7 @@ export default function AppGroupIndex() {
         }
       } catch (error) {
         console.error('Erro ao verificar role do usuário:', error);
-        setUserRole('aluno'); // Fallback de segurança
+        setUserRole('aluno'); // Fallback de segurança em caso de falha
       } finally {
         setLoading(false);
       }
@@ -47,16 +51,25 @@ export default function AppGroupIndex() {
     checkUserRole();
   }, []);
 
-  // Exibe o carregamento verde enquanto consulta o perfil no banco de dados
+  // 🟢 EXIBE SKELETON ANIMADO ENQUANTO VERIFICA A AUTENTICAÇÃO NO SUPABASE
   if (loading) {
     return (
-      <View className="flex-1 justify-center items-center bg-white dark:bg-zinc-950">
-        <ActivityIndicator size="large" color="#59C83A" />
+      <View className="flex-1 justify-center items-center bg-white dark:bg-zinc-950 px-8">
+        <View className="w-full items-center gap-4">
+          {/* Skeleton simulando o logotipo ou avatar da marca */}
+          <Skeleton width={80} height={80} borderRadius={24} className="mb-2" />
+
+          {/* Skeleton simulando o título principal */}
+          <Skeleton width="60%" height={24} borderRadius={8} />
+
+          {/* Skeleton simulando um subtítulo/mensagem de carregamento */}
+          <Skeleton width="40%" height={16} borderRadius={6} />
+        </View>
       </View>
     );
   }
 
-  // Redireciona para a rota apropriada
+  // Redireciona para a rota apropriada assim que o perfil for carregado
   if (userRole === 'personal') {
     return <Redirect href="/(personal)" />;
   }

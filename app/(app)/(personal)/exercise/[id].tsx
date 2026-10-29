@@ -1,5 +1,5 @@
 // ============================================================================
-// DOCUMENTAÇÃO: TELA DE DEMONSTRAÇÃO DO EXERCÍCIO (PERSONAL TRAINER)
+// DOCUMENTAÇÃO: TELA DE DEMONSTRAÇÃO DO EXERCÍCIO (PERSONAL TRAINER) COM SKELETON
 // ============================================================================
 // Exibe a execução em GIF animado e as instruções técnicas detalhadas de um
 // exercício específico selecionado no catálogo.
@@ -23,6 +23,7 @@ import { MotiView } from 'moti';
 
 import { supabase } from '../../../../lib/supabase';
 import { getExerciseGif } from '../../../../lib/exerciseGifs';
+import { Skeleton } from '../../../../components/SkeletonLoading'; // 🟢 Importação do Skeleton
 
 interface ExerciseDetail {
   id: string;
@@ -30,6 +31,27 @@ interface ExerciseDetail {
   category_id: string;
   instructions?: string;
   gif_key?: string;
+}
+
+// 🟢 SUBCOMPONENTE DE SKELETON PARA DETALHES DO EXERCÍCIO
+function ExerciseDetailSkeleton() {
+  return (
+    <View className="flex-1 px-5 pt-4">
+      {/* Skeleton do Título do Exercício */}
+      <Skeleton width="70%" height={28} borderRadius={8} className="mb-4" />
+
+      {/* Skeleton do Container do GIF */}
+      <Skeleton width="100%" height={288} borderRadius={24} className="mb-6" />
+
+      {/* Skeleton do Bloco de Instruções */}
+      <View className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl border border-[#e2dfe1] dark:border-zinc-800">
+        <Skeleton width={160} height={16} borderRadius={4} className="mb-3" />
+        <Skeleton width="100%" height={14} borderRadius={4} className="mb-2" />
+        <Skeleton width="90%" height={14} borderRadius={4} className="mb-2" />
+        <Skeleton width="60%" height={14} borderRadius={4} />
+      </View>
+    </View>
+  );
 }
 
 /**
@@ -113,7 +135,6 @@ export default function PersonalExerciseDetailScreen() {
           <ArrowLeft size={20} color={isDark ? '#59C83A' : '#1b1b1d'} />
         </TouchableOpacity>
 
-        {/* Título do Cabeçalho em Outfit Bold */}
         <Text className="text-lg font-outfit text-[#1b1b1d] dark:text-white text-center flex-1" numberOfLines={1}>
           Demonstração do Exercício
         </Text>
@@ -121,15 +142,9 @@ export default function PersonalExerciseDetailScreen() {
         <View className="w-10" />
       </MotiView>
 
-      {/* 2. CONTEÚDO PRINCIPAL */}
+      {/* 2. CONTEÚDO PRINCIPAL (SKELETON OU DEMONSTRAÇÃO) */}
       {isLoading ? (
-        <View className="flex-1 justify-center items-center">
-          <ActivityIndicator size="large" color="#59C83A" />
-          {/* Texto em DM Sans Medium */}
-          <Text className="mt-3 text-[#414755] dark:text-zinc-400 font-sans-medium text-xs">
-            Carregando demonstração...
-          </Text>
-        </View>
+        <ExerciseDetailSkeleton />
       ) : isError ? (
         <MotiView
           from={{ opacity: 0, scale: 0.95 }}
@@ -138,11 +153,9 @@ export default function PersonalExerciseDetailScreen() {
           className="flex-1 justify-center items-center px-5"
         >
           <WarningCircle size={48} color="#e11d48" />
-          {/* Texto em Outfit Bold */}
           <Text className="text-base font-outfit-bold text-[#1b1b1d] dark:text-white mt-2 text-center">
             Não foi possível carregar os detalhes do exercício
           </Text>
-          {/* Botão em DM Sans Bold */}
           <TouchableOpacity
             onPress={() => refetch()}
             style={{ backgroundColor: '#59C83A' }}
@@ -154,7 +167,6 @@ export default function PersonalExerciseDetailScreen() {
       ) : exercise ? (
         <ScrollView
           className="flex-1 px-5 pt-4"
-          // 🟢 paddingBottom: 120 para rolagem inteiramente desimpedida acima da navbar
           contentContainerStyle={{ paddingBottom: 120 }}
           showsVerticalScrollIndicator={false}
         >
@@ -165,7 +177,6 @@ export default function PersonalExerciseDetailScreen() {
             transition={{ type: 'spring', damping: 22, stiffness: 150, delay: 20 } as any}
             className="mb-4"
           >
-            {/* Nome do exercício em Outfit ExtraBold */}
             <Text className="text-2xl font-outfit-extrabold text-[#1b1b1d] dark:text-white mb-1">
               {exercise.name}
             </Text>
@@ -181,7 +192,6 @@ export default function PersonalExerciseDetailScreen() {
             {isGifLoading && (
               <View className="absolute inset-0 justify-center items-center bg-[#f8f9fa] dark:bg-zinc-900 z-10">
                 <ActivityIndicator size="large" color="#59C83A" />
-                {/* Texto em DM Sans Medium */}
                 <Text className="text-xs text-[#71717a] dark:text-zinc-400 mt-2 font-sans-medium">
                   Carregando GIF...
                 </Text>
@@ -210,11 +220,9 @@ export default function PersonalExerciseDetailScreen() {
               transition={{ type: 'spring', damping: 22, stiffness: 150, delay: 60 } as any}
               className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl border border-[#e2dfe1] dark:border-zinc-800"
             >
-              {/* Rótulo de Instruções em DM Sans Bold */}
               <Text className="text-sm font-sans-bold text-[#59C83A] mb-1">
                 Instruções de Execução:
               </Text>
-              {/* Texto de Instrução em DM Sans Medium */}
               <Text className="text-sm text-[#414755] dark:text-zinc-300 leading-6 font-sans-medium">
                 {exercise.instructions}
               </Text>

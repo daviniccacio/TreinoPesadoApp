@@ -1,8 +1,8 @@
 // ============================================================================
-// DOCUMENTAÇÃO: TELA DE FREQUÊNCIA DE TREINOS (PERSONAL TRAINER)
+// TELA DE FREQUÊNCIA DE TREINOS (PERSONAL TRAINER) COM SKELETON LOADING
 // ============================================================================
 // Apresenta o histórico de assiduidade e métricas semanais dos alunos
-// vinculados ao Personal com busca segura em duas etapas e MotiView animations.
+// vinculados ao Personal com busca segura em duas etapas e Skeletons animados.
 // ============================================================================
 
 import React, { useMemo } from 'react';
@@ -10,7 +10,6 @@ import {
   View,
   Text,
   FlatList,
-  ActivityIndicator,
   RefreshControl,
   useColorScheme,
 } from 'react-native';
@@ -26,6 +25,7 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { MotiView } from 'moti';
 import { supabase } from '../../../../lib/supabase';
+import { Skeleton } from '../../../../components/SkeletonLoading'; // 🟢 Importação do Skeleton
 
 // --- ESTRUTURA DE DADOS ---
 interface AttendanceLog {
@@ -39,11 +39,58 @@ interface AttendanceLog {
   } | null;
 }
 
+// 🟢 SUBCOMPONENTE DE SKELETON PARA A TELA DE FREQUÊNCIA
+function AttendanceScreenSkeleton() {
+  return (
+    <View className="flex-1">
+      {/* Skeleton do Cabeçalho e Métricas */}
+      <View className="mb-4">
+        <Skeleton width="60%" height={28} borderRadius={8} className="mb-2" />
+        <Skeleton width="85%" height={14} borderRadius={6} className="mb-5" />
+
+        {/* Skeleton dos Cartões de Estatísticas Semanais */}
+        <View className="flex-row gap-3 mb-5">
+          <View className="flex-1 bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl border border-[#e2dfe1] dark:border-zinc-800">
+            <Skeleton width={32} height={32} borderRadius={12} className="mb-2" />
+            <Skeleton width={40} height={24} borderRadius={6} className="mb-1" />
+            <Skeleton width="80%" height={12} borderRadius={4} />
+          </View>
+
+          <View className="flex-1 bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl border border-[#e2dfe1] dark:border-zinc-800">
+            <Skeleton width={32} height={32} borderRadius={12} className="mb-2" />
+            <Skeleton width={40} height={24} borderRadius={6} className="mb-1" />
+            <Skeleton width="80%" height={12} borderRadius={4} />
+          </View>
+        </View>
+
+        <Skeleton width={180} height={16} borderRadius={6} className="mb-1" />
+      </View>
+
+      {/* Skeleton dos Logs de Treino */}
+      {Array.from({ length: 4 }).map((_, index) => (
+        <View
+          key={`attendance-skeleton-${index}`}
+          className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl mb-3 border border-[#e2dfe1] dark:border-zinc-800"
+        >
+          <View className="flex-row items-center justify-between mb-2">
+            <Skeleton width="55%" height={18} borderRadius={6} />
+            <Skeleton width={70} height={20} borderRadius={10} />
+          </View>
+          <Skeleton width="40%" height={14} borderRadius={4} className="mb-3" />
+          <View className="flex-row items-center justify-between pt-2 border-t border-[#e2dfe1] dark:border-zinc-800/80">
+            <Skeleton width={110} height={12} borderRadius={4} />
+            <Skeleton width={60} height={18} borderRadius={6} />
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+}
+
 /**
  * Busca com segurança o histórico de frequência dos alunos vinculados ao Personal logado
  */
 async function fetchAttendanceLogs(): Promise<AttendanceLog[]> {
-  // 1. Obter o usuário autenticado atual
   const {
     data: { user },
     error: authError,
@@ -53,7 +100,6 @@ async function fetchAttendanceLogs(): Promise<AttendanceLog[]> {
     return [];
   }
 
-  // 🟢 2. ETAPA 1: Buscar os IDs de todos os alunos vinculados a este Personal Trainer
   const { data: linkedStudents, error: studentsError } = await supabase
     .from('profiles')
     .select('id')
@@ -64,15 +110,12 @@ async function fetchAttendanceLogs(): Promise<AttendanceLog[]> {
     throw new Error('Não foi possível identificar seus alunos vinculados.');
   }
 
-  // Se não houver alunos vinculados ao Personal, retorna lista vazia imediatamente
   if (!linkedStudents || linkedStudents.length === 0) {
     return [];
   }
 
-  // Extrai apenas os IDs dos alunos em um array de strings
   const studentIds = linkedStudents.map((student) => student.id);
 
-  // 🟢 3. ETAPA 2: Buscar os logs de treinos FILTRANDO estritamente pelos IDs dos meus alunos
   const { data, error } = await supabase
     .from('workout_logs')
     .select(
@@ -116,9 +159,6 @@ export default function PersonalAttendanceScreen() {
     queryFn: fetchAttendanceLogs,
   });
 
-  /**
-   * Calcula as estatísticas de assiduidade da semana atual (Segunda a Domingo)
-   */
   const weeklyStats = useMemo(() => {
     const now = new Date();
     const currentDay = now.getDay();
@@ -247,13 +287,9 @@ export default function PersonalAttendanceScreen() {
         </View>
       )}
 
+      {/* 🟢 EXIBIÇÃO DE SKELETON CARREGANDO OU CONTEÚDO REAL */}
       {isLoading ? (
-        <View className="flex-1 justify-center items-center">
-          <ActivityIndicator size="large" color="#59C83A" />
-          <Text className="text-xs text-[#71717a] dark:text-zinc-400 mt-3 font-sans-medium">
-            Carregando histórico dos alunos...
-          </Text>
-        </View>
+        <AttendanceScreenSkeleton />
       ) : (
         <FlatList
           data={logs}
@@ -266,7 +302,8 @@ export default function PersonalAttendanceScreen() {
               refreshing={isRefetching}
               onRefresh={() => {
                 void refetch();
-              }} tintColor="#59C83A"
+              }}
+              tintColor="#59C83A"
             />
           }
           ListEmptyComponent={

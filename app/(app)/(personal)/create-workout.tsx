@@ -1,8 +1,9 @@
 // ============================================================================
-// DOCUMENTAÇÃO: TELA DE CRIAÇÃO / EDIÇÃO DE PLANO DE TREINO (COM CONFIRMAÇÃO)
+// DOCUMENTAÇÃO: TELA DE CRIAÇÃO / EDIÇÃO DE PLANO DE TREINO COM SKELETON
 // ============================================================================
 // Inclui proteção contra saída acidental com alterações não salvas, modal
-// com fecho instantâneo, persistência de exercícios e categorias dinâmicas.
+// com fecho instantâneo, persistência de exercícios, categorias dinâmicas
+// e carregamento gradual em Skeleton.
 // ============================================================================
 
 import React, { useState, useCallback, useEffect } from 'react';
@@ -41,6 +42,7 @@ import { getExerciseGif } from '../../../lib/exerciseGifs';
 import { useThrottledCallback } from '../../../lib/useThrottle';
 import { CustomModal } from '../../../components/CustomModal';
 import { createWorkoutPlanSchema } from '../../../lib/validations/workout';
+import { Skeleton } from '../../../components/SkeletonLoading'; // 🟢 Importação do Skeleton
 
 // --- TIPAGENS DE DADOS ---
 interface RegisteredExercise {
@@ -82,9 +84,97 @@ interface ShowAlertModalOptions {
 const DAYS_OF_WEEK = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta'];
 const OBJECTIVE_OPTIONS = ['Hipertrofia', 'Emagrecimento', 'Resistência', 'Força', 'Adaptação'];
 
+// 🟢 SUBCOMPONENTE DE SKELETON PARA O FORMULÁRIO DE CRIAÇÃO/EDIÇÃO
+function CreateWorkoutSkeleton() {
+  return (
+    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
+      {/* Skeleton do Cabeçalho */}
+      <View className="flex-row items-center justify-between my-4">
+        <View className="flex-row items-center flex-1 mr-2">
+          <Skeleton width={40} height={40} borderRadius={12} className="mr-3" />
+          <Skeleton width={180} height={24} borderRadius={8} />
+        </View>
+        <Skeleton width={90} height={38} borderRadius={12} />
+      </View>
+
+      {/* Skeleton das Informações do Plano */}
+      <View className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl border border-[#e2dfe1] dark:border-zinc-800 mb-5">
+        <Skeleton width={120} height={14} borderRadius={4} className="mb-2" />
+        <Skeleton width="100%" height={42} borderRadius={12} className="mb-4" />
+
+        <Skeleton width={160} height={14} borderRadius={4} className="mb-2" />
+        <Skeleton width="100%" height={42} borderRadius={12} className="mb-4" />
+
+        <Skeleton width={130} height={14} borderRadius={4} className="mb-2" />
+        <View className="flex-row mb-4 gap-2">
+          <Skeleton width={80} height={32} borderRadius={12} />
+          <Skeleton width={80} height={32} borderRadius={12} />
+          <Skeleton width={80} height={32} borderRadius={12} />
+        </View>
+
+        <Skeleton width={110} height={14} borderRadius={4} className="mb-2" />
+        <View className="flex-row gap-2">
+          <Skeleton width={60} height={28} borderRadius={8} />
+          <Skeleton width={60} height={28} borderRadius={8} />
+          <Skeleton width={60} height={28} borderRadius={8} />
+        </View>
+      </View>
+
+      {/* Skeleton do Botão do Modal */}
+      <Skeleton width="100%" height={52} borderRadius={16} className="mb-5" />
+
+      {/* Skeleton dos Exercícios Selecionados */}
+      <Skeleton width={180} height={20} borderRadius={6} className="mb-3" />
+      {Array.from({ length: 3 }).map((_, index) => (
+        <View
+          key={`selected-ex-skeleton-${index}`}
+          className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl border border-[#e2dfe1] dark:border-zinc-800 mb-3"
+        >
+          <View className="flex-row items-center justify-between mb-3">
+            <Skeleton width="60%" height={16} borderRadius={6} />
+            <Skeleton width={20} height={20} borderRadius={6} />
+          </View>
+          <View className="flex-row gap-3 mb-2.5">
+            <View className="flex-1">
+              <Skeleton width="40%" height={10} borderRadius={4} className="mb-1" />
+              <Skeleton width="100%" height={32} borderRadius={12} />
+            </View>
+            <View className="flex-1">
+              <Skeleton width="40%" height={10} borderRadius={4} className="mb-1" />
+              <Skeleton width="100%" height={32} borderRadius={12} />
+            </View>
+          </View>
+          <Skeleton width="40%" height={10} borderRadius={4} className="mb-1" />
+          <Skeleton width="100%" height={32} borderRadius={12} />
+        </View>
+      ))}
+    </ScrollView>
+  );
+}
+
+// 🟢 SUBCOMPONENTE DE SKELETON PARA A LISTA DO MODAL
+function ModalExerciseSkeleton() {
+  return (
+    <View className="flex-1">
+      {Array.from({ length: 5 }).map((_, index) => (
+        <View
+          key={`modal-ex-skeleton-${index}`}
+          className="p-3.5 rounded-2xl border border-[#e2dfe1] dark:border-zinc-800 bg-[#f8f9fa] dark:bg-zinc-950 mb-2.5 flex-row items-center justify-between"
+        >
+          <View className="flex-1 mr-2">
+            <Skeleton width="65%" height={16} borderRadius={6} className="mb-2" />
+            <Skeleton width="80%" height={12} borderRadius={4} />
+          </View>
+          <Skeleton width={32} height={32} borderRadius={12} />
+        </View>
+      ))}
+    </View>
+  );
+}
+
 export default function CreateWorkoutPlanScreen() {
   const router = useRouter();
-  const navigation = useNavigation(); // NAVEGAÇÃO NATIVA PARA INTERCEPTAR A SAÍDA
+  const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
@@ -105,7 +195,7 @@ export default function CreateWorkoutPlanScreen() {
   const [selectedExercises, setSelectedExercises] = useState<SelectedExerciseItem[]>([]);
   const [saving, setSaving] = useState(false);
   const [loadingPlanData, setLoadingPlanData] = useState(false);
-  const [isSaved, setIsSaved] = useState(false); // BANDEIRA QUE PERMITE SAÍDA APÓS SALVAR
+  const [isSaved, setIsSaved] = useState(false);
 
   // --- ESTADOS DO MODAL DE EXERCÍCIOS ---
   const [isModalVisible, setIsModalVisible] = useState(false);
@@ -170,18 +260,14 @@ export default function CreateWorkoutPlanScreen() {
   // IDENTIFICA SE HÁ ALTERAÇÕES NÃO SALVAS NO FORMULÁRIO
   const isFormDirty = selectedExercises.length > 0 || planName.trim().length > 0 || description.trim().length > 0;
 
-  // 🟢 CORREÇÃO DOS ERROS DE TIPAGEM NO EVENTO 'beforeRemove'
   useEffect(() => {
     const unsubscribe = (navigation as any).addListener('beforeRemove', (e: any) => {
-      // Se não houver alterações ou se o plano acabou de ser salvo, permite a saída normal
       if (!isFormDirty || isSaved) {
         return;
       }
 
-      // Impede a navegação padrão imediata
       e.preventDefault();
 
-      // Exibe o modal de confirmação
       showAlertModal({
         title: 'Descartar alterações? ⚠️',
         message: 'Você possui exercícios ou informações preenchidas. Se sair agora, todas as alterações serão perdidas.',
@@ -190,7 +276,6 @@ export default function CreateWorkoutPlanScreen() {
         cancelText: 'Continuar Editando',
         showCancelButton: true,
         onConfirm: () => {
-          // Despacha a ação de navegação acumulada para fechar a tela
           navigation.dispatch(e.data.action);
         },
       });
@@ -199,7 +284,6 @@ export default function CreateWorkoutPlanScreen() {
     return unsubscribe;
   }, [navigation, isFormDirty, isSaved]);
 
-  // NAVEGAÇÃO DE RETORNO EXPLÍCITA
   const handleNavigateBack = useCallback(() => {
     if (studentId) {
       router.replace({
@@ -304,7 +388,6 @@ export default function CreateWorkoutPlanScreen() {
     }
   }
 
-  // HELPER: FORMATAR RÓTULOS DE CATEGORIA
   function formatCategoryLabel(rawCategory: string): string {
     const normalized = rawCategory.trim().toLowerCase();
     const mapLabels: Record<string, string> = {
@@ -324,7 +407,6 @@ export default function CreateWorkoutPlanScreen() {
     return normalized.charAt(0).toUpperCase() + normalized.slice(1);
   }
 
-  // BUSCA DE EXERCÍCIOS E CATEGORIAS DINÂMICAS DO SUPABASE
   const fetchRegisteredExercises = useCallback(async () => {
     try {
       setLoadingModalExercises(true);
@@ -475,7 +557,7 @@ export default function CreateWorkoutPlanScreen() {
         queryClient.invalidateQueries({ queryKey: ['personal-profile-data'] });
         queryClient.invalidateQueries({ queryKey: ['personal-library-routines'] });
 
-        setIsSaved(true); // MARCA COMO SALVO COM SUCESSO
+        setIsSaved(true);
         showAlertModal({
           title: 'Sucesso! 🎉',
           message: 'Plano de treino atualizado com sucesso!',
@@ -519,7 +601,7 @@ export default function CreateWorkoutPlanScreen() {
         queryClient.invalidateQueries({ queryKey: ['student-workouts'] });
         queryClient.invalidateQueries({ queryKey: ['personal-profile-data'] });
 
-        setIsSaved(true); // MARCA COMO SALVO COM SUCESSO
+        setIsSaved(true);
         showAlertModal({
           title: 'Sucesso! 🎉',
           message: 'Plano de treino criado com sucesso!',
@@ -539,7 +621,6 @@ export default function CreateWorkoutPlanScreen() {
     }
   }
 
-  // FILTRAGEM DINÂMICAS DE EXERCÍCIOS
   const filteredRegisteredExercises = registeredExercises.filter((ex: RegisteredExercise) => {
     const matchesSearch = ex.name.toLowerCase().includes(searchQuery.toLowerCase().trim());
     const matchesCategory =
@@ -548,7 +629,6 @@ export default function CreateWorkoutPlanScreen() {
     return matchesSearch && matchesCategory;
   });
 
-  // FUNÇÃO RENDERITEM MEMORIZADA PARA ALTA PERFORMANCE
   const renderModalExerciseItem = useCallback(
     ({ item }: { item: RegisteredExercise }) => {
       const isAdded = selectedExercises.some((ex) => ex.exercise_id === item.id);
@@ -605,10 +685,11 @@ export default function CreateWorkoutPlanScreen() {
 
   const safeTopPadding = Math.max(insets?.top || 0, 16);
 
+  // 🟢 TELA EM CARREGAMENTO COM SKELETON
   if (loadingPlanData) {
     return (
-      <View className="flex-1 bg-white dark:bg-zinc-950 justify-center items-center">
-        <ActivityIndicator size="large" color="#59C83A" />
+      <View className="flex-1 bg-white dark:bg-zinc-950 px-5" style={{ paddingTop: safeTopPadding }}>
+        <CreateWorkoutSkeleton />
       </View>
     );
   }
@@ -953,11 +1034,9 @@ export default function CreateWorkoutPlanScreen() {
                   </ScrollView>
                 </View>
 
-                {/* LISTA DE EXERCÍCIOS OTIMIZADA */}
+                {/* 🟢 EXIBIÇÃO DE SKELETON OU LISTA DE EXERCÍCIOS NO MODAL */}
                 {loadingModalExercises ? (
-                  <View className="flex-1 items-center justify-center">
-                    <ActivityIndicator size="large" color="#59C83A" />
-                  </View>
+                  <ModalExerciseSkeleton />
                 ) : (
                   <FlatList
                     data={filteredRegisteredExercises}

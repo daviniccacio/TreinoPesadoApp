@@ -1,8 +1,8 @@
 // ============================================================================
-// TELA DE GESTÃO DE ALUNOS (PERSONAL TRAINER)
+// TELA DE GESTÃO DE ALUNOS (PERSONAL TRAINER) COM SKELETON LOADING
 // ============================================================================
 // Busca e exibe a lista de alunos vinculados ao Personal Trainer autenticado
-// com suporte a busca por nome e animações de interface.
+// com suporte a busca por nome, animações de interface e carregamento em Skeleton.
 // ============================================================================
 
 import React, { useState } from 'react';
@@ -12,7 +12,6 @@ import {
   TextInput,
   FlatList,
   TouchableOpacity,
-  ActivityIndicator,
   RefreshControl,
   useColorScheme,
 } from 'react-native';
@@ -22,11 +21,34 @@ import { MagnifyingGlass, Users, CaretRight, X, Sparkle } from 'phosphor-react-n
 import { useQuery } from '@tanstack/react-query';
 import { MotiView } from 'moti';
 import { supabase } from '../../../../lib/supabase';
+import { Skeleton } from '../../../../components/SkeletonLoading'; // 🟢 Importação do Skeleton
 
 interface Student {
   id: string;
   full_name: string;
   role?: string;
+}
+
+// 🟢 SUBCOMPONENTE DE SKELETON PARA O CARD DO ALUNO
+function StudentCardSkeleton() {
+  return (
+    <View className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl mb-3 border border-[#e2dfe1] dark:border-zinc-800 flex-row items-center justify-between">
+      <View className="flex-row items-center flex-1 mr-2">
+        {/* Skeleton do Avatar / Iniciais */}
+        <Skeleton width={48} height={48} borderRadius={16} className="mr-3.5" />
+
+        <View className="flex-1">
+          {/* Skeleton do Nome do Aluno */}
+          <Skeleton width="65%" height={16} borderRadius={6} className="mb-2" />
+          {/* Skeleton da Tag Atleta Ativo */}
+          <Skeleton width={80} height={12} borderRadius={4} />
+        </View>
+      </View>
+
+      {/* Skeleton do Ícone de Navegação */}
+      <Skeleton width={32} height={32} borderRadius={12} />
+    </View>
+  );
 }
 
 /**
@@ -39,7 +61,6 @@ async function fetchMyStudents(): Promise<Student[]> {
 
   if (!user) return [];
 
-  // 🟢 CORREÇÃO: Seleciona apenas as colunas existentes na tabela 'profiles' ('id', 'full_name', 'role')
   const { data, error } = await supabase
     .from('profiles')
     .select('id, full_name, role')
@@ -161,9 +182,12 @@ export default function PersonalStudentsScreen() {
         </View>
       )}
 
+      {/* 🟢 EXIBIÇÃO DE SKELETON CARREGANDO OU LISTA REAL */}
       {isLoading ? (
-        <View className="flex-1 justify-center items-center">
-          <ActivityIndicator size="large" color="#59C83A" />
+        <View className="flex-1">
+          {Array.from({ length: 5 }).map((_, index) => (
+            <StudentCardSkeleton key={`student-skeleton-${index}`} />
+          ))}
         </View>
       ) : filteredStudents.length === 0 ? (
         /* 3. ESTADO VAZIO ANIMADO */

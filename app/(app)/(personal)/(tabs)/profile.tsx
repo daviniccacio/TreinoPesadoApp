@@ -1,9 +1,9 @@
 // ============================================================================
-// DOCUMENTAÇÃO: TELA DE PERFIL PROFISSIONAL (PERSONAL TRAINER) - TIPAGEM CORRIGIDA
+// DOCUMENTAÇÃO: TELA DE PERFIL PROFISSIONAL (PERSONAL TRAINER) COM SKELETON
 // ============================================================================
 // Exibe dados cadastrais, código de acesso para alunos, estatísticas de trabalho,
 // alternância de tema global, política de privacidade, exclusão definitiva de conta,
-// logout e revalidação de dados com animações Moti ajustadas com 'as const'.
+// logout e revalidação de dados com suporte a Skeleton Loading.
 // ============================================================================
 
 import React, { useState, useCallback } from 'react';
@@ -37,6 +37,7 @@ import { MotiView } from 'moti';
 import { supabase } from '../../../../lib/supabase';
 import { CustomModal } from '../../../../components/CustomModal';
 import { SendNotificationModal } from '../../../../components/SendNotificationModal';
+import { Skeleton } from '../../../../components/SkeletonLoading'; // 🟢 Importação do Skeleton
 
 // IMPORTAÇÃO DO CONTEXTO DE TEMA GLOBAL PERSISTENTE
 import { useTheme } from '../../../../context/ThemeContext';
@@ -63,6 +64,85 @@ interface ShowAlertModalOptions {
 
 interface PrivacyButtonProps {
   policyUrl?: string;
+}
+
+// 🟢 SUBCOMPONENTE DE SKELETON PARA O PERFIL DO PERSONAL
+function PersonalProfileSkeleton({ isDark }: { isDark: boolean }) {
+  return (
+    <ScrollView
+      className="flex-1"
+      contentContainerStyle={{
+        paddingHorizontal: 20,
+        paddingTop: 16,
+        paddingBottom: 140,
+      }}
+      showsVerticalScrollIndicator={false}
+    >
+      {/* Skeleton do Cabeçalho */}
+      <Skeleton width={120} height={24} borderRadius={8} className="mb-6" />
+
+      {/* Skeleton do Card de Usuário (Avatar + Nome + Email) */}
+      <View className="items-center mb-6">
+        <Skeleton width={96} height={96} borderRadius={48} className="mb-3" />
+        <Skeleton width="55%" height={24} borderRadius={8} className="mb-2" />
+        <Skeleton width="40%" height={16} borderRadius={6} />
+      </View>
+
+      {/* Skeleton do Card do Código de Acesso */}
+      <View
+        className={`p-4 rounded-2xl mb-6 border ${
+          isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-[#e2dfe1]'
+        }`}
+      >
+        <View className="flex-row items-center justify-between">
+          <View className="flex-row items-center flex-1 mr-2 gap-3">
+            <Skeleton width={40} height={40} borderRadius={12} />
+            <View className="flex-1">
+              <Skeleton width="70%" height={12} borderRadius={4} className="mb-2" />
+              <Skeleton width="50%" height={22} borderRadius={6} />
+            </View>
+          </View>
+          <Skeleton width={60} height={32} borderRadius={12} />
+        </View>
+      </View>
+
+      {/* Skeleton das Estatísticas de Trabalho */}
+      <Skeleton width={160} height={20} borderRadius={6} className="mb-3" />
+      <View className="flex-row justify-between gap-3 mb-6">
+        <View
+          className={`flex-1 p-4 rounded-2xl items-center border ${
+            isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-[#e2dfe1]'
+          }`}
+        >
+          <Skeleton width={28} height={28} borderRadius={8} className="mb-2" />
+          <Skeleton width={32} height={24} borderRadius={6} className="mb-1" />
+          <Skeleton width="75%" height={12} borderRadius={4} />
+        </View>
+
+        <View
+          className={`flex-1 p-4 rounded-2xl items-center border ${
+            isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-[#e2dfe1]'
+          }`}
+        >
+          <Skeleton width={28} height={28} borderRadius={8} className="mb-2" />
+          <Skeleton width={32} height={24} borderRadius={6} className="mb-1" />
+          <Skeleton width="75%" height={12} borderRadius={4} />
+        </View>
+      </View>
+
+      {/* Skeleton das Opções de Conta */}
+      <Skeleton width={140} height={20} borderRadius={6} className="mb-3" />
+      <View
+        className={`rounded-2xl border p-2 ${
+          isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-[#e2dfe1]'
+        }`}
+      >
+        <Skeleton width="100%" height={44} borderRadius={12} className="mb-2" />
+        <Skeleton width="100%" height={44} borderRadius={12} className="mb-2" />
+        <Skeleton width="100%" height={44} borderRadius={12} />
+      </View>
+    </ScrollView>
+  );
 }
 
 /**
@@ -299,23 +379,14 @@ export default function PersonalProfileScreen() {
 
   const safeTopPadding = Math.max(insets?.top || 0, 16);
 
-  // ESTADO 1: CARREGANDO
+  // 🟢 ESTADO 1: CARREGANDO COM SKELETON
   if (isLoading && !isRefetching && !profile) {
     return (
       <View
-        className={`flex-1 justify-center items-center px-5 ${
-          isDark ? 'bg-zinc-950' : 'bg-[#f8f9fa]'
-        }`}
+        className={`flex-1 ${isDark ? 'bg-zinc-950' : 'bg-[#f8f9fa]'}`}
         style={{ paddingTop: safeTopPadding }}
       >
-        <ActivityIndicator size="large" color="#59C83A" />
-        <Text
-          className={`text-xs font-sans-medium mt-3 ${
-            isDark ? 'text-zinc-400' : 'text-[#71717a]'
-          }`}
-        >
-          Carregando informações do perfil...
-        </Text>
+        <PersonalProfileSkeleton isDark={isDark} />
       </View>
     );
   }
@@ -576,7 +647,7 @@ export default function PersonalProfileScreen() {
               <Sun size={16} color={!isDark ? '#59C83A' : '#9ca3af'} weight="bold" />
               <Text
                 className={`font-sans-bold text-xs ${
-                  !isDark ? '#59C83A' : 'text-zinc-400'
+                  !isDark ? 'text-[#59C83A]' : 'text-zinc-400'
                 }`}
               >
                 Claro
@@ -596,7 +667,7 @@ export default function PersonalProfileScreen() {
               <Moon size={16} color={isDark ? '#59C83A' : '#9ca3af'} weight="bold" />
               <Text
                 className={`font-sans-bold text-xs ${
-                  isDark ? '#59C83A' : 'text-[#71717a]'
+                  isDark ? 'text-[#59C83A]' : 'text-[#71717a]'
                 }`}
               >
                 Escuro
