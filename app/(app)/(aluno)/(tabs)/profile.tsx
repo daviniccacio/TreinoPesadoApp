@@ -1,10 +1,9 @@
 // ============================================================================
-// DOCUMENTAÇÃO: TELA DE PERFIL DO ALUNO (CORREÇÃO DE TELA EM BRANCO/ESTÁTICA)
+// DOCUMENTAÇÃO: TELA DE PERFIL DO ALUNO COM SKELETON LOADING
 // ============================================================================
 // Inclui gerenciamento de perfil, estatísticas, vínculo com personal, notificações,
 // alteração de tema sem delay, links de privacidade, exclusão de conta,
-// revalidação automática de dados no foco da aba (useFocusEffect) e tratamento
-// de estados de carregamento/erro para evitar telas em branco.
+// revalidação automática de dados e esqueletos visuais durante o carregamento.
 // ============================================================================
 
 import React, { useState, useCallback } from 'react';
@@ -48,6 +47,7 @@ import { supabase } from '../../../../lib/supabase';
 import { CustomModal } from '../../../../components/CustomModal';
 import { UserNotificationModal } from '../../../../components/UserNotificationModal';
 import { useTheme } from '../../../../context/ThemeContext';
+import { Skeleton } from '../../../../components/SkeletonLoading'; // 🟢 Importação do Skeleton
 
 // --- INTERFACES E TIPAGENS ---
 interface StudentProfileData {
@@ -70,6 +70,47 @@ interface ShowAlertModalOptions {
 
 interface PrivacyButtonProps {
   policyUrl?: string;
+}
+
+// 🟢 SUBCOMPONENTE DE SKELETON PARA O PERFIL DO ALUNO
+function ProfileSkeleton() {
+  return (
+    <ScrollView
+      showsVerticalScrollIndicator={false}
+      contentContainerStyle={{ paddingBottom: 120 }}
+      className="flex-1 pt-6"
+    >
+      {/* Skeleton do Avatar e Infos Principais */}
+      <View className="items-center mb-6">
+        <Skeleton width={96} height={96} borderRadius={48} className="mb-3" />
+        <Skeleton width={180} height={24} borderRadius={6} className="mb-2" />
+        <Skeleton width={140} height={16} borderRadius={4} className="mb-3" />
+        <Skeleton width={160} height={26} borderRadius={14} />
+      </View>
+
+      {/* Skeleton Seção Instrutor */}
+      <Skeleton width={80} height={18} borderRadius={4} className="mb-3" />
+      <Skeleton width="100%" height={68} borderRadius={16} className="mb-5" />
+
+      {/* Skeleton Cards Estatísticos */}
+      <View className="flex-row justify-between mb-6">
+        <View className="w-[48%]">
+          <Skeleton width="100%" height={110} borderRadius={16} />
+        </View>
+        <View className="w-[48%]">
+          <Skeleton width="100%" height={110} borderRadius={16} />
+        </View>
+      </View>
+
+      {/* Skeleton Seção Aparência */}
+      <Skeleton width={90} height={18} borderRadius={4} className="mb-3" />
+      <Skeleton width="100%" height={52} borderRadius={16} className="mb-6" />
+
+      {/* Skeleton Seção Configurações */}
+      <Skeleton width={120} height={18} borderRadius={4} className="mb-3" />
+      <Skeleton width="100%" height={150} borderRadius={16} className="mb-6" />
+    </ScrollView>
+  );
 }
 
 /**
@@ -267,7 +308,6 @@ export default function StudentProfileScreen() {
   }
 
   // --- QUERIES E MUTAÇÕES ---
-  // 🟢 CORREÇÃO: Ajustadas configurações do React Query para garantir sincronização
   const {
     data: profile,
     isLoading,
@@ -282,7 +322,6 @@ export default function StudentProfileScreen() {
     gcTime: 1000 * 60 * 10,
   });
 
-  // 🟢 CORREÇÃO: Dispara a revalidação sempre que a aba ganha o foco do usuário
   useFocusEffect(
     useCallback(() => {
       refetch();
@@ -413,73 +452,12 @@ export default function StudentProfileScreen() {
     return `${hours}h ${String(minutes).padStart(2, '0')}m`;
   }
 
-  // CÁLCULO DINÂMICO DE ESPAÇAMENTO DE ÁREA SEGURA (SAFE AREA INSETS)
   const safeTopPadding = Math.max(insets?.top || 0, 16);
   const safeModalBottomPadding =
     Platform.OS === 'ios'
       ? Math.max(insets?.bottom || 0, 20) + 16
       : Math.max(insets?.bottom || 0, 16) + 20;
 
-  // 🟢 ESTADO 1: TELA DE CARREGAMENTO (Garante visualização enquanto obtém dados)
-  if (isLoading && !isRefetching && !profile) {
-    return (
-      <View
-        className={`flex-1 justify-center items-center px-5 ${isDark ? 'bg-zinc-950' : 'bg-[#f8f9fa]'
-          }`}
-        style={{ paddingTop: safeTopPadding }}
-      >
-        <ActivityIndicator size="large" color="#59C83A" />
-        <Text
-          className={`text-xs font-sans-medium mt-3 ${isDark ? 'text-zinc-400' : 'text-[#71717a]'
-            }`}
-        >
-          Carregando informações do perfil...
-        </Text>
-      </View>
-    );
-  }
-
-  // 🟢 ESTADO 2: TELA DE ERRO (Evita tela em branco se houver falha de conexão/autenticação)
-  if ((isError || !profile) && !isLoading) {
-    return (
-      <View
-        className={`flex-1 justify-center items-center px-6 ${isDark ? 'bg-zinc-950' : 'bg-[#f8f9fa]'
-          }`}
-        style={{ paddingTop: safeTopPadding }}
-      >
-        <MotiView
-          from={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ type: 'timing', duration: 250 } as any}
-          className="items-center"
-        >
-          <WarningCircle size={48} color="#ef4444" />
-          <Text
-            className={`text-base font-outfit-bold mt-3 text-center ${isDark ? 'text-white' : 'text-[#1b1b1d]'
-              }`}
-          >
-            Não foi possível carregar seu perfil
-          </Text>
-          <Text
-            className={`text-xs font-sans-medium text-center mt-1 mb-5 ${isDark ? 'text-zinc-400' : 'text-[#71717a]'
-              }`}
-          >
-            {(error as Error)?.message || 'Ocorreu um problema ao conectar com os serviços.'}
-          </Text>
-
-          <TouchableOpacity
-            onPress={() => refetch()}
-            style={{ backgroundColor: '#59C83A' }}
-            className="px-6 py-3 rounded-2xl active:opacity-90"
-          >
-            <Text className="text-xs font-sans-bold text-white">Tentar Novamente</Text>
-          </TouchableOpacity>
-        </MotiView>
-      </View>
-    );
-  }
-
-  // 🟢 ESTADO 3: RENDERIZAÇÃO NORMAL DO PERFIL
   return (
     <View
       className={`flex-1 px-5 pb-4 ${isDark ? 'bg-zinc-950' : 'bg-[#f8f9fa]'}`}
@@ -489,332 +467,396 @@ export default function StudentProfileScreen() {
       <MotiView
         from={{ opacity: 0, translateY: -8 }}
         animate={{ opacity: 1, translateY: 0 }}
-        className={`py-4 flex-row justify-between items-center border-b ${isDark ? 'border-zinc-800' : 'border-[#e2dfe1]'
-          }`}
+        className={`py-4 flex-row justify-between items-center border-b ${
+          isDark ? 'border-zinc-800' : 'border-[#e2dfe1]'
+        }`}
       >
         <Text
-          className={`text-xl font-outfit-extrabold ${isDark ? 'text-white' : 'text-[#1b1b1d]'
-            }`}
+          className={`text-xl font-outfit-extrabold ${
+            isDark ? 'text-white' : 'text-[#1b1b1d]'
+          }`}
         >
           Meu Perfil
         </Text>
       </MotiView>
 
-      <ScrollView
-        className="flex-1 pt-6"
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 120 }}
-      >
-        {/* 2. CARTÃO DO ALUNO */}
-        <MotiView
-          from={{ opacity: 0, scale: 0.95, translateY: 10 }}
-          animate={{ opacity: 1, scale: 1, translateY: 0 }}
-          className="items-center mb-6"
-        >
-          <View
-            style={{ backgroundColor: '#59C83A' }}
-            className="w-24 h-24 rounded-full items-center justify-center mb-3 shadow-sm border border-[#46ab2b]"
+      {/* ESTADO 1: CARREGAMENTO COM SKELETON */}
+      {isLoading && !isRefetching && !profile ? (
+        <ProfileSkeleton />
+      ) : (isError || !profile) && !isLoading ? (
+        /* ESTADO 2: TELA DE ERRO */
+        <View className="flex-1 justify-center items-center px-6">
+          <MotiView
+            from={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ type: 'timing', duration: 250 } as any}
+            className="items-center"
           >
-            <User size={48} color="#ffffff" weight="bold" />
-          </View>
-
-          <Text
-            className={`text-2xl font-outfit-extrabold text-center ${isDark ? 'text-white' : 'text-[#1b1b1d]'
+            <WarningCircle size={48} color="#ef4444" />
+            <Text
+              className={`text-base font-outfit-bold mt-3 text-center ${
+                isDark ? 'text-white' : 'text-[#1b1b1d]'
               }`}
-          >
-            {profile?.fullName}
-          </Text>
-          <Text
-            className={`text-sm font-sans-medium mt-0.5 ${isDark ? 'text-zinc-400' : 'text-[#414755]'
-              }`}
-          >
-            {profile?.email}
-          </Text>
-
-          <View className="mt-2 bg-[#59C83A]/10 border border-[#59C83A]/30 px-3 py-1 rounded-full flex-row items-center">
-            <Text className="text-xs font-sans-bold text-[#59C83A]">
-              {profile?.personalName
-                ? `Personal: ${profile.personalName}`
-                : 'Sem Personal Vinculado'}
-            </Text>
-          </View>
-        </MotiView>
-
-        {/* 3. INSTRUTOR */}
-        <MotiView
-          from={{ opacity: 0, translateY: 12 }}
-          animate={{ opacity: 1, translateY: 0 }}
-        >
-          <Text
-            className={`text-lg font-outfit mb-3 ${isDark ? 'text-white' : 'text-[#1b1b1d]'
-              }`}
-          >
-            Instrutor
-          </Text>
-
-          <View
-            className={`rounded-2xl overflow-hidden mb-5 border ${isDark
-                ? 'bg-zinc-900 border-zinc-800'
-                : 'bg-white border-[#e2dfe1]'
-              }`}
-          >
-            <TouchableOpacity
-              onPress={() => setIsLinkModalOpen(true)}
-              className="flex-row items-center justify-between p-4"
-              activeOpacity={0.7}
             >
-              <View className="flex-row items-center gap-3">
-                <View className="w-9 h-9 rounded-xl bg-[#59C83A]/10 items-center justify-center border border-[#59C83A]/30">
-                  <UserPlus size={20} color="#59C83A" weight="bold" />
-                </View>
-                <View>
-                  <Text
-                    className={`font-outfit text-sm ${isDark ? 'text-white' : 'text-[#1b1b1d]'
+              Não foi possível carregar seu perfil
+            </Text>
+            <Text
+              className={`text-xs font-sans-medium text-center mt-1 mb-5 ${
+                isDark ? 'text-zinc-400' : 'text-[#71717a]'
+              }`}
+            >
+              {(error as Error)?.message || 'Ocorreu um problema ao conectar com os serviços.'}
+            </Text>
+
+            <TouchableOpacity
+              onPress={() => refetch()}
+              style={{ backgroundColor: '#59C83A' }}
+              className="px-6 py-3 rounded-2xl active:opacity-90"
+            >
+              <Text className="text-xs font-sans-bold text-white">Tentar Novamente</Text>
+            </TouchableOpacity>
+          </MotiView>
+        </View>
+      ) : (
+        /* ESTADO 3: RENDERIZAÇÃO NORMAL DO PERFIL */
+        <ScrollView
+          className="flex-1 pt-6"
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 120 }}
+        >
+          {/* 2. CARTÃO DO ALUNO */}
+          <MotiView
+            from={{ opacity: 0, scale: 0.95, translateY: 10 }}
+            animate={{ opacity: 1, scale: 1, translateY: 0 }}
+            className="items-center mb-6"
+          >
+            <View
+              style={{ backgroundColor: '#59C83A' }}
+              className="w-24 h-24 rounded-full items-center justify-center mb-3 shadow-sm border border-[#46ab2b]"
+            >
+              <User size={48} color="#ffffff" weight="bold" />
+            </View>
+
+            <Text
+              className={`text-2xl font-outfit-extrabold text-center ${
+                isDark ? 'text-white' : 'text-[#1b1b1d]'
+              }`}
+            >
+              {profile?.fullName}
+            </Text>
+            <Text
+              className={`text-sm font-sans-medium mt-0.5 ${
+                isDark ? 'text-zinc-400' : 'text-[#414755]'
+              }`}
+            >
+              {profile?.email}
+            </Text>
+
+            <View className="mt-2 bg-[#59C83A]/10 border border-[#59C83A]/30 px-3 py-1 rounded-full flex-row items-center">
+              <Text className="text-xs font-sans-bold text-[#59C83A]">
+                {profile?.personalName
+                  ? `Personal: ${profile.personalName}`
+                  : 'Sem Personal Vinculado'}
+              </Text>
+            </View>
+          </MotiView>
+
+          {/* 3. INSTRUTOR */}
+          <MotiView
+            from={{ opacity: 0, translateY: 12 }}
+            animate={{ opacity: 1, translateY: 0 }}
+          >
+            <Text
+              className={`text-lg font-outfit mb-3 ${
+                isDark ? 'text-white' : 'text-[#1b1b1d]'
+              }`}
+            >
+              Instrutor
+            </Text>
+
+            <View
+              className={`rounded-2xl overflow-hidden mb-5 border ${
+                isDark
+                  ? 'bg-zinc-900 border-zinc-800'
+                  : 'bg-white border-[#e2dfe1]'
+              }`}
+            >
+              <TouchableOpacity
+                onPress={() => setIsLinkModalOpen(true)}
+                className="flex-row items-center justify-between p-4"
+                activeOpacity={0.7}
+              >
+                <View className="flex-row items-center gap-3">
+                  <View className="w-9 h-9 rounded-xl bg-[#59C83A]/10 items-center justify-center border border-[#59C83A]/30">
+                    <UserPlus size={20} color="#59C83A" weight="bold" />
+                  </View>
+                  <View>
+                    <Text
+                      className={`font-outfit text-sm ${
+                        isDark ? 'text-white' : 'text-[#1b1b1d]'
                       }`}
-                  >
-                    Conectar com meu Personal
-                  </Text>
-                  <Text
-                    className={`text-xs font-sans-medium ${isDark ? 'text-zinc-400' : 'text-[#71717a]'
+                    >
+                      Conectar com meu Personal
+                    </Text>
+                    <Text
+                      className={`text-xs font-sans-medium ${
+                        isDark ? 'text-zinc-400' : 'text-[#71717a]'
                       }`}
-                  >
-                    {profile?.personalName
-                      ? 'Trocar ou redefinir seu instrutor'
-                      : 'Inserir código de acesso do personal'}
-                  </Text>
+                    >
+                      {profile?.personalName
+                        ? 'Trocar ou redefinir seu instrutor'
+                        : 'Inserir código de acesso do personal'}
+                    </Text>
+                  </View>
                 </View>
+                <CaretRight size={18} color={isDark ? '#a1a1aa' : '#414755'} />
+              </TouchableOpacity>
+            </View>
+          </MotiView>
+
+          {/* 4. CARDS ESTATÍSTICOS */}
+          <MotiView
+            from={{ opacity: 0, translateY: 12 }}
+            animate={{ opacity: 1, translateY: 0 }}
+            className="flex-row justify-between mb-6"
+          >
+            <View
+              className={`w-[48%] p-4 rounded-2xl border items-center ${
+                isDark
+                  ? 'bg-zinc-900 border-zinc-800'
+                  : 'bg-white border-[#e2dfe1]'
+              }`}
+            >
+              <View className="w-10 h-10 rounded-xl bg-[#59C83A]/10 items-center justify-center mb-2 border border-[#59C83A]/30">
+                <Barbell size={22} color="#59C83A" weight="bold" />
               </View>
-              <CaretRight size={18} color={isDark ? '#a1a1aa' : '#414755'} />
-            </TouchableOpacity>
-          </View>
-        </MotiView>
-
-        {/* 4. CARDS ESTATÍSTICOS */}
-        <MotiView
-          from={{ opacity: 0, translateY: 12 }}
-          animate={{ opacity: 1, translateY: 0 }}
-          className="flex-row justify-between mb-6"
-        >
-          <View
-            className={`w-[48%] p-4 rounded-2xl border items-center ${isDark
-                ? 'bg-zinc-900 border-zinc-800'
-                : 'bg-white border-[#e2dfe1]'
-              }`}
-          >
-            <View className="w-10 h-10 rounded-xl bg-[#59C83A]/10 items-center justify-center mb-2 border border-[#59C83A]/30">
-              <Barbell size={22} color="#59C83A" weight="bold" />
-            </View>
-            <Text
-              className={`text-xs font-sans-bold ${isDark ? 'text-zinc-400' : 'text-[#71717a]'
-                }`}
-            >
-              Treinos Realizados
-            </Text>
-            <Text
-              className={`text-xl font-outfit-extrabold mt-0.5 ${isDark ? 'text-white' : 'text-[#1b1b1d]'
-                }`}
-            >
-              {profile?.totalWorkoutsCompleted || 0}
-            </Text>
-          </View>
-
-          <View
-            className={`w-[48%] p-4 rounded-2xl border items-center ${isDark
-                ? 'bg-zinc-900 border-zinc-800'
-                : 'bg-white border-[#e2dfe1]'
-              }`}
-          >
-            <View className="w-10 h-10 rounded-xl bg-[#59C83A]/10 items-center justify-center mb-2 border border-[#59C83A]/30">
-              <Timer size={22} color="#59C83A" weight="bold" />
-            </View>
-            <Text
-              className={`text-xs font-sans-bold ${isDark ? 'text-zinc-400' : 'text-[#71717a]'
-                }`}
-            >
-              Tempo de Treino
-            </Text>
-            <Text
-              className={`text-xl font-outfit-extrabold mt-0.5 ${isDark ? 'text-white' : 'text-[#1b1b1d]'
-                }`}
-            >
-              {formatWorkoutTime(profile?.totalWorkoutMinutes || 0)}
-            </Text>
-          </View>
-        </MotiView>
-
-        {/* 5. SEÇÃO APARÊNCIA */}
-        <MotiView
-          from={{ opacity: 0, translateY: 12 }}
-          animate={{ opacity: 1, translateY: 0 }}
-        >
-          <Text
-            className={`text-lg font-outfit mb-3 ${isDark ? 'text-white' : 'text-[#1b1b1d]'
-              }`}
-          >
-            Aparência
-          </Text>
-
-          <View
-            className={`rounded-2xl p-2 mb-6 border flex-row ${isDark
-                ? 'bg-zinc-900 border-zinc-800'
-                : 'bg-white border-[#e2dfe1]'
-              }`}
-          >
-            <TouchableOpacity
-              onPress={() => {
-                if (isDark) toggleTheme();
-              }}
-              className={`flex-1 py-3 rounded-xl flex-row items-center justify-center gap-1.5 ${!isDark
-                  ? 'bg-[#f8f9fa] border border-[#e2dfe1]'
-                  : 'bg-transparent'
-                }`}
-            >
-              <Sun size={16} color={!isDark ? '#59C83A' : '#9ca3af'} weight="bold" />
               <Text
-                className={`font-sans-bold text-xs ${!isDark ? 'text-[#59C83A]' : 'text-zinc-400'
-                  }`}
-              >
-                Claro
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={() => {
-                if (!isDark) toggleTheme();
-              }}
-              className={`flex-1 py-3 rounded-xl flex-row items-center justify-center gap-1.5 ${isDark
-                  ? 'bg-zinc-800 border border-zinc-700'
-                  : 'bg-transparent'
+                className={`text-xs font-sans-bold ${
+                  isDark ? 'text-zinc-400' : 'text-[#71717a]'
                 }`}
-            >
-              <Moon size={16} color={isDark ? '#59C83A' : '#9ca3af'} weight="bold" />
+              >
+                Treinos Realizados
+              </Text>
               <Text
-                className={`font-sans-bold text-xs ${isDark ? 'text-[#59C83A]' : 'text-[#71717a]'
-                  }`}
-              >
-                Escuro
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </MotiView>
-
-        {/* 6. CONFIGURAÇÕES */}
-        <MotiView
-          from={{ opacity: 0, translateY: 12 }}
-          animate={{ opacity: 1, translateY: 0 }}
-        >
-          <Text
-            className={`text-lg font-outfit mb-3 ${isDark ? 'text-white' : 'text-[#1b1b1d]'
-              }`}
-          >
-            Configurações
-          </Text>
-
-          <View
-            className={`rounded-2xl overflow-hidden mb-6 border ${isDark
-                ? 'bg-zinc-900 border-zinc-800'
-                : 'bg-white border-[#e2dfe1]'
-              }`}
-          >
-            {/* NOTIFICAÇÕES */}
-            <TouchableOpacity
-              onPress={handleOpenNotifications}
-              className={`flex-row items-center justify-between p-4 border-b ${isDark ? 'border-zinc-800' : 'border-[#e2dfe1]'
+                className={`text-xl font-outfit-extrabold mt-0.5 ${
+                  isDark ? 'text-white' : 'text-[#1b1b1d]'
                 }`}
-              activeOpacity={0.7}
+              >
+                {profile?.totalWorkoutsCompleted || 0}
+              </Text>
+            </View>
+
+            <View
+              className={`w-[48%] p-4 rounded-2xl border items-center ${
+                isDark
+                  ? 'bg-zinc-900 border-zinc-800'
+                  : 'bg-white border-[#e2dfe1]'
+              }`}
             >
-              <View className="flex-row items-center gap-3">
-                <Bell
-                  size={20}
+              <View className="w-10 h-10 rounded-xl bg-[#59C83A]/10 items-center justify-center mb-2 border border-[#59C83A]/30">
+                <Timer size={22} color="#59C83A" weight="bold" />
+              </View>
+              <Text
+                className={`text-xs font-sans-bold ${
+                  isDark ? 'text-zinc-400' : 'text-[#71717a]'
+                }`}
+              >
+                Tempo de Treino
+              </Text>
+              <Text
+                className={`text-xl font-outfit-extrabold mt-0.5 ${
+                  isDark ? 'text-white' : 'text-[#1b1b1d]'
+                }`}
+              >
+                {formatWorkoutTime(profile?.totalWorkoutMinutes || 0)}
+              </Text>
+            </View>
+          </MotiView>
+
+          {/* 5. SEÇÃO APARÊNCIA */}
+          <MotiView
+            from={{ opacity: 0, translateY: 12 }}
+            animate={{ opacity: 1, translateY: 0 }}
+          >
+            <Text
+              className={`text-lg font-outfit mb-3 ${
+                isDark ? 'text-white' : 'text-[#1b1b1d]'
+              }`}
+            >
+              Aparência
+            </Text>
+
+            <View
+              className={`rounded-2xl p-2 mb-6 border flex-row ${
+                isDark
+                  ? 'bg-zinc-900 border-zinc-800'
+                  : 'bg-white border-[#e2dfe1]'
+              }`}
+            >
+              <TouchableOpacity
+                onPress={() => {
+                  if (isDark) toggleTheme();
+                }}
+                className={`flex-1 py-3 rounded-xl flex-row items-center justify-center gap-1.5 ${
+                  !isDark
+                    ? 'bg-[#f8f9fa] border border-[#e2dfe1]'
+                    : 'bg-transparent'
+                }`}
+              >
+                <Sun size={16} color={!isDark ? '#59C83A' : '#9ca3af'} weight="bold" />
+                <Text
+                  className={`font-sans-bold text-xs ${
+                    !isDark ? 'text-[#59C83A]' : 'text-zinc-400'
+                  }`}
+                >
+                  Claro
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => {
+                  if (!isDark) toggleTheme();
+                }}
+                className={`flex-1 py-3 rounded-xl flex-row items-center justify-center gap-1.5 ${
+                  isDark
+                    ? 'bg-zinc-800 border border-zinc-700'
+                    : 'bg-transparent'
+                }`}
+              >
+                <Moon size={16} color={isDark ? '#59C83A' : '#9ca3af'} weight="bold" />
+                <Text
+                  className={`font-sans-bold text-xs ${
+                    isDark ? 'text-[#59C83A]' : 'text-[#71717a]'
+                  }`}
+                >
+                  Escuro
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </MotiView>
+
+          {/* 6. CONFIGURAÇÕES */}
+          <MotiView
+            from={{ opacity: 0, translateY: 12 }}
+            animate={{ opacity: 1, translateY: 0 }}
+          >
+            <Text
+              className={`text-lg font-outfit mb-3 ${
+                isDark ? 'text-white' : 'text-[#1b1b1d]'
+              }`}
+            >
+              Configurações
+            </Text>
+
+            <View
+              className={`rounded-2xl overflow-hidden mb-6 border ${
+                isDark
+                  ? 'bg-zinc-900 border-zinc-800'
+                  : 'bg-white border-[#e2dfe1]'
+              }`}
+            >
+              {/* NOTIFICAÇÕES */}
+              <TouchableOpacity
+                onPress={handleOpenNotifications}
+                className={`flex-row items-center justify-between p-4 border-b ${
+                  isDark ? 'border-zinc-800' : 'border-[#e2dfe1]'
+                }`}
+                activeOpacity={0.7}
+              >
+                <View className="flex-row items-center gap-3">
+                  <Bell
+                    size={20}
+                    color={
+                      hasUnreadNotifications
+                        ? '#59C83A'
+                        : isDark
+                        ? '#ffffff'
+                        : '#1b1b1d'
+                    }
+                    weight={hasUnreadNotifications ? 'bold' : 'regular'}
+                  />
+
+                  <View className="flex-row items-center">
+                    <Text
+                      className={`font-outfit ${
+                        hasUnreadNotifications
+                          ? 'text-[#59C83A] font-bold'
+                          : isDark
+                          ? 'text-white'
+                          : 'text-[#1b1b1d]'
+                      }`}
+                    >
+                      Notificações
+                    </Text>
+
+                    {hasUnreadNotifications && (
+                      <View className="w-2.5 h-2.5 rounded-full bg-[#59C83A] ml-2" />
+                    )}
+                  </View>
+                </View>
+
+                <CaretRight
+                  size={18}
                   color={
                     hasUnreadNotifications
                       ? '#59C83A'
                       : isDark
-                        ? '#ffffff'
-                        : '#1b1b1d'
-                  }
-                  weight={hasUnreadNotifications ? 'bold' : 'regular'}
-                />
-
-                <View className="flex-row items-center">
-                  <Text
-                    className={`font-outfit ${hasUnreadNotifications
-                        ? 'text-[#59C83A] font-bold'
-                        : isDark
-                          ? 'text-white'
-                          : 'text-[#1b1b1d]'
-                      }`}
-                  >
-                    Notificações
-                  </Text>
-
-                  {hasUnreadNotifications && (
-                    <View className="w-2.5 h-2.5 rounded-full bg-[#59C83A] ml-2" />
-                  )}
-                </View>
-              </View>
-
-              <CaretRight
-                size={18}
-                color={
-                  hasUnreadNotifications
-                    ? '#59C83A'
-                    : isDark
                       ? '#a1a1aa'
                       : '#414755'
-                }
-              />
-            </TouchableOpacity>
+                  }
+                />
+              </TouchableOpacity>
 
-            {/* PRIVACIDADE */}
-            <View className={`border-b ${isDark ? 'border-zinc-800' : 'border-[#e2dfe1]'}`}>
-              <PrivacyPolicyButton />
-            </View>
-
-            {/* EXCLUIR MINHA CONTA */}
-            <TouchableOpacity
-              onPress={handleDeleteAccount}
-              disabled={deleteAccountMutation.isPending}
-              className="flex-row items-center justify-between p-4"
-              activeOpacity={0.7}
-            >
-              <View className="flex-row items-center gap-3">
-                <Trash size={20} color="#ef4444" weight="bold" />
-                <Text className="font-outfit text-sm text-red-500">
-                  Excluir Minha Conta
-                </Text>
+              {/* PRIVACIDADE */}
+              <View className={`border-b ${isDark ? 'border-zinc-800' : 'border-[#e2dfe1]'}`}>
+                <PrivacyPolicyButton />
               </View>
-              {deleteAccountMutation.isPending ? (
-                <ActivityIndicator size="small" color="#ef4444" />
-              ) : (
-                <CaretRight size={18} color="#ef4444" />
-              )}
-            </TouchableOpacity>
-          </View>
-        </MotiView>
 
-        {/* 7. BOTÃO SAIR */}
-        <MotiView
-          from={{ opacity: 0, translateY: 12 }}
-          animate={{ opacity: 1, translateY: 0 }}
-          transition={{ type: 'timing', duration: 250 } as any}
-        >
-          <TouchableOpacity
-            onPress={handleSignOut}
-            style={{
-              backgroundColor: isDark ? 'rgba(127, 29, 29, 0.2)' : '#ffebe8',
-              borderColor: isDark ? 'rgba(239, 68, 68, 0.2)' : 'transparent',
-            }}
-            className="p-4 rounded-2xl items-center flex-row justify-center mb-6 border"
-            activeOpacity={0.8}
+              {/* EXCLUIR MINHA CONTA */}
+              <TouchableOpacity
+                onPress={handleDeleteAccount}
+                disabled={deleteAccountMutation.isPending}
+                className="flex-row items-center justify-between p-4"
+                activeOpacity={0.7}
+              >
+                <View className="flex-row items-center gap-3">
+                  <Trash size={20} color="#ef4444" weight="bold" />
+                  <Text className="font-outfit text-sm text-red-500">
+                    Excluir Minha Conta
+                  </Text>
+                </View>
+                {deleteAccountMutation.isPending ? (
+                  <ActivityIndicator size="small" color="#ef4444" />
+                ) : (
+                  <CaretRight size={18} color="#ef4444" />
+                )}
+              </TouchableOpacity>
+            </View>
+          </MotiView>
+
+          {/* 7. BOTÃO SAIR */}
+          <MotiView
+            from={{ opacity: 0, translateY: 12 }}
+            animate={{ opacity: 1, translateY: 0 }}
+            transition={{ type: 'timing', duration: 250 } as any}
           >
-            <SignOut size={20} color="#e11d48" />
-            <Text className="text-[#e11d48] font-sans-bold text-base ml-2">
-              Sair da Conta
-            </Text>
-          </TouchableOpacity>
-        </MotiView>
-      </ScrollView>
+            <TouchableOpacity
+              onPress={handleSignOut}
+              style={{
+                backgroundColor: isDark ? 'rgba(127, 29, 29, 0.2)' : '#ffebe8',
+                borderColor: isDark ? 'rgba(239, 68, 68, 0.2)' : 'transparent',
+              }}
+              className="p-4 rounded-2xl items-center flex-row justify-center mb-6 border"
+              activeOpacity={0.8}
+            >
+              <SignOut size={20} color="#e11d48" />
+              <Text className="text-[#e11d48] font-sans-bold text-base ml-2">
+                Sair da Conta
+              </Text>
+            </TouchableOpacity>
+          </MotiView>
+        </ScrollView>
+      )}
 
       {/* MODAL CÓDIGO PERSONAL */}
       <Modal visible={isLinkModalOpen} animationType="slide" transparent>
@@ -826,26 +868,29 @@ export default function StudentProfileScreen() {
             >
               <View
                 style={{ paddingBottom: safeModalBottomPadding }}
-                className={`rounded-t-3xl p-6 border-t ${isDark
+                className={`rounded-t-3xl p-6 border-t ${
+                  isDark
                     ? 'bg-zinc-900 border-zinc-800'
                     : 'bg-white border-[#e2dfe1]'
-                  }`}
+                }`}
               >
                 <ScrollView
                   showsVerticalScrollIndicator={false}
                   keyboardShouldPersistTaps="handled"
                 >
                   <View
-                    className={`flex-row items-center justify-between mb-4 pb-3 border-b ${isDark ? 'border-zinc-800' : 'border-[#e2dfe1]'
-                      }`}
+                    className={`flex-row items-center justify-between mb-4 pb-3 border-b ${
+                      isDark ? 'border-zinc-800' : 'border-[#e2dfe1]'
+                    }`}
                   >
                     <View className="flex-row items-center gap-2">
                       <View className="w-9 h-9 rounded-xl bg-[#59C83A]/10 items-center justify-center border border-[#59C83A]/30">
                         <Key size={20} color="#59C83A" weight="bold" />
                       </View>
                       <Text
-                        className={`text-lg font-outfit-extrabold ${isDark ? 'text-white' : 'text-[#1b1b1d]'
-                          }`}
+                        className={`text-lg font-outfit-extrabold ${
+                          isDark ? 'text-white' : 'text-[#1b1b1d]'
+                        }`}
                       >
                         Código do Personal
                       </Text>
@@ -853,25 +898,28 @@ export default function StudentProfileScreen() {
 
                     <TouchableOpacity
                       onPress={() => setIsLinkModalOpen(false)}
-                      className={`w-8 h-8 rounded-full items-center justify-center ${isDark ? 'bg-zinc-800' : 'bg-zinc-100'
-                        }`}
+                      className={`w-8 h-8 rounded-full items-center justify-center ${
+                        isDark ? 'bg-zinc-800' : 'bg-zinc-100'
+                      }`}
                     >
                       <X size={18} color={isDark ? '#ffffff' : '#1b1b1d'} />
                     </TouchableOpacity>
                   </View>
 
                   <Text
-                    className={`text-xs font-sans-medium mb-4 leading-5 ${isDark ? 'text-zinc-400' : 'text-[#71717a]'
-                      }`}
+                    className={`text-xs font-sans-medium mb-4 leading-5 ${
+                      isDark ? 'text-zinc-400' : 'text-[#71717a]'
+                    }`}
                   >
                     Peça o código exclusivo de convite ao seu Personal Trainer para permitir a prescrição de suas fichas.
                   </Text>
 
                   <TextInput
-                    className={`border rounded-2xl px-4 py-3.5 text-lg font-outfit-extrabold tracking-widest uppercase mb-5 text-center ${isDark
+                    className={`border rounded-2xl px-4 py-3.5 text-lg font-outfit-extrabold tracking-widest uppercase mb-5 text-center ${
+                      isDark
                         ? 'bg-zinc-950 border-zinc-800 text-white'
                         : 'bg-[#f8f9fa] border-[#e2dfe1] text-[#1b1b1d]'
-                      }`}
+                    }`}
                     placeholder="PERS-XXXX"
                     placeholderTextColor={isDark ? '#71717a' : '#a09da1'}
                     value={inviteCodeInput}

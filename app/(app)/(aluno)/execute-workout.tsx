@@ -1,8 +1,8 @@
 // ============================================================================
-// DOCUMENTAÇÃO: TELA DE EXECUÇÃO DE TREINO (ÁREA DO ALUNO)
+// DOCUMENTAÇÃO: TELA DE EXECUÇÃO DE TREINO COM SKELETON LOADING (ÁREA DO ALUNO)
 // ============================================================================
-// Gerencia a execução do treino com descanso configurado exclusivamente para a
-// conclusão dos exercícios e suporte total a Safe Area Insets nos modais.
+// Gerencia a execução do treino, cronômetro de tempo total, descanso automático
+// na conclusão dos exercícios, abertura de mídias demonstrativas e Skeleton Loading.
 // ============================================================================
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
@@ -35,11 +35,13 @@ import {
 } from "phosphor-react-native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { MotiView } from "moti";
+
 import { supabase } from "../../../lib/supabase";
 import { getExerciseGif } from "../../../lib/exerciseGifs";
 import { useThrottledCallback } from "../../../lib/useThrottle";
 import { CustomModal } from "../../../components/CustomModal";
 import { sendNotificationToUser } from "../../../lib/notifications";
+import { Skeleton } from "../../../components/SkeletonLoading"; // 🟢 Importação do Skeleton
 
 // --- TIPAGENS DE DADOS ---
 interface ExerciseItem {
@@ -73,6 +75,55 @@ interface ShowAlertModalOptions {
   cancelText?: string;
   showCancelButton?: boolean;
   onConfirm?: () => void;
+}
+
+// 🟢 SUBCOMPONENTE DE SKELETON PARA A TELA DE EXECUÇÃO
+function WorkoutExecutionSkeleton() {
+  return (
+    <View className="flex-1">
+      {/* Skeleton do Cabeçalho */}
+      <View className="flex-row items-center justify-between mb-4 border-b border-[#e2dfe1] dark:border-zinc-800 pb-3">
+        <Skeleton width={40} height={40} borderRadius={12} />
+        <Skeleton width={160} height={20} borderRadius={6} />
+        <Skeleton width={90} height={36} borderRadius={12} />
+      </View>
+
+      {/* Skeleton do Cronômetro Geral */}
+      <View className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl mb-4 border border-[#e2dfe1] dark:border-zinc-800 items-center">
+        <Skeleton width={130} height={12} borderRadius={4} className="mb-2" />
+        <Skeleton width={170} height={36} borderRadius={8} className="my-1" />
+        <View className="flex-row gap-3 mt-3">
+          <Skeleton width={90} height={32} borderRadius={12} />
+          <Skeleton width={80} height={32} borderRadius={12} />
+        </View>
+      </View>
+
+      {/* Skeleton da Lista de Exercícios */}
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
+        {Array.from({ length: 3 }).map((_, index) => (
+          <View
+            key={`exec-skeleton-${index}`}
+            className="p-4 rounded-2xl mb-4 border bg-[#f8f9fa] dark:bg-zinc-900 border-[#e2dfe1] dark:border-zinc-800"
+          >
+            <View className="flex-row items-center justify-between mb-3">
+              <Skeleton width="50%" height={18} borderRadius={6} />
+              <View className="flex-row gap-2">
+                <Skeleton width={70} height={26} borderRadius={8} />
+                <Skeleton width={80} height={26} borderRadius={8} />
+              </View>
+            </View>
+
+            {/* Checklist de Séries */}
+            <View className="gap-2 mt-1">
+              <Skeleton width="100%" height={44} borderRadius={12} />
+              <Skeleton width="100%" height={44} borderRadius={12} />
+              <Skeleton width="100%" height={44} borderRadius={12} />
+            </View>
+          </View>
+        ))}
+      </ScrollView>
+    </View>
+  );
 }
 
 /**
@@ -441,7 +492,6 @@ export default function ExecuteWorkoutScreen() {
     }
   }
 
-  // 🟢 ALTERADO: Descanso removido do clique individual e movido para a conclusão do exercício
   function toggleSetCompletion(
     exerciseId: string,
     setIndex: number,
@@ -465,7 +515,6 @@ export default function ExecuteWorkoutScreen() {
         }
       }
 
-      // Se todas as séries forem marcadas, conclui o exercício e dispara o descanso
       if (allDone) {
         nextCompletedExercises.add(exerciseId);
         startRestTimer(DEFAULT_REST_TIME);
@@ -476,7 +525,6 @@ export default function ExecuteWorkoutScreen() {
     setCompletedExercises(nextCompletedExercises);
   }
 
-  // 🟢 ALTERADO: Dispara o timer de descanso ao clicar no botão "Finalizar" do exercício
   function toggleExerciseCompletion(
     exerciseId: string,
     totalSetsCount: number
@@ -545,299 +593,294 @@ export default function ExecuteWorkoutScreen() {
     ? Math.max(insets?.bottom || 0, 24) + 20
     : Math.max(insets?.bottom || 0, 16) + 12;
 
-  if (isLoading) {
-    return (
-      <View className="flex-1 bg-white dark:bg-zinc-950 justify-center items-center">
-        <ActivityIndicator size="large" color="#59C83A" />
-        <Text className="text-xs font-sans-medium text-[#71717a] dark:text-zinc-400 mt-2">
-          Iniciando sessão de treino...
-        </Text>
-      </View>
-    );
-  }
-
   return (
     <View
       className="flex-1 bg-[#ffffff] dark:bg-[#09090b] px-5"
       style={{ paddingTop: safeTopPadding + 10 }}
     >
-      {/* 1. CABEÇALHO ANIMADO */}
-      <MotiView
-        from={{ opacity: 0, translateY: -8 }}
-        animate={{ opacity: 1, translateY: 0 }}
-        transition={{
-          type: "spring",
-          damping: 24,
-          stiffness: 160,
-        } as any}
-        className="flex-row items-center justify-between mb-4 border-b border-[#e2dfe1] dark:border-zinc-800 pb-3"
-      >
-        <TouchableOpacity
-          onPress={handleExitWorkout}
-          className="w-10 h-10 rounded-xl bg-[#f8f9fa] dark:bg-zinc-900 justify-center items-center border border-[#e2dfe1] dark:border-zinc-800"
-        >
-          <X size={20} color={isDark ? "#ffffff" : "#1b1b1d"} />
-        </TouchableOpacity>
-
-        <Text
-          className="text-base font-outfit text-[#1b1b1d] dark:text-white flex-1 mx-3 text-center"
-          numberOfLines={1}
-        >
-          {workoutName}
-        </Text>
-
-        <TouchableOpacity
-          onPress={handleFinishThrottled}
-          disabled={finishWorkoutMutation.isPending}
-          className="bg-[#59C83A] px-3.5 py-2 rounded-xl flex-row items-center shadow-sm"
-        >
-          {finishWorkoutMutation.isPending ? (
-            <ActivityIndicator size="small" color="#FFFFFF" />
-          ) : (
-            <>
-              <CheckCircle size={18} color="#FFFFFF" weight="bold" />
-              <Text className="text-white font-sans-bold ml-1 text-xs">
-                Finalizar
-              </Text>
-            </>
-          )}
-        </TouchableOpacity>
-      </MotiView>
-
-      {/* 2. CARD DO CRONÔMETRO PRINCIPAL */}
-      <MotiView
-        from={{ opacity: 0, scale: 0.96, translateY: 10 }}
-        animate={{ opacity: 1, scale: 1, translateY: 0 }}
-        transition={{
-          type: "spring",
-          damping: 22,
-          stiffness: 150,
-          delay: 30,
-        } as any}
-        className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl mb-4 border border-[#e2dfe1] dark:border-zinc-800 items-center justify-center"
-      >
-        <Text className="text-[10px] font-sans-bold text-[#59C83A] uppercase tracking-wider mb-1">
-          {elapsedSeconds === 0 && isTimerPaused
-            ? "Pronto para Iniciar"
-            : isTimerPaused
-            ? "Treino Pausado"
-            : "Treino em Andamento"}
-        </Text>
-
-        <View className="flex-row items-center justify-center my-1">
-          <Clock
-            size={22}
-            color={isTimerPaused ? "#EAB308" : "#59C83A"}
-            weight="bold"
-          />
-          <Text className="text-3xl font-outfit-extrabold text-[#1b1b1d] dark:text-white ml-2">
-            {formatTime(elapsedSeconds)}
-          </Text>
-        </View>
-
-        <View className="flex-row items-center gap-3 mt-3">
-          <TouchableOpacity
-            onPress={() => setIsTimerPaused((prev) => !prev)}
-            className="flex-row items-center bg-[#59C83A] px-4 py-2 rounded-xl"
+      {isLoading ? (
+        <WorkoutExecutionSkeleton />
+      ) : (
+        <>
+          {/* 1. CABEÇALHO ANIMADO */}
+          <MotiView
+            from={{ opacity: 0, translateY: -8 }}
+            animate={{ opacity: 1, translateY: 0 }}
+            transition={{
+              type: "spring",
+              damping: 24,
+              stiffness: 160,
+            } as any}
+            className="flex-row items-center justify-between mb-4 border-b border-[#e2dfe1] dark:border-zinc-800 pb-3"
           >
-            {isTimerPaused ? (
-              <>
-                <Play size={16} color="#FFFFFF" weight="bold" />
-                <Text className="text-white font-sans-bold text-xs ml-1.5">
-                  {elapsedSeconds === 0 ? "Iniciar" : "Continuar"}
-                </Text>
-              </>
-            ) : (
-              <>
-                <Pause size={16} color="#FFFFFF" weight="bold" />
-                <Text className="text-white font-sans-bold text-xs ml-1.5">
-                  Pausar
-                </Text>
-              </>
-            )}
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={() => {
-              setElapsedSeconds(0);
-              setIsTimerPaused(true);
-            }}
-            className="flex-row items-center bg-zinc-200 dark:bg-zinc-800 px-4 py-2 rounded-xl border border-zinc-300 dark:border-zinc-700"
-          >
-            <ArrowCounterClockwise
-              size={16}
-              color={isDark ? "#ffffff" : "#1b1b1d"}
-              weight="bold"
-            />
-            <Text className="text-[#1b1b1d] dark:text-white font-sans-bold text-xs ml-1.5">
-              Zerar
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </MotiView>
-
-      {/* 3. LISTA DE EXERCÍCIOS ANIMADA */}
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 100 }}
-      >
-        {sortedExercises.map((exercise) => {
-          const totalSetsCount = parseInt(exercise.sets) || 3;
-          const setsArray = Array.from({ length: totalSetsCount });
-          const isExerciseDone = completedExercises.has(exercise.id);
-
-          const originalIndex =
-            exercises.findIndex((e) => e.id === exercise.id) + 1;
-
-          return (
-            <MotiView
-              key={exercise.id}
-              from={{ opacity: 0, translateY: 14, scale: 0.97 }}
-              animate={{
-                opacity: isExerciseDone ? 0.5 : 1,
-                scale: 1,
-                translateY: 0,
-              }}
-              transition={{
-                type: "spring",
-                damping: 22,
-                stiffness: 150,
-              } as any}
-              className={`p-4 rounded-2xl mb-4 border ${
-                isExerciseDone
-                  ? "bg-zinc-100/70 dark:bg-zinc-900/40 border-dashed border-zinc-300 dark:border-zinc-800"
-                  : "bg-[#f8f9fa] dark:bg-zinc-900 border-[#e2dfe1] dark:border-zinc-800"
-              }`}
+            <TouchableOpacity
+              onPress={handleExitWorkout}
+              className="w-10 h-10 rounded-xl bg-[#f8f9fa] dark:bg-zinc-900 justify-center items-center border border-[#e2dfe1] dark:border-zinc-800"
             >
-              <View className="flex-row items-center justify-between mb-2">
-                <Text
-                  className={`text-base font-outfit flex-1 mr-2 ${
+              <X size={20} color={isDark ? "#ffffff" : "#1b1b1d"} />
+            </TouchableOpacity>
+
+            <Text
+              className="text-base font-outfit text-[#1b1b1d] dark:text-white flex-1 mx-3 text-center"
+              numberOfLines={1}
+            >
+              {workoutName}
+            </Text>
+
+            <TouchableOpacity
+              onPress={handleFinishThrottled}
+              disabled={finishWorkoutMutation.isPending}
+              className="bg-[#59C83A] px-3.5 py-2 rounded-xl flex-row items-center shadow-sm"
+            >
+              {finishWorkoutMutation.isPending ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <>
+                  <CheckCircle size={18} color="#FFFFFF" weight="bold" />
+                  <Text className="text-white font-sans-bold ml-1 text-xs">
+                    Finalizar
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </MotiView>
+
+          {/* 2. CARD DO CRONÔMETRO PRINCIPAL */}
+          <MotiView
+            from={{ opacity: 0, scale: 0.96, translateY: 10 }}
+            animate={{ opacity: 1, scale: 1, translateY: 0 }}
+            transition={{
+              type: "spring",
+              damping: 22,
+              stiffness: 150,
+              delay: 30,
+            } as any}
+            className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl mb-4 border border-[#e2dfe1] dark:border-zinc-800 items-center justify-center"
+          >
+            <Text className="text-[10px] font-sans-bold text-[#59C83A] uppercase tracking-wider mb-1">
+              {elapsedSeconds === 0 && isTimerPaused
+                ? "Pronto para Iniciar"
+                : isTimerPaused
+                ? "Treino Pausado"
+                : "Treino em Andamento"}
+            </Text>
+
+            <View className="flex-row items-center justify-center my-1">
+              <Clock
+                size={22}
+                color={isTimerPaused ? "#EAB308" : "#59C83A"}
+                weight="bold"
+              />
+              <Text className="text-3xl font-outfit-extrabold text-[#1b1b1d] dark:text-white ml-2">
+                {formatTime(elapsedSeconds)}
+              </Text>
+            </View>
+
+            <View className="flex-row items-center gap-3 mt-3">
+              <TouchableOpacity
+                onPress={() => setIsTimerPaused((prev) => !prev)}
+                className="flex-row items-center bg-[#59C83A] px-4 py-2 rounded-xl"
+              >
+                {isTimerPaused ? (
+                  <>
+                    <Play size={16} color="#FFFFFF" weight="bold" />
+                    <Text className="text-white font-sans-bold text-xs ml-1.5">
+                      {elapsedSeconds === 0 ? "Iniciar" : "Continuar"}
+                    </Text>
+                  </>
+                ) : (
+                  <>
+                    <Pause size={16} color="#FFFFFF" weight="bold" />
+                    <Text className="text-white font-sans-bold text-xs ml-1.5">
+                      Pausar
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => {
+                  setElapsedSeconds(0);
+                  setIsTimerPaused(true);
+                }}
+                className="flex-row items-center bg-zinc-200 dark:bg-zinc-800 px-4 py-2 rounded-xl border border-zinc-300 dark:border-zinc-700"
+              >
+                <ArrowCounterClockwise
+                  size={16}
+                  color={isDark ? "#ffffff" : "#1b1b1d"}
+                  weight="bold"
+                />
+                <Text className="text-[#1b1b1d] dark:text-white font-sans-bold text-xs ml-1.5">
+                  Zerar
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </MotiView>
+
+          {/* 3. LISTA DE EXERCÍCIOS ANIMADA */}
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingBottom: 100 }}
+          >
+            {sortedExercises.map((exercise) => {
+              const totalSetsCount = parseInt(exercise.sets) || 3;
+              const setsArray = Array.from({ length: totalSetsCount });
+              const isExerciseDone = completedExercises.has(exercise.id);
+
+              const originalIndex =
+                exercises.findIndex((e) => e.id === exercise.id) + 1;
+
+              return (
+                <MotiView
+                  key={exercise.id}
+                  from={{ opacity: 0, translateY: 14, scale: 0.97 }}
+                  animate={{
+                    opacity: isExerciseDone ? 0.5 : 1,
+                    scale: 1,
+                    translateY: 0,
+                  }}
+                  transition={{
+                    type: "spring",
+                    damping: 22,
+                    stiffness: 150,
+                  } as any}
+                  className={`p-4 rounded-2xl mb-4 border ${
                     isExerciseDone
-                      ? "text-[#71717a] dark:text-zinc-500 line-through"
-                      : "text-[#1b1b1d] dark:text-white"
+                      ? "bg-zinc-100/70 dark:bg-zinc-900/40 border-dashed border-zinc-300 dark:border-zinc-800"
+                      : "bg-[#f8f9fa] dark:bg-zinc-900 border-[#e2dfe1] dark:border-zinc-800"
                   }`}
                 >
-                  {originalIndex}. {exercise.name}
-                </Text>
-
-                <View className="flex-row items-center gap-2">
-                  <TouchableOpacity
-                    onPress={() => handleOpenExerciseDemo(exercise)}
-                    className="bg-[#59C83A]/10 px-2.5 py-1 rounded-lg flex-row items-center border border-[#59C83A]/30"
-                  >
-                    <PlayCircle size={14} color="#59C83A" weight="bold" />
-                    <Text className="text-[11px] font-sans-bold text-[#59C83A] ml-1">
-                      Ver GIF
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    onPress={() =>
-                      toggleExerciseCompletion(exercise.id, totalSetsCount)
-                    }
-                    className={`px-2.5 py-1 rounded-lg flex-row items-center border ${
-                      isExerciseDone
-                        ? "bg-[#59C83A] border-[#59C83A]"
-                        : "bg-zinc-200 dark:bg-zinc-800 border-zinc-300 dark:border-zinc-700"
-                    }`}
-                  >
-                    <CheckCircle
-                      size={14}
-                      color={
-                        isExerciseDone
-                          ? "#FFFFFF"
-                          : isDark
-                          ? "#A1A1AA"
-                          : "#71717A"
-                      }
-                      weight="bold"
-                    />
+                  <View className="flex-row items-center justify-between mb-2">
                     <Text
-                      className={`text-[11px] font-sans-bold ml-1 ${
+                      className={`text-base font-outfit flex-1 mr-2 ${
                         isExerciseDone
-                          ? "text-white"
-                          : "text-[#71717a] dark:text-zinc-400"
+                          ? "text-[#71717a] dark:text-zinc-500 line-through"
+                          : "text-[#1b1b1d] dark:text-white"
                       }`}
                     >
-                      {isExerciseDone ? "Concluído" : "Finalizar"}
+                      {originalIndex}. {exercise.name}
                     </Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
 
-              {exercise.notes ? (
-                <Text className="text-xs text-[#71717a] dark:text-zinc-400 mb-3 font-sans-medium">
-                  💬 {exercise.notes}
-                </Text>
-              ) : null}
-
-              {/* CHECKLIST DE SÉRIES */}
-              <View className="gap-2 mt-1">
-                {setsArray.map((_, setIndex) => {
-                  const setKey = `${exercise.id}-${setIndex}`;
-                  const isDone = completedSets.has(setKey);
-
-                  return (
-                    <TouchableOpacity
-                      key={setIndex}
-                      activeOpacity={0.8}
-                      onPress={() =>
-                        toggleSetCompletion(
-                          exercise.id,
-                          setIndex,
-                          totalSetsCount
-                        )
-                      }
-                      className={`p-3 rounded-xl border flex-row items-center justify-between ${
-                        isDone
-                          ? "bg-[#59C83A]/10 border-[#59C83A]"
-                          : "bg-white dark:bg-zinc-950 border-[#e2dfe1] dark:border-zinc-800"
-                      }`}
-                    >
-                      <View className="flex-row items-center">
-                        <View
-                          className={`w-6 h-6 rounded-lg items-center justify-center mr-3 ${
-                            isDone
-                              ? "bg-[#59C83A]"
-                              : "bg-zinc-200 dark:bg-zinc-800"
-                          }`}
-                        >
-                          {isDone ? (
-                            <Check size={14} color="#FFFFFF" weight="bold" />
-                          ) : (
-                            <Text className="text-xs font-sans-bold text-[#71717a] dark:text-zinc-400">
-                              {setIndex + 1}
-                            </Text>
-                          )}
-                        </View>
-                        <Text
-                          className={`text-xs font-sans-bold ${
-                            isDone
-                              ? "text-[#59C83A] line-through"
-                              : "text-[#1b1b1d] dark:text-white"
-                          }`}
-                        >
-                          Série {setIndex + 1}
+                    <View className="flex-row items-center gap-2">
+                      <TouchableOpacity
+                        onPress={() => handleOpenExerciseDemo(exercise)}
+                        className="bg-[#59C83A]/10 px-2.5 py-1 rounded-lg flex-row items-center border border-[#59C83A]/30"
+                      >
+                        <PlayCircle size={14} color="#59C83A" weight="bold" />
+                        <Text className="text-[11px] font-sans-bold text-[#59C83A] ml-1">
+                          Ver GIF
                         </Text>
-                      </View>
+                      </TouchableOpacity>
 
-                      <Text
-                        className={`text-xs font-sans-bold ${
-                          isDone
-                            ? "text-[#59C83A]"
-                            : "text-[#71717a] dark:text-zinc-400"
+                      <TouchableOpacity
+                        onPress={() =>
+                          toggleExerciseCompletion(exercise.id, totalSetsCount)
+                        }
+                        className={`px-2.5 py-1 rounded-lg flex-row items-center border ${
+                          isExerciseDone
+                            ? "bg-[#59C83A] border-[#59C83A]"
+                            : "bg-zinc-200 dark:bg-zinc-800 border-zinc-300 dark:border-zinc-700"
                         }`}
                       >
-                        {exercise.reps} reps
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </MotiView>
-          );
-        })}
-      </ScrollView>
+                        <CheckCircle
+                          size={14}
+                          color={
+                            isExerciseDone
+                              ? "#FFFFFF"
+                              : isDark
+                              ? "#A1A1AA"
+                              : "#71717A"
+                          }
+                          weight="bold"
+                        />
+                        <Text
+                          className={`text-[11px] font-sans-bold ml-1 ${
+                            isExerciseDone
+                              ? "text-white"
+                              : "text-[#71717a] dark:text-zinc-400"
+                          }`}
+                        >
+                          {isExerciseDone ? "Concluído" : "Finalizar"}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+
+                  {exercise.notes ? (
+                    <Text className="text-xs text-[#71717a] dark:text-zinc-400 mb-3 font-sans-medium">
+                      💬 {exercise.notes}
+                    </Text>
+                  ) : null}
+
+                  {/* CHECKLIST DE SÉRIES */}
+                  <View className="gap-2 mt-1">
+                    {setsArray.map((_, setIndex) => {
+                      const setKey = `${exercise.id}-${setIndex}`;
+                      const isDone = completedSets.has(setKey);
+
+                      return (
+                        <TouchableOpacity
+                          key={setIndex}
+                          activeOpacity={0.8}
+                          onPress={() =>
+                            toggleSetCompletion(
+                              exercise.id,
+                              setIndex,
+                              totalSetsCount
+                            )
+                          }
+                          className={`p-3 rounded-xl border flex-row items-center justify-between ${
+                            isDone
+                              ? "bg-[#59C83A]/10 border-[#59C83A]"
+                              : "bg-white dark:bg-zinc-950 border-[#e2dfe1] dark:border-zinc-800"
+                          }`}
+                        >
+                          <View className="flex-row items-center">
+                            <View
+                              className={`w-6 h-6 rounded-lg items-center justify-center mr-3 ${
+                                isDone
+                                  ? "bg-[#59C83A]"
+                                  : "bg-zinc-200 dark:bg-zinc-800"
+                              }`}
+                            >
+                              {isDone ? (
+                                <Check size={14} color="#FFFFFF" weight="bold" />
+                              ) : (
+                                <Text className="text-xs font-sans-bold text-[#71717a] dark:text-zinc-400">
+                                  {setIndex + 1}
+                                </Text>
+                              )}
+                            </View>
+                            <Text
+                              className={`text-xs font-sans-bold ${
+                                isDone
+                                  ? "text-[#59C83A] line-through"
+                                  : "text-[#1b1b1d] dark:text-white"
+                              }`}
+                            >
+                              Série {setIndex + 1}
+                            </Text>
+                          </View>
+
+                          <Text
+                            className={`text-xs font-sans-bold ${
+                              isDone
+                                ? "text-[#59C83A]"
+                                : "text-[#71717a] dark:text-zinc-400"
+                            }`}
+                          >
+                            {exercise.reps} reps
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </MotiView>
+              );
+            })}
+          </ScrollView>
+        </>
+      )}
 
       {/* MODAL DE DEMONSTRAÇÃO */}
       <Modal visible={demoModalVisible} transparent animationType="slide">

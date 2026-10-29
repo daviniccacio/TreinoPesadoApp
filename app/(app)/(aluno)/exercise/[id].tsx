@@ -1,5 +1,8 @@
 // ============================================================================
-// DOCUMENTAÇÃO: TELA DE DETALHES DO EXERCÍCIO (INTEGRADA AO TIMER GLOBAL)
+// DOCUMENTAÇÃO: TELA DE DETALHES DO EXERCÍCIO (COM SKELETON E TIMER GLOBAL)
+// ============================================================================
+// Exibe o GIF demonstrativo do exercício, métricas de execução (séries, reps e carga)
+// e painel de timer/descanso com estado global e esqueletos de carregamento visual.
 // ============================================================================
 
 import React, { useState } from 'react';
@@ -31,7 +34,8 @@ import { Image } from 'expo-image';
 
 import { supabase } from '../../../../lib/supabase';
 import { getExerciseGif } from '../../../../lib/exerciseGifs';
-import { useTimer } from '../../../../context/TimerContext'; // 🟢 CONTEXTO GLOBAL
+import { useTimer } from '../../../../context/TimerContext';
+import { Skeleton } from '../../../../components/SkeletonLoading'; // 🟢 Importação do Skeleton
 
 interface ExerciseDetail {
   id: string;
@@ -41,6 +45,42 @@ interface ExerciseDetail {
   weight: string;
   category_id: string;
   gif_key?: string;
+}
+
+// 🟢 SUBCOMPONENTE DE SKELETON PARA OS DETALHES DO EXERCÍCIO
+function ExerciseDetailSkeleton() {
+  return (
+    <ScrollView
+      className="flex-1 px-5 pt-4"
+      contentContainerStyle={{ paddingBottom: 60 }}
+      showsVerticalScrollIndicator={false}
+    >
+      {/* Skeleton de Título e Categoria */}
+      <View className="mb-4">
+        <Skeleton width="70%" height={28} borderRadius={8} className="mb-2" />
+        <Skeleton width={120} height={24} borderRadius={12} />
+      </View>
+
+      {/* Skeleton do GIF Demonstrativo */}
+      <Skeleton width="100%" height={288} borderRadius={24} className="mb-6" />
+
+      {/* Skeleton das Métricas (3 colunas) */}
+      <View className="flex-row justify-between mb-6">
+        <View className="w-[31%]">
+          <Skeleton width="100%" height={85} borderRadius={16} />
+        </View>
+        <View className="w-[31%]">
+          <Skeleton width="100%" height={85} borderRadius={16} />
+        </View>
+        <View className="w-[31%]">
+          <Skeleton width="100%" height={85} borderRadius={16} />
+        </View>
+      </View>
+
+      {/* Skeleton do Card do Timer */}
+      <Skeleton width="100%" height={180} borderRadius={24} />
+    </ScrollView>
+  );
 }
 
 async function fetchExerciseDetail(exerciseId: string): Promise<ExerciseDetail> {
@@ -138,9 +178,7 @@ export default function ExerciseDetailScreen() {
 
       {/* CONTEÚDO PRINCIPAL */}
       {isLoading ? (
-        <View className="flex-1 justify-center items-center">
-          <ActivityIndicator size="large" color="#59C83A" />
-        </View>
+        <ExerciseDetailSkeleton />
       ) : exercise ? (
         <ScrollView
           className="flex-1 px-5 pt-4"

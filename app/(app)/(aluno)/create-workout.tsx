@@ -1,8 +1,8 @@
 // ============================================================================
-// DOCUMENTAÇÃO: TELA DE CRIAÇÃO / EDIÇÃO DE TREINO CUSTOMIZADO (ALUNO)
+// DOCUMENTAÇÃO: TELA DE CRIAÇÃO / EDIÇÃO DE TREINO CUSTOMIZADO COM SKELETON
 // ============================================================================
 // Permite ao aluno criar ou editar uma ficha personalizada com categorias
-// formatadas com acentuação e letras maiúsculas/minúsculas corretas.
+// formatadas, animações fluidas e esqueletos visuais durante o carregamento.
 // ============================================================================
 
 import React, { useState, useEffect, useMemo, useCallback } from "react";
@@ -39,6 +39,7 @@ import { MotiView } from "moti";
 import { supabase } from "../../../lib/supabase";
 import { getExerciseGif } from "../../../lib/exerciseGifs";
 import { CustomModal } from "../../../components/CustomModal";
+import { Skeleton } from "../../../components/SkeletonLoading"; // 🟢 Importação do Skeleton
 
 const DAYS_OF_WEEK = [
   "Livre",
@@ -48,6 +49,57 @@ const DAYS_OF_WEEK = [
   "Quinta",
   "Sexta",
 ];
+
+// 🟢 SUBCOMPONENTE DE SKELETON PARA O FORMULÁRIO DE TREINO
+function CreateWorkoutSkeleton() {
+  return (
+    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
+      {/* Skeleton do Campo Nome do Treino */}
+      <Skeleton width={120} height={14} borderRadius={4} className="mb-2" />
+      <Skeleton width="100%" height={52} borderRadius={16} className="mb-4" />
+
+      {/* Skeleton do Campo Propósito */}
+      <Skeleton width={160} height={14} borderRadius={4} className="mb-2" />
+      <Skeleton width="100%" height={48} borderRadius={16} className="mb-4" />
+
+      {/* Skeleton do Dia Sugerido */}
+      <Skeleton width={180} height={14} borderRadius={4} className="mb-2" />
+      <View className="flex-row gap-2 mb-6">
+        <Skeleton width={70} height={32} borderRadius={12} />
+        <Skeleton width={70} height={32} borderRadius={12} />
+        <Skeleton width={70} height={32} borderRadius={12} />
+        <Skeleton width={70} height={32} borderRadius={12} />
+      </View>
+
+      {/* Skeleton do Cabeçalho da Seção de Exercícios */}
+      <View className="flex-row justify-between items-center mb-4">
+        <Skeleton width={140} height={20} borderRadius={6} />
+        <Skeleton width={90} height={32} borderRadius={12} />
+      </View>
+
+      {/* Skeleton dos Cards de Exercícios Selecionados */}
+      {Array.from({ length: 3 }).map((_, index) => (
+        <View
+          key={`workout-skeleton-${index}`}
+          className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl mb-3 border border-[#e2dfe1] dark:border-zinc-800"
+        >
+          <View className="mb-3">
+            <Skeleton width={80} height={12} borderRadius={4} className="mb-1.5" />
+            <Skeleton width="60%" height={18} borderRadius={6} />
+          </View>
+          <View className="flex-row justify-between gap-2">
+            <Skeleton width="30%" height={40} borderRadius={12} />
+            <Skeleton width="30%" height={40} borderRadius={12} />
+            <Skeleton width="30%" height={40} borderRadius={12} />
+          </View>
+        </View>
+      ))}
+
+      {/* Skeleton do Botão Salvar */}
+      <Skeleton width="100%" height={52} borderRadius={16} className="mt-4" />
+    </ScrollView>
+  );
+}
 
 // FUNÇÃO UTILITÁRIA PARA FORMATAR AS CATEGORIAS DE FORMA AMIGÁVEL
 function formatCategoryLabel(rawCategory?: string): string {
@@ -183,7 +235,6 @@ export default function CreateOrEditWorkoutScreen() {
     workoutTitle.trim().length > 0 ||
     workoutDescription.trim().length > 0;
 
-  // 🟢 CORREÇÃO DOS ERROS DE TIPAGEM NO EVENTO 'beforeRemove'
   useEffect(() => {
     const unsubscribe = (navigation as any).addListener("beforeRemove", (e: any) => {
       if (!isFormDirty || isSaved) {
@@ -632,12 +683,7 @@ export default function CreateOrEditWorkoutScreen() {
       </MotiView>
 
       {isLoadingWorkout ? (
-        <View className="flex-1 justify-center items-center">
-          <ActivityIndicator size="large" color="#59C83A" />
-          <Text className="text-xs font-sans-medium text-[#71717a] dark:text-zinc-400 mt-3">
-            Carregando informações do treino...
-          </Text>
-        </View>
+        <CreateWorkoutSkeleton />
       ) : (
         <ScrollView
           showsVerticalScrollIndicator={false}

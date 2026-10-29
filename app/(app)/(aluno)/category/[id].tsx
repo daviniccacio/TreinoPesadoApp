@@ -1,9 +1,9 @@
 // ============================================================================
-// DOCUMENTAÇÃO: TELA DE EXERCÍCIOS POR CATEGORIA (ÁREA DO ALUNO)
+// DOCUMENTAÇÃO: TELA DE EXERCÍCIOS POR CATEGORIA (ÁREA DO ALUNO COM SKELETON)
 // ============================================================================
 // Exibe a lista de exercícios cadastrados para uma categoria específica,
-// com suporte a busca local, animação de entrada, Pull-to-Refresh e
-// mapeamento correto de nomes formatados com acentuação.
+// com suporte a busca local, animação de entrada, Skeleton Loading,
+// Pull-to-Refresh e mapeamento correto de nomes formatados com acentuação.
 // ============================================================================
 
 import React, { useState } from 'react';
@@ -12,7 +12,6 @@ import {
   Text,
   TouchableOpacity,
   FlatList,
-  ActivityIndicator,
   RefreshControl,
   TextInput,
   useColorScheme,
@@ -29,11 +28,10 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { MotiView } from 'moti';
 import { supabase } from '../../../../lib/supabase';
+import { Skeleton } from '../../../../components/SkeletonLoading'; // 🟢 Importação do Skeleton
 
 // ============================================================================
 // DICIONÁRIO DE MAPEAMENTO DE CATEGORIAS
-// ============================================================================
-// Converte as chaves técnicas do banco de dados nos nomes formatados com acentos.
 // ============================================================================
 const CATEGORY_MAP: Record<string, string> = {
   gluteo: 'Glúteos',
@@ -47,7 +45,6 @@ const CATEGORY_MAP: Record<string, string> = {
   cardio: 'Cardio',
   alongamentos: 'Alongamentos',
   'pernas-posterior': 'Posterior de Pernas',
-
 };
 
 interface Exercise {
@@ -57,6 +54,34 @@ interface Exercise {
   reps: string;
   weight: string;
   category_id: string;
+}
+
+// 🟢 SUBCOMPONENTE DE SKELETON PARA A LISTA DE EXERCÍCIOS
+function CategorySkeleton() {
+  return (
+    <View className="px-5 pt-4 flex-1">
+      {/* Skeleton do Título da Seção e Campo de Busca */}
+      <View className="mb-4">
+        <Skeleton width={180} height={24} borderRadius={6} className="mb-3" />
+        <Skeleton width="100%" height={46} borderRadius={16} />
+      </View>
+
+      {/* Skeleton da Lista de Exercícios */}
+      {Array.from({ length: 6 }).map((_, index) => (
+        <View
+          key={`category-skeleton-item-${index}`}
+          className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl mb-3 flex-row items-center justify-between border border-[#e2dfe1] dark:border-zinc-800"
+        >
+          <View className="flex-1 mr-3">
+            <Skeleton width="65%" height={18} borderRadius={6} className="mb-2" />
+            <Skeleton width="85%" height={14} borderRadius={4} />
+          </View>
+
+          <Skeleton width={36} height={36} borderRadius={18} />
+        </View>
+      ))}
+    </View>
+  );
 }
 
 /**
@@ -98,11 +123,6 @@ export default function CategoryScreen() {
     enabled: !!id,
   });
 
-  // ============================================================================
-  // TRATAMENTO DO TÍTULO DA CATEGORIA
-  // ============================================================================
-  // Busca o nome formatado no dicionário. Se não encontrar, apenas capitaliza.
-  // ============================================================================
   const categoryTitle = React.useMemo(() => {
     if (!id) return 'Categoria';
     const normalizedKey = id.toLowerCase().trim();
@@ -124,7 +144,7 @@ export default function CategoryScreen() {
           type: 'spring',
           damping: 22,
           stiffness: 150,
-          delay: index * 40, // Cascata ritmada por card
+          delay: index * 40,
         } as any}
       >
         <TouchableOpacity
@@ -138,12 +158,10 @@ export default function CategoryScreen() {
           activeOpacity={0.8}
         >
           <View className="flex-1 mr-3">
-            {/* Nome do Exercício em Outfit Bold */}
             <Text className="text-base font-outfit text-[#1b1b1d] dark:text-white mb-1">
               {item.name}
             </Text>
 
-            {/* Detalhes de Séries, Repetições e Carga em DM Sans */}
             <View className="flex-row items-center gap-3">
               <Text className="text-xs font-sans-medium text-[#414755] dark:text-zinc-400">
                 <Text style={{ color: '#59C83A' }} className="font-sans-bold">
@@ -175,7 +193,7 @@ export default function CategoryScreen() {
 
   return (
     <View className="flex-1 bg-white dark:bg-zinc-950" style={{ paddingTop: safeTopPadding }}>
-      {/* 1. CABEÇALHO ANIMADO */}
+      {/* CABEÇALHO ANIMADO */}
       <MotiView
         from={{ opacity: 0, translateY: -8 }}
         animate={{ opacity: 1, translateY: 0 }}
@@ -194,7 +212,6 @@ export default function CategoryScreen() {
           <ArrowLeft size={20} color={isDark ? '#59C83A' : '#1b1b1d'} />
         </TouchableOpacity>
 
-        {/* Título da Categoria Formatado */}
         <Text className="text-lg font-outfit text-[#1b1b1d] dark:text-white">
           {categoryTitle}
         </Text>
@@ -202,14 +219,9 @@ export default function CategoryScreen() {
         <View className="w-10" />
       </MotiView>
 
-      {/* 2. CONTEÚDO PRINCIPAL */}
+      {/* CONTEÚDO PRINCIPAL */}
       {isLoading ? (
-        <View className="flex-1 justify-center items-center">
-          <ActivityIndicator size="large" color="#59C83A" />
-          <Text className="mt-3 text-[#414755] dark:text-zinc-400 font-sans-medium text-xs">
-            Carregando exercícios...
-          </Text>
-        </View>
+        <CategorySkeleton />
       ) : isError ? (
         <MotiView
           from={{ opacity: 0, scale: 0.95 }}
@@ -262,7 +274,6 @@ export default function CategoryScreen() {
                 Exercícios Disponíveis
               </Text>
 
-              {/* Campo de Busca por Exercício */}
               <View className="bg-[#f8f9fa] dark:bg-zinc-900 flex-row items-center px-4 py-2.5 rounded-2xl border border-[#e2dfe1] dark:border-zinc-800">
                 <MagnifyingGlass size={18} color={isDark ? '#59C83A' : '#414755'} />
                 <TextInput

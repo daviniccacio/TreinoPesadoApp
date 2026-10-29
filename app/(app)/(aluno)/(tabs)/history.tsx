@@ -1,8 +1,8 @@
 // ============================================================================
-// DOCUMENTAÇÃO: TELA DE HISTÓRICO DE TREINOS (ÁREA DO ALUNO)
+// DOCUMENTAÇÃO: TELA DE HISTÓRICO DE TREINOS (ÁREA DO ALUNO) COM SKELETON
 // ============================================================================
 // Exibe o registro de treinos concluídos pelo aluno, calculando total de
-// sessões e tempo total acumulado em tela com suporte a pull-to-refresh.
+// sessões e tempo acumulado com transição em Skeleton Loading e pull-to-refresh.
 // ============================================================================
 
 import React from 'react';
@@ -11,7 +11,6 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
-  ActivityIndicator,
   RefreshControl,
   useColorScheme,
 } from 'react-native';
@@ -29,6 +28,7 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { MotiView } from 'moti';
 import { supabase } from '../../../../lib/supabase';
+import { Skeleton } from '../../../../components/SkeletonLoading'; // 🟢 Importação do Skeleton
 
 // --- TIPAGEM DE DADOS ---
 interface WorkoutLog {
@@ -36,6 +36,48 @@ interface WorkoutLog {
   workout_title: string;
   duration_seconds: number;
   created_at: string;
+}
+
+// 🟢 SUBCOMPONENTE DE SKELETON PARA O HISTÓRICO DE TREINOS
+function HistorySkeleton() {
+  return (
+    <View className="flex-1">
+      {/* Skeleton dos Cards de Resumo */}
+      <View className="flex-row gap-3 mb-6">
+        <View className="flex-1 bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl border border-[#e2dfe1] dark:border-zinc-800">
+          <Skeleton width={32} height={32} borderRadius={8} className="mb-2" />
+          <Skeleton width={50} height={28} borderRadius={6} className="mb-1" />
+          <Skeleton width={80} height={12} borderRadius={4} />
+        </View>
+
+        <View className="flex-1 bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl border border-[#e2dfe1] dark:border-zinc-800">
+          <Skeleton width={32} height={32} borderRadius={8} className="mb-2" />
+          <Skeleton width={70} height={28} borderRadius={6} className="mb-1" />
+          <Skeleton width={90} height={12} borderRadius={4} />
+        </View>
+      </View>
+
+      {/* Skeleton do Título da Seção */}
+      <Skeleton width={160} height={20} borderRadius={6} className="mb-3" />
+
+      {/* Skeleton da Lista de Sessões Concluídas */}
+      {Array.from({ length: 5 }).map((_, index) => (
+        <View
+          key={`history-log-skeleton-${index}`}
+          className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl mb-3 border border-[#e2dfe1] dark:border-zinc-800 flex-row items-center justify-between"
+        >
+          <View className="flex-1 mr-3">
+            <View className="flex-row items-center mb-2">
+              <Skeleton width={16} height={16} borderRadius={8} className="mr-2" />
+              <Skeleton width="65%" height={16} borderRadius={6} />
+            </View>
+            <Skeleton width="45%" height={12} borderRadius={4} />
+          </View>
+          <Skeleton width={75} height={28} borderRadius={12} />
+        </View>
+      ))}
+    </View>
+  );
 }
 
 /**
@@ -150,11 +192,9 @@ export default function StudentWorkoutHistoryScreen() {
         </TouchableOpacity>
 
         <View className="flex-1">
-          {/* Título da tela em Outfit ExtraBold */}
           <Text className="text-xl font-outfit-extrabold text-[#1b1b1d] dark:text-white">
             Histórico de Treinos
           </Text>
-          {/* Subtítulo em DM Sans Medium */}
           <Text className="text-xs font-sans-medium text-[#71717a] dark:text-zinc-400">
             Seu registro de constância e evolução
           </Text>
@@ -163,7 +203,7 @@ export default function StudentWorkoutHistoryScreen() {
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 120 }} // Espaço livre para a Navbar Flutuante
+        contentContainerStyle={{ paddingBottom: 120 }}
         refreshControl={
           <RefreshControl
             refreshing={isRefetching}
@@ -175,131 +215,121 @@ export default function StudentWorkoutHistoryScreen() {
           />
         }
       >
-        {/* CARTÕES DE RESUMO E ESTATÍSTICAS */}
-        <MotiView
-          from={{ opacity: 0, scale: 0.96, translateY: 10 }}
-          animate={{ opacity: 1, scale: 1, translateY: 0 }}
-          transition={{
-            type: 'spring',
-            damping: 22,
-            stiffness: 150,
-            delay: 40,
-          } as any}
-          className="flex-row gap-3 mb-6"
-        >
-          {/* Card 1: Total de Treinos */}
-          <View className="flex-1 bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl border border-[#e2dfe1] dark:border-zinc-800">
-            <View className="w-8 h-8 rounded-lg bg-[#59C83A]/10 items-center justify-center mb-2">
-              <Trophy size={18} color="#59C83A" weight="bold" />
-            </View>
-            {/* Métrica em Outfit ExtraBold */}
-            <Text className="text-2xl font-outfit-extrabold text-[#1b1b1d] dark:text-white">
-              {totalWorkouts}
-            </Text>
-            {/* Rótulo em DM Sans Bold */}
-            <Text className="text-xs font-sans-bold text-[#71717a] dark:text-zinc-400 mt-0.5">
-              Treinos Feitos
-            </Text>
-          </View>
-
-          {/* Card 2: Tempo Total Treinado */}
-          <View className="flex-1 bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl border border-[#e2dfe1] dark:border-zinc-800">
-            <View className="w-8 h-8 rounded-lg bg-orange-500/10 items-center justify-center mb-2">
-              <Flame size={18} color="#f97316" weight="bold" />
-            </View>
-            {/* Métrica em Outfit ExtraBold */}
-            <Text className="text-2xl font-outfit-extrabold text-[#1b1b1d] dark:text-white">
-              {formatDuration(totalSecondsTrained)}
-            </Text>
-            {/* Rótulo em DM Sans Bold */}
-            <Text className="text-xs font-sans-bold text-[#71717a] dark:text-zinc-400 mt-0.5">
-              Tempo Dedicado
-            </Text>
-          </View>
-        </MotiView>
-
-        {/* TÍTULO DA LISTA */}
-        <MotiView
-          from={{ opacity: 0, translateX: -10 }}
-          animate={{ opacity: 1, translateX: 0 }}
-          transition={{
-            type: 'spring',
-            damping: 22,
-            stiffness: 160,
-            delay: 80,
-          } as any}
-        >
-          {/* Título da seção em Outfit ExtraBold */}
-          <Text className="text-base font-outfit-extrabold text-[#1b1b1d] dark:text-white mb-3">
-            Sessões Concluídas
-          </Text>
-        </MotiView>
-
-        {/* LISTAGEM DOS LOGS ANIMADA */}
         {isLoading ? (
-          <View className="py-12 items-center">
-            <ActivityIndicator size="large" color="#59C83A" />
-            <Text className="text-xs font-sans-medium text-[#71717a] dark:text-zinc-400 mt-3">
-              Carregando seu histórico de treinos...
-            </Text>
-          </View>
-        ) : logs.length === 0 ? (
-          <MotiView
-            from={{ opacity: 0, scale: 0.96 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ type: 'timing', duration: 250 } as any}
-            className="bg-[#f8f9fa] dark:bg-zinc-900 p-8 rounded-2xl border border-dashed border-[#e2dfe1] dark:border-zinc-800 items-center my-2"
-          >
-            <Barbell size={40} color={isDark ? '#71717a' : '#808591'} />
-            <Text className="font-outfit-bold text-[#1b1b1d] dark:text-white mt-3 text-base text-center">
-              Nenhum treino registrado ainda
-            </Text>
-            <Text className="font-sans-medium text-[#71717a] dark:text-zinc-400 text-xs text-center mt-1">
-              Conclua o seu primeiro treino e ele aparecerá salvo aqui no seu histórico!
-            </Text>
-          </MotiView>
+          <HistorySkeleton />
         ) : (
-          logs.map((log, index) => (
+          <>
+            {/* CARTÕES DE RESUMO E ESTATÍSTICAS */}
             <MotiView
-              key={log.id}
-              from={{ opacity: 0, translateY: 14, scale: 0.97 }}
-              animate={{ opacity: 1, translateY: 0, scale: 1 }}
+              from={{ opacity: 0, scale: 0.96, translateY: 10 }}
+              animate={{ opacity: 1, scale: 1, translateY: 0 }}
               transition={{
                 type: 'spring',
                 damping: 22,
                 stiffness: 150,
-                delay: index * 40,
+                delay: 40,
               } as any}
-              className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl mb-3 border border-[#e2dfe1] dark:border-zinc-800 flex-row items-center justify-between"
+              className="flex-row gap-3 mb-6"
             >
-              <View className="flex-1 mr-3">
-                <View className="flex-row items-center mb-1">
-                  <CheckCircle size={16} color="#59C83A" weight="bold" />
-                  {/* Nome do Treino em Outfit Bold */}
-                  <Text className="text-sm font-outfit text-[#1b1b1d] dark:text-white ml-1.5 flex-1" numberOfLines={1}>
-                    {log.workout_title || 'Treino Concluído'}
-                  </Text>
+              {/* Card 1: Total de Treinos */}
+              <View className="flex-1 bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl border border-[#e2dfe1] dark:border-zinc-800">
+                <View className="w-8 h-8 rounded-lg bg-[#59C83A]/10 items-center justify-center mb-2">
+                  <Trophy size={18} color="#59C83A" weight="bold" />
                 </View>
-
-                <View className="flex-row items-center mt-1">
-                  <CalendarBlank size={12} color={isDark ? '#a1a1aa' : '#71717a'} />
-                  {/* Data formatada em DM Sans Medium */}
-                  <Text className="text-xs font-sans-medium text-[#71717a] dark:text-zinc-400 ml-1">
-                    {formatDate(log.created_at)}
-                  </Text>
-                </View>
+                <Text className="text-2xl font-outfit-extrabold text-[#1b1b1d] dark:text-white">
+                  {totalWorkouts}
+                </Text>
+                <Text className="text-xs font-sans-bold text-[#71717a] dark:text-zinc-400 mt-0.5">
+                  Treinos Feitos
+                </Text>
               </View>
 
-              {/* Pill do Tempo de Duração */}
-              <View className="bg-[#59C83A]/10 border border-[#59C83A]/30 px-3 py-1.5 rounded-xl flex-row items-center">
-                <Clock size={13} color="#59C83A" weight="bold" />
-                {/* Tempo de duração em DM Sans Bold */}
-                <Text className="text-xs font-sans-bold text-[#59C83A] ml-1">
-                  {formatDuration(log.duration_seconds)}
+              {/* Card 2: Tempo Total Treinado */}
+              <View className="flex-1 bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl border border-[#e2dfe1] dark:border-zinc-800">
+                <View className="w-8 h-8 rounded-lg bg-orange-500/10 items-center justify-center mb-2">
+                  <Flame size={18} color="#f97316" weight="bold" />
+                </View>
+                <Text className="text-2xl font-outfit-extrabold text-[#1b1b1d] dark:text-white">
+                  {formatDuration(totalSecondsTrained)}
+                </Text>
+                <Text className="text-xs font-sans-bold text-[#71717a] dark:text-zinc-400 mt-0.5">
+                  Tempo Dedicado
                 </Text>
               </View>
             </MotiView>
-          ))
+
+            {/* TÍTULO DA LISTA */}
+            <MotiView
+              from={{ opacity: 0, translateX: -10 }}
+              animate={{ opacity: 1, translateX: 0 }}
+              transition={{
+                type: 'spring',
+                damping: 22,
+                stiffness: 160,
+                delay: 80,
+              } as any}
+            >
+              <Text className="text-base font-outfit-extrabold text-[#1b1b1d] dark:text-white mb-3">
+                Sessões Concluídas
+              </Text>
+            </MotiView>
+
+            {/* LISTAGEM DOS LOGS */}
+            {logs.length === 0 ? (
+              <MotiView
+                from={{ opacity: 0, scale: 0.96 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ type: 'timing', duration: 250 } as any}
+                className="bg-[#f8f9fa] dark:bg-zinc-900 p-8 rounded-2xl border border-dashed border-[#e2dfe1] dark:border-zinc-800 items-center my-2"
+              >
+                <Barbell size={40} color={isDark ? '#71717a' : '#808591'} />
+                <Text className="font-outfit-bold text-[#1b1b1d] dark:text-white mt-3 text-base text-center">
+                  Nenhum treino registrado ainda
+                </Text>
+                <Text className="font-sans-medium text-[#71717a] dark:text-zinc-400 text-xs text-center mt-1">
+                  Conclua o seu primeiro treino e ele aparecerá salvo aqui no seu histórico!
+                </Text>
+              </MotiView>
+            ) : (
+              logs.map((log, index) => (
+                <MotiView
+                  key={log.id}
+                  from={{ opacity: 0, translateY: 14, scale: 0.97 }}
+                  animate={{ opacity: 1, translateY: 0, scale: 1 }}
+                  transition={{
+                    type: 'spring',
+                    damping: 22,
+                    stiffness: 150,
+                    delay: index * 40,
+                  } as any}
+                  className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl mb-3 border border-[#e2dfe1] dark:border-zinc-800 flex-row items-center justify-between"
+                >
+                  <View className="flex-1 mr-3">
+                    <View className="flex-row items-center mb-1">
+                      <CheckCircle size={16} color="#59C83A" weight="bold" />
+                      <Text className="text-sm font-outfit text-[#1b1b1d] dark:text-white ml-1.5 flex-1" numberOfLines={1}>
+                        {log.workout_title || 'Treino Concluído'}
+                      </Text>
+                    </View>
+
+                    <View className="flex-row items-center mt-1">
+                      <CalendarBlank size={12} color={isDark ? '#a1a1aa' : '#71717a'} />
+                      <Text className="text-xs font-sans-medium text-[#71717a] dark:text-zinc-400 ml-1">
+                        {formatDate(log.created_at)}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View className="bg-[#59C83A]/10 border border-[#59C83A]/30 px-3 py-1.5 rounded-xl flex-row items-center">
+                    <Clock size={13} color="#59C83A" weight="bold" />
+                    <Text className="text-xs font-sans-bold text-[#59C83A] ml-1">
+                      {formatDuration(log.duration_seconds)}
+                    </Text>
+                  </View>
+                </MotiView>
+              ))
+            )}
+          </>
         )}
       </ScrollView>
     </View>

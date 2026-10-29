@@ -1,8 +1,8 @@
 // ============================================================================
-// DOCUMENTAÇÃO: TELA INICIAL / HOME (ÁREA DO ALUNO)
+// DOCUMENTAÇÃO: TELA INICIAL / HOME (ÁREA DO ALUNO) COM SKELETON
 // ============================================================================
 // Apresenta a saudação personalizada ao aluno, atalho rápido para criação de
-// treinos e a grade de grupos musculares para navegação nas categorias.
+// treinos e a grade de grupos musculares com esqueletos visuais de carregamento.
 // ============================================================================
 
 import React from "react";
@@ -11,7 +11,6 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
-  ActivityIndicator,
   RefreshControl,
   useColorScheme,
 } from "react-native";
@@ -22,6 +21,7 @@ import { useQuery } from "@tanstack/react-query";
 import { MotiView } from "moti";
 import { Image } from "expo-image";
 import { supabase } from "../../../../lib/supabase";
+import { Skeleton } from "../../../../components/SkeletonLoading"; // 🟢 Importação do Skeleton
 
 // --- TIPAGENS DE DADOS ---
 interface Category {
@@ -37,6 +37,34 @@ interface StudentHomeData {
 
 const FALLBACK_IMAGE =
   "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=600";
+
+// 🟢 SUBCOMPONENTE DE SKELETON PARA A HOME DO ALUNO
+function StudentHomeSkeleton() {
+  return (
+    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
+      {/* Skeleton do Cabeçalho */}
+      <View className="my-3">
+        <Skeleton width={180} height={22} borderRadius={6} className="mb-2" />
+        <Skeleton width={120} height={14} borderRadius={4} />
+      </View>
+
+      {/* Skeleton do Banner "Montar Meu Treino" */}
+      <Skeleton width="100%" height={68} borderRadius={16} className="mb-5" />
+
+      {/* Skeleton do Título da Seção */}
+      <Skeleton width={140} height={18} borderRadius={6} className="mb-3" />
+
+      {/* Skeleton da Grade de Categorias em 2 colunas */}
+      <View className="flex-row flex-wrap justify-between">
+        {Array.from({ length: 6 }).map((_, index) => (
+          <View key={`home-category-skeleton-${index}`} style={{ width: "48.5%" }} className="mb-3">
+            <Skeleton width="100%" height={128} borderRadius={16} />
+          </View>
+        ))}
+      </View>
+    </ScrollView>
+  );
+}
 
 /**
  * Busca o primeiro nome do aluno e as categorias cadastradas no Supabase
@@ -101,17 +129,11 @@ export default function HomeScreen() {
       style={{ paddingTop: safeTopPadding }}
     >
       {isLoading ? (
-        <View className="flex-1 justify-center items-center">
-          <ActivityIndicator size="large" color="#59C83A" />
-          {/* Mensagem em DM Sans Medium */}
-          <Text className="mt-3 text-[#71717a] dark:text-zinc-400 font-sans-medium text-xs">
-            Carregando seus treinos...
-          </Text>
-        </View>
+        <StudentHomeSkeleton />
       ) : (
         <ScrollView
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: 120 }} // Garante espaço para a Navbar Flutuante
+          contentContainerStyle={{ paddingBottom: 120 }}
           refreshControl={
             <RefreshControl
               refreshing={isRefetching}
@@ -134,11 +156,9 @@ export default function HomeScreen() {
             } as any}
             className="my-3"
           >
-            {/* Título Principal em Outfit ExtraBold */}
             <Text className="text-xl font-outfit text-[#1b1b1d] dark:text-white tracking-tight">
               Treino Pesado Academia
             </Text>
-            {/* Saudação ao Aluno em DM Sans SemiBold */}
             <Text className="text-xs font-sans-semibold text-[#71717a] dark:text-zinc-400 mt-0.5">
               Bem-vindo, {userName}!
             </Text>
@@ -166,11 +186,9 @@ export default function HomeScreen() {
                   <Plus size={20} color="#FFFFFF" weight="bold" />
                 </View>
                 <View className="flex-1">
-                  {/* Título do Banner em Outfit Bold */}
                   <Text className="text-sm font-outfit text-white">
                     Montar Meu Treino
                   </Text>
-                  {/* Subtítulo em DM Sans Medium */}
                   <Text className="text-[11px] font-sans-medium text-white/90">
                     Crie uma rotina personalizada
                   </Text>
@@ -180,7 +198,7 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </MotiView>
 
-          {/* Título da Seção em Outfit ExtraBold */}
+          {/* TÍTULO DA SEÇÃO */}
           <Text className="text-sm font-outfit text-[#1b1b1d] dark:text-white mb-3">
             Grupos Musculares
           </Text>
@@ -212,7 +230,6 @@ export default function HomeScreen() {
                   activeOpacity={0.8}
                   className="h-32 rounded-2xl overflow-hidden border border-[#e2dfe1] dark:border-zinc-800 bg-zinc-900 relative"
                 >
-                  {/* Imagem de Fundo da Categoria */}
                   <Image
                     source={{ uri: category.image_url || FALLBACK_IMAGE }}
                     contentFit="cover"
@@ -225,9 +242,7 @@ export default function HomeScreen() {
                     }}
                   />
 
-                  {/* Textos sobrepostos */}
                   <View className="flex-1 justify-end p-3 bg-black/30">
-                    {/* Título da Categoria em Outfit Bold */}
                     <Text
                       className="text font-outfit text-white"
                       numberOfLines={1}
@@ -235,7 +250,6 @@ export default function HomeScreen() {
                       {category.title}
                     </Text>
                     <View className="flex-row items-center mt-0.5">
-                      {/* Texto de Ação em DM Sans Bold */}
                       <Text className="text-[10px] font-sans-bold text-white/80 mr-1">
                         Ver treinos
                       </Text>

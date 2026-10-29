@@ -1,9 +1,8 @@
 // ============================================================================
-// DOCUMENTAÇÃO: TELA MEUS TREINOS (ÁREA DO ALUNO)
+// DOCUMENTAÇÃO: TELA MEUS TREINOS (ÁREA DO ALUNO) COM SKELETON LOADING
 // ============================================================================
 // Exibe as fichas de treino do personal e do aluno.
-// Corrigida a consulta para a tabela 'workout_exercises' do Supabase.
-// Inclui margem de segurança inferior contra sobreposição de navegação nativa.
+// Inclui esqueletos animados para carregamento da lista e modal de detalhes.
 // ============================================================================
 
 import React, { useState } from "react";
@@ -12,7 +11,6 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
-  ActivityIndicator,
   RefreshControl,
   Modal,
   useColorScheme,
@@ -35,6 +33,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { MotiView } from "moti";
 import { supabase } from "../../../../lib/supabase";
 import { CustomModal } from "../../../../components/CustomModal";
+import { Skeleton } from "../../../../components/SkeletonLoading"; // 🟢 Importação do Skeleton
 
 // --- MAPEAMENTO DE CATEGORIAS MUSCULARES ---
 const CATEGORY_MAP: Record<string, string> = {
@@ -89,6 +88,61 @@ const CATEGORY_FILTERS = [
 ] as const;
 
 type FilterType = "all" | "personal" | "custom";
+
+// 🟢 SUBCOMPONENTE DE SKELETON PARA A LISTA DE TREINOS
+function MyWorkoutsSkeleton() {
+  return (
+    <View className="flex-1">
+      {Array.from({ length: 4 }).map((_, index) => (
+        <View
+          key={`workout-skeleton-${index}`}
+          className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl mb-3 border border-[#e2dfe1] dark:border-zinc-800"
+        >
+          <View className="flex-row items-center justify-between mb-2">
+            <View className="flex-row items-center flex-1 mr-2 gap-2.5">
+              <Skeleton width={36} height={36} borderRadius={12} />
+              <Skeleton width="55%" height={20} borderRadius={6} />
+            </View>
+            <Skeleton width={80} height={24} borderRadius={8} />
+          </View>
+
+          <View className="my-1 flex-row items-center">
+            <Skeleton width={14} height={14} borderRadius={4} className="mr-1.5" />
+            <Skeleton width="75%" height={14} borderRadius={4} />
+          </View>
+
+          <View className="flex-row items-center justify-between mt-3 pt-3 border-t border-[#e2dfe1]/60 dark:border-zinc-800">
+            <Skeleton width={100} height={12} borderRadius={4} />
+            <Skeleton width={80} height={32} borderRadius={12} />
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+// 🟢 SUBCOMPONENTE DE SKELETON PARA OS EXERCÍCIOS DO MODAL
+function ModalExercisesSkeleton() {
+  return (
+    <View className="space-y-2">
+      {Array.from({ length: 4 }).map((_, index) => (
+        <View
+          key={`modal-ex-skeleton-${index}`}
+          className="bg-[#f8f9fa] dark:bg-zinc-950 p-3.5 rounded-2xl mb-2 flex-row items-center justify-between border border-[#e2dfe1] dark:border-zinc-800"
+        >
+          <View className="flex-row items-center flex-1 mr-2">
+            <Skeleton width={24} height={24} borderRadius={12} className="mr-2.5" />
+            <View className="flex-1">
+              <Skeleton width="60%" height={14} borderRadius={4} className="mb-1" />
+              <Skeleton width="40%" height={10} borderRadius={4} />
+            </View>
+          </View>
+          <Skeleton width={90} height={14} borderRadius={4} />
+        </View>
+      ))}
+    </View>
+  );
+}
 
 /**
  * Formata os dias da semana para exibição com nomes completos
@@ -247,7 +301,7 @@ async function fetchStudentWorkouts(): Promise<WorkoutCardItem[]> {
 }
 
 /**
- * 🟢 BUSCA DE EXERCÍCIOS CORRIGIDA PARA UTILIZAR 'workout_exercises'
+ * BUSCA DE EXERCÍCIOS UTILIZANDO 'workout_exercises'
  */
 async function fetchWorkoutExercises(
   workoutId: string,
@@ -255,16 +309,13 @@ async function fetchWorkoutExercises(
 ): Promise<ExerciseItem[]> {
   if (!workoutId) return [];
 
-  // Nome da tabela principal no Supabase (corrigido de workout_plan_exercises para workout_exercises)
   const primaryTable = type === "personal" ? "workout_exercises" : "custom_workout_exercises";
 
-  // Tentativa 1: Busca com junção relacional na tabela 'exercises'
   let { data, error } = await supabase
     .from(primaryTable)
     .select("*, exercises(*)")
     .or(`workout_id.eq.${workoutId},workout_plan_id.eq.${workoutId},plan_id.eq.${workoutId}`);
 
-  // Tentativa 2: Fallback para busca direta caso ocorra erro na junção
   if (error || !data || data.length === 0) {
     const fallback = await supabase
       .from(primaryTable)
@@ -279,7 +330,6 @@ async function fetchWorkoutExercises(
   }
 
   return data.map((item: any) => {
-    // Mapeamento resiliente do nome do exercício
     const exerciseName =
       item.name ||
       item.exercise_name ||
@@ -289,7 +339,6 @@ async function fetchWorkoutExercises(
       item.exercise?.name ||
       "Exercício";
 
-    // Mapeamento resiliente da categoria muscular
     const rawCategory =
       item.category ||
       item.category_name ||
@@ -451,7 +500,6 @@ export default function MyWorkoutsScreen() {
     return true;
   });
 
-  // Espaçamentos de segurança para topo e rodapé nativos
   const safeTopPadding = Math.max(insets?.top || 0, 16);
   const safeBottomPadding = Math.max(insets?.bottom || 0, 20);
 
@@ -539,20 +587,15 @@ export default function MyWorkoutsScreen() {
           <RefreshControl
             refreshing={isRefetching}
             onRefresh={() => {
-                void refetch();
-              }}
+              void refetch();
+            }}
             tintColor="#59C83A"
             colors={["#59C83A"]}
           />
         }
       >
         {isLoading ? (
-          <View className="py-12 items-center">
-            <ActivityIndicator size="large" color="#59C83A" />
-            <Text className="text-xs font-sans-medium text-[#71717a] dark:text-zinc-400 mt-3">
-              Carregando seus treinos...
-            </Text>
-          </View>
+          <MyWorkoutsSkeleton />
         ) : filteredWorkouts.length === 0 ? (
           <MotiView
             from={{ opacity: 0, scale: 0.97 }}
@@ -693,7 +736,7 @@ export default function MyWorkoutsScreen() {
         )}
       </ScrollView>
 
-      {/* MODAL DE PRÉ-VISUALIZAÇÃO COM MARGEM INFERIOR NATIVA */}
+      {/* MODAL DE PRÉ-VISUALIZAÇÃO */}
       <Modal
         visible={!!selectedWorkoutForDetails}
         transparent
@@ -759,12 +802,7 @@ export default function MyWorkoutsScreen() {
                 </Text>
 
                 {isLoadingExercises ? (
-                  <View className="py-6 items-center">
-                    <ActivityIndicator size="small" color="#59C83A" />
-                    <Text className="text-xs font-sans-medium text-[#71717a] dark:text-zinc-400 mt-2">
-                      Carregando exercícios...
-                    </Text>
-                  </View>
+                  <ModalExercisesSkeleton />
                 ) : exercisesForDetails.length === 0 ? (
                   <Text className="text-xs font-sans-medium text-[#71717a] dark:text-zinc-400 text-center py-4">
                     Nenhum exercício encontrado nesta ficha.
@@ -813,7 +851,6 @@ export default function MyWorkoutsScreen() {
               </View>
             </ScrollView>
 
-            {/* BOTÃO DO MODAL COM MARGEM INFERIOR DE SEGURANÇA */}
             <View
               className="pt-4 border-t border-[#e2dfe1] dark:border-zinc-800 mt-2"
               style={{ paddingBottom: safeBottomPadding }}

@@ -1,8 +1,9 @@
 // ============================================================================
-// DOCUMENTAÇÃO: TELA DE DETALHES DO TREINO PERSONALIZADO (ÁREA DO ALUNO)
+// DOCUMENTAÇÃO: TELA DE DETALHES DO TREINO PERSONALIZADO (ÁREA DO ALUNO COM SKELETON)
 // ============================================================================
 // Exibe a lista completa de exercícios de um treino criado pelo próprio aluno,
-// permitindo a navegação para os detalhes do exercício, edição e exclusão.
+// permitindo navegação para os detalhes do exercício, edição, exclusão e
+// suporte a Skeleton Loading durante o carregamento de dados.
 // ============================================================================
 
 import React, { useState } from 'react';
@@ -21,6 +22,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { MotiView } from 'moti';
 import { supabase } from '../../../../lib/supabase';
 import { CustomModal } from '../../../../components/CustomModal';
+import { Skeleton } from '../../../../components/SkeletonLoading'; // 🟢 Importação do Skeleton
 
 interface WorkoutExerciseItem {
   id: string;
@@ -38,6 +40,34 @@ interface CustomWorkoutDetail {
   id: string;
   title: string;
   custom_workout_exercises: WorkoutExerciseItem[];
+}
+
+// 🟢 SUBCOMPONENTE DE SKELETON PARA OS DETALHES DO TREINO PERSONALIZADO
+function CustomWorkoutSkeleton() {
+  return (
+    <ScrollView className="flex-1 px-5 pt-4" showsVerticalScrollIndicator={false}>
+      {/* Skeleton do Título e Subtítulo */}
+      <View className="mb-6">
+        <Skeleton width={220} height={28} borderRadius={8} className="mb-2" />
+        <Skeleton width={140} height={14} borderRadius={4} />
+      </View>
+
+      {/* Skeleton da Lista de Exercícios */}
+      {Array.from({ length: 5 }).map((_, index) => (
+        <View
+          key={`custom-workout-skeleton-${index}`}
+          className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl mb-3 flex-row items-center justify-between border border-[#e2dfe1] dark:border-zinc-800"
+        >
+          <View className="flex-1 mr-3">
+            <Skeleton width={100} height={12} borderRadius={4} className="mb-1.5" />
+            <Skeleton width="70%" height={18} borderRadius={6} className="mb-2" />
+            <Skeleton width="85%" height={14} borderRadius={4} />
+          </View>
+          <Skeleton width={36} height={36} borderRadius={18} />
+        </View>
+      ))}
+    </ScrollView>
+  );
 }
 
 /**
@@ -79,7 +109,6 @@ export default function CustomWorkoutDetailScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
-  // ESTADO DO MODAL PERSONALIZADO
   const [modalConfig, setModalConfig] = useState<{
     visible: boolean;
     title: string;
@@ -132,7 +161,6 @@ export default function CustomWorkoutDetailScreen() {
     });
   }
 
-  // --- BUSCA DETALHES COM TANSTACK QUERY ---
   const {
     data: workout,
     isLoading,
@@ -142,7 +170,6 @@ export default function CustomWorkoutDetailScreen() {
     enabled: !!id,
   });
 
-  // --- MUTAÇÃO PARA DELETAR O TREINO ---
   const deleteWorkoutMutation = useMutation({
     mutationFn: async (workoutId: string) => {
       const { error } = await supabase
@@ -195,7 +222,7 @@ export default function CustomWorkoutDetailScreen() {
 
   return (
     <View className="flex-1 bg-white dark:bg-zinc-950" style={{ paddingTop: safeTopPadding }}>
-      {/* 1. CABEÇALHO ANIMADO */}
+      {/* CABEÇALHO ANIMADO */}
       <MotiView
         from={{ opacity: 0, translateY: -8 }}
         animate={{ opacity: 1, translateY: 0 }}
@@ -214,7 +241,6 @@ export default function CustomWorkoutDetailScreen() {
           <ArrowLeft size={20} color={isDark ? '#59C83A' : '#1b1b1d'} />
         </TouchableOpacity>
 
-        {/* Título do Cabeçalho em Outfit Bold */}
         <Text
           className="text-lg font-outfit-bold text-[#1b1b1d] dark:text-white flex-1 text-center mx-2"
           numberOfLines={1}
@@ -222,7 +248,6 @@ export default function CustomWorkoutDetailScreen() {
           {workout?.title || 'Detalhes do Treino'}
         </Text>
 
-        {/* Botões de Ação (Editar e Excluir) */}
         <View className="flex-row items-center gap-2">
           <TouchableOpacity
             onPress={() =>
@@ -252,15 +277,9 @@ export default function CustomWorkoutDetailScreen() {
         </View>
       </MotiView>
 
-      {/* 2. CONTEÚDO PRINCIPAL */}
+      {/* CONTEÚDO PRINCIPAL */}
       {isLoading ? (
-        <View className="flex-1 justify-center items-center">
-          <ActivityIndicator size="large" color="#59C83A" />
-          {/* Mensagem em DM Sans Medium */}
-          <Text className="mt-3 text-[#414755] dark:text-zinc-400 font-sans-medium text-xs">
-            Carregando exercícios do treino...
-          </Text>
-        </View>
+        <CustomWorkoutSkeleton />
       ) : workout ? (
         <ScrollView className="flex-1 px-5 pt-4" showsVerticalScrollIndicator={false}>
           {/* TÍTULO E RESUMO ANIMADO */}
@@ -274,11 +293,9 @@ export default function CustomWorkoutDetailScreen() {
               delay: 30,
             } as any}
           >
-            {/* Título Principal em Outfit ExtraBold */}
             <Text className="text-2xl font-outfit-extrabold text-[#1b1b1d] dark:text-white mb-1">
               {workout.title}
             </Text>
-            {/* Contador de Exercícios em DM Sans Bold */}
             <Text style={{ color: '#59C83A' }} className="text-xs font-sans-bold uppercase mb-6">
               {workout.custom_workout_exercises?.length || 0} Exercícios no Total
             </Text>
@@ -312,15 +329,12 @@ export default function CustomWorkoutDetailScreen() {
                 activeOpacity={0.8}
               >
                 <View className="flex-1 mr-3">
-                  {/* Categoria do Exercício em DM Sans Bold */}
                   <Text style={{ color: '#59C83A' }} className="text-xs font-sans-bold uppercase mb-0.5">
                     {index + 1}. {item.exercises?.category_id}
                   </Text>
-                  {/* Nome do Exercício em Outfit Bold */}
                   <Text className="text-base font-outfit-bold text-[#1b1b1d] dark:text-white mb-1">
                     {item.exercises?.name}
                   </Text>
-                  {/* Detalhes de Séries, Repetições e Carga em DM Sans */}
                   <View className="flex-row items-center gap-3">
                     <Text className="text-xs font-sans-medium text-[#414755] dark:text-zinc-400">
                       <Text style={{ color: '#59C83A' }} className="font-sans-bold">
@@ -354,7 +368,6 @@ export default function CustomWorkoutDetailScreen() {
         </ScrollView>
       ) : null}
 
-      {/* COMPONENTE DO MODAL PERSONALIZADO */}
       <CustomModal
         visible={modalConfig.visible}
         title={modalConfig.title}

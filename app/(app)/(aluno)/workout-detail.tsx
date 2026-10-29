@@ -1,8 +1,8 @@
 // ============================================================================
-// DOCUMENTAÇÃO: TELA DE DETALHES DA FICHA DE TREINO (ÁREA DO ALUNO)
+// DOCUMENTAÇÃO: TELA DE DETALHES DA FICHA DE TREINO (ÁREA DO ALUNO COM SKELETON)
 // ============================================================================
 // Exibe os detalhes completos de uma ficha prescrita pelo Personal Trainer,
-// incluindo resumo, objetivo, lista de exercícios ordenados e atalho de execução.
+// incluindo resumo, objetivo, lista de exercícios ordenados e Skeleton Loading.
 // ============================================================================
 
 import React, { useCallback } from 'react';
@@ -11,7 +11,6 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
-  ActivityIndicator,
   useColorScheme,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -29,6 +28,7 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { MotiView } from 'moti';
 import { supabase } from '../../../lib/supabase';
+import { Skeleton } from '../../../components/SkeletonLoading'; // 🟢 Importação do Skeleton
 
 // --- TIPAGENS DE DADOS ---
 interface PlanExercise {
@@ -48,6 +48,56 @@ interface WorkoutPlanDetail {
   objective: string | null;
   days_of_week: string[] | null;
   plan_exercises: PlanExercise[];
+}
+
+// 🟢 SUBCOMPONENTE DE SKELETON PARA DETALHES DA FICHA PRESCRITA
+function StudentWorkoutDetailSkeleton() {
+  return (
+    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
+      {/* Skeleton do Card Resumo */}
+      <View className="bg-[#f8f9fa] dark:bg-zinc-900 p-5 rounded-3xl border border-[#e2dfe1] dark:border-zinc-800 mb-4">
+        <View className="flex-row items-center justify-between mb-3">
+          <Skeleton width={120} height={24} borderRadius={12} />
+          <Skeleton width={90} height={16} borderRadius={6} />
+        </View>
+
+        <Skeleton width="75%" height={28} borderRadius={8} className="mb-2" />
+        <Skeleton width="90%" height={14} borderRadius={4} className="mb-4" />
+
+        <View className="flex-row gap-2 pt-3 border-t border-[#e2dfe1] dark:border-zinc-800">
+          <Skeleton width={110} height={28} borderRadius={12} />
+          <Skeleton width={130} height={28} borderRadius={12} />
+        </View>
+      </View>
+
+      {/* Skeleton do Botão Iniciar Treino */}
+      <Skeleton width="100%" height={52} borderRadius={16} className="mb-6" />
+
+      {/* Skeleton do Título da Seção */}
+      <View className="mb-3">
+        <Skeleton width={160} height={20} borderRadius={6} className="mb-1" />
+        <Skeleton width={240} height={14} borderRadius={4} />
+      </View>
+
+      {/* Skeleton da Lista de Exercícios */}
+      {Array.from({ length: 4 }).map((_, index) => (
+        <View
+          key={`detail-skeleton-${index}`}
+          className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl mb-3 border border-[#e2dfe1] dark:border-zinc-800"
+        >
+          <View className="flex-row items-center justify-between mb-2">
+            <Skeleton width="55%" height={18} borderRadius={6} />
+            <Skeleton width={60} height={24} borderRadius={8} />
+          </View>
+          <Skeleton width="100%" height={36} borderRadius={12} className="mb-2" />
+          <View className="flex-row items-center justify-between pt-2 border-t border-[#e2dfe1] dark:border-zinc-800/80 mt-1">
+            <Skeleton width={180} height={14} borderRadius={4} />
+            <Skeleton width={14} height={14} borderRadius={4} />
+          </View>
+        </View>
+      ))}
+    </ScrollView>
+  );
 }
 
 /**
@@ -146,11 +196,9 @@ export default function StudentWorkoutDetailScreen() {
         </TouchableOpacity>
 
         <View className="flex-1">
-          {/* Título Principal em Outfit ExtraBold */}
           <Text className="text-xl font-outfit-extrabold text-[#1b1b1d] dark:text-white" numberOfLines={1}>
             Ficha de Treino
           </Text>
-          {/* Subtítulo em DM Sans Bold */}
           <Text className="text-xs font-sans-bold text-[#59C83A]">
             Prescrição Profissional
           </Text>
@@ -159,13 +207,7 @@ export default function StudentWorkoutDetailScreen() {
 
       {/* 2. CONTEÚDO PRINCIPAL */}
       {isLoading ? (
-        <View className="flex-1 justify-center items-center">
-          <ActivityIndicator size="large" color="#59C83A" />
-          {/* Mensagem em DM Sans Medium */}
-          <Text className="text-xs font-sans-medium text-[#71717a] dark:text-zinc-400 mt-3">
-            Carregando exercícios da ficha...
-          </Text>
-        </View>
+        <StudentWorkoutDetailSkeleton />
       ) : isError || !workoutPlan ? (
         <MotiView
           from={{ opacity: 0, scale: 0.95 }}
@@ -174,7 +216,6 @@ export default function StudentWorkoutDetailScreen() {
           className="flex-1 justify-center items-center px-6"
         >
           <Info size={40} color="#ef4444" />
-          {/* Mensagem de Erro em Outfit Bold */}
           <Text className="text-[#1b1b1d] dark:text-white font-outfit-bold text-base mt-3 text-center">
             {error?.message || 'Ficha de treino não encontrada.'}
           </Text>
@@ -182,7 +223,6 @@ export default function StudentWorkoutDetailScreen() {
             onPress={handleNavigateBack}
             className="mt-4 bg-[#59C83A] px-5 py-2.5 rounded-xl"
           >
-            {/* Botão Voltar em DM Sans Bold */}
             <Text className="text-white font-sans-bold text-xs">Voltar para Meus Treinos</Text>
           </TouchableOpacity>
         </MotiView>
@@ -203,25 +243,21 @@ export default function StudentWorkoutDetailScreen() {
             <View className="flex-row items-center justify-between mb-3">
               <View className="bg-[#59C83A]/10 px-3 py-1 rounded-full border border-[#59C83A]/30 flex-row items-center">
                 <UserCheck size={14} color="#59C83A" weight="bold" />
-                {/* Rótulo Personal Trainer em DM Sans Bold */}
                 <Text className="text-xs font-sans-bold text-[#59C83A] ml-1.5">
                   Personal Trainer
                 </Text>
               </View>
 
-              {/* Quantidade de Exercícios em DM Sans Bold */}
               <Text className="text-xs font-sans-bold text-[#71717a] dark:text-zinc-400">
                 {workoutPlan.plan_exercises.length} Exercício(s)
               </Text>
             </View>
 
-            {/* Nome da Ficha em Outfit ExtraBold */}
             <Text className="text-2xl font-outfit-extrabold text-[#1b1b1d] dark:text-white mb-2">
               {workoutPlan.name}
             </Text>
 
             {workoutPlan.description && (
-              /* Descrição em DM Sans Medium */
               <Text className="text-xs font-sans-medium text-[#71717a] dark:text-zinc-400 mb-4 leading-5">
                 {workoutPlan.description}
               </Text>
@@ -232,7 +268,6 @@ export default function StudentWorkoutDetailScreen() {
               {workoutPlan.objective && (
                 <View className="bg-[#59C83A]/10 px-3 py-1.5 rounded-xl flex-row items-center border border-[#59C83A]/30">
                   <Target size={14} color="#59C83A" weight="bold" />
-                  {/* Objetivo em DM Sans Bold */}
                   <Text className="text-xs font-sans-bold text-[#59C83A] ml-1.5">
                     {workoutPlan.objective}
                   </Text>
@@ -242,7 +277,6 @@ export default function StudentWorkoutDetailScreen() {
               {workoutPlan.days_of_week && workoutPlan.days_of_week.length > 0 && (
                 <View className="bg-white dark:bg-zinc-950 px-3 py-1.5 rounded-xl border border-[#e2dfe1] dark:border-zinc-800 flex-row items-center">
                   <CalendarBlank size={14} color={isDark ? '#a1a1aa' : '#71717a'} />
-                  {/* Dias da Semana em DM Sans Bold */}
                   <Text className="text-xs font-sans-bold text-[#71717a] dark:text-zinc-300 ml-1.5">
                     {workoutPlan.days_of_week.join(', ')}
                   </Text>
@@ -273,7 +307,6 @@ export default function StudentWorkoutDetailScreen() {
               className="bg-[#59C83A] p-4 rounded-2xl flex-row items-center justify-center mb-6 shadow-sm"
             >
               <PlayCircle size={24} color="#FFFFFF" weight="bold" />
-              {/* Botão de Iniciar em Outfit Bold */}
               <Text className="text-white font-outfit-bold text-base ml-2">
                 Iniciar Treino Agora
               </Text>
@@ -291,11 +324,9 @@ export default function StudentWorkoutDetailScreen() {
               delay: 90,
             } as any}
           >
-            {/* Título da Seção em Outfit ExtraBold */}
             <Text className="text-base font-outfit-extrabold text-[#1b1b1d] dark:text-white mb-1">
               Exercícios Prescritos
             </Text>
-            {/* Dica em DM Sans Medium */}
             <Text className="text-xs font-sans-medium text-[#71717a] dark:text-zinc-400 mb-3">
               Toque em qualquer exercício para ver a demonstração em vídeo/GIF.
             </Text>
@@ -309,7 +340,6 @@ export default function StudentWorkoutDetailScreen() {
               className="p-6 items-center border border-dashed border-[#e2dfe1] dark:border-zinc-800 rounded-2xl"
             >
               <Barbell size={32} color={isDark ? '#71717a' : '#a1a1aa'} />
-              {/* Texto de Lista Vazia em DM Sans Bold */}
               <Text className="text-xs font-sans-bold text-[#71717a] dark:text-zinc-400 mt-2 text-center">
                 Nenhum exercício registrado nesta ficha.
               </Text>
@@ -337,13 +367,11 @@ export default function StudentWorkoutDetailScreen() {
                   className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl mb-3 border border-[#e2dfe1] dark:border-zinc-800"
                 >
                   <View className="flex-row items-center justify-between mb-2">
-                    {/* Nome do Exercício em Outfit Bold */}
                     <Text className="text-sm font-outfit text-[#1b1b1d] dark:text-white flex-1 mr-2">
                       {index + 1}. {exercise.name}
                     </Text>
 
                     <View className="bg-[#59C83A] px-3 py-1 rounded-lg">
-                      {/* Séries e Repetições em DM Sans Bold */}
                       <Text className="text-xs font-sans-bold text-white">
                         {exercise.sets}x {exercise.reps}
                       </Text>
@@ -352,7 +380,6 @@ export default function StudentWorkoutDetailScreen() {
 
                   {exercise.notes ? (
                     <View className="mt-1 bg-white dark:bg-zinc-950 p-2.5 rounded-xl border border-[#e2dfe1] dark:border-zinc-800 mb-2">
-                      {/* Observação em DM Sans Medium/Bold */}
                       <Text className="text-xs font-sans-medium text-[#71717a] dark:text-zinc-400">
                         💬 <Text className="font-sans-bold text-[#1b1b1d] dark:text-white">Observação / Carga:</Text>{' '}
                         {exercise.notes}
@@ -363,7 +390,6 @@ export default function StudentWorkoutDetailScreen() {
                   <View className="flex-row items-center justify-between pt-2.5 border-t border-[#e2dfe1] dark:border-zinc-800/80 mt-1">
                     <View className="flex-row items-center">
                       <PlayCircle size={16} color="#59C83A" weight="bold" />
-                      {/* Texto de Ação em DM Sans Bold */}
                       <Text className="text-xs font-sans-bold text-[#59C83A] ml-1.5">
                         Ver execução e postura (GIF)
                       </Text>
