@@ -1,5 +1,8 @@
 // ============================================================================
-// DOCUMENTAÇÃO: PAINEL DE GESTÃO ADMINISTRATIVA (SDK 56+)
+// DOCUMENTAÇÃO: PAINEL DE GESTÃO ADMINISTRATIVA COM SKELETON LOADING
+// ============================================================================
+// Inclui estados de carregamento em formato de esqueleto animado (Moti),
+// alternância de temas globais, disparo de notificações e gestão de bloqueios.
 // ============================================================================
 
 import React, { useState, useEffect } from 'react';
@@ -36,6 +39,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { MotiView } from 'moti';
 import { supabase } from '../../../lib/supabase';
 import { CustomModal } from '../../../components/CustomModal';
+import { Skeleton } from '../../../components/SkeletonLoading';
 import {
   sendBroadcastNotification,
   sendNotificationToUser,
@@ -50,6 +54,35 @@ interface UserProfile {
   role: string;
   is_blocked: boolean;
   created_at: string;
+}
+
+// 🟢 SUBCOMPONENTE DE SKELETON PARA O CARD DE USUÁRIO DO ADMIN
+function AdminUserCardSkeleton({ isDark }: { isDark: boolean }) {
+  return (
+    <View
+      className={`p-4 rounded-2xl mb-3 border flex-row items-center justify-between gap-3 ${
+        isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-[#f8f9fa] border-[#e2dfe1]'
+      }`}
+    >
+      <View className="flex-1 mr-1">
+        <View className="flex-row items-center gap-2 mb-2">
+          {/* Skeleton do Nome do Usuário */}
+          <Skeleton width="55%" height={16} borderRadius={6} />
+          {/* Skeleton da Tag de Role (Aluno, Personal, Admin) */}
+          <Skeleton width={50} height={16} borderRadius={12} />
+        </View>
+        {/* Skeleton do Status (Ativo / Bloqueado) */}
+        <Skeleton width="35%" height={12} borderRadius={4} />
+      </View>
+
+      <View className="flex-row items-center gap-2">
+        {/* Skeleton do Botão de Notificação */}
+        <Skeleton width={36} height={36} borderRadius={12} />
+        {/* Skeleton do Botão de Bloquear / Liberar */}
+        <Skeleton width={75} height={36} borderRadius={12} />
+      </View>
+    </View>
+  );
 }
 
 async function fetchAllUsers(): Promise<UserProfile[]> {
@@ -72,8 +105,8 @@ async function fetchAllUsers(): Promise<UserProfile[]> {
 export default function AdminDashboardScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  
-  // 🟢 CONSUMO DO TEMA GLOBAL (PERSISTENTE)
+
+  // CONSUMO DO TEMA GLOBAL (PERSISTENTE)
   const { isDark, toggleTheme } = useTheme();
   const queryClient = useQueryClient();
 
@@ -250,7 +283,7 @@ export default function AdminDashboardScreen() {
         </View>
 
         <View className="flex-row items-center gap-2">
-          {/* 🟢 ALTERNA O TEMA GLOBAL AO CLICAR */}
+          {/* ALTERNA O TEMA GLOBAL AO CLICAR */}
           <TouchableOpacity
             onPress={toggleTheme}
             activeOpacity={0.7}
@@ -387,10 +420,12 @@ export default function AdminDashboardScreen() {
         )}
       </View>
 
-      {/* 4. LISTA DE USUÁRIOS */}
+      {/* 4. LISTA DE USUÁRIOS COM SKELETON LOADING */}
       {isLoading ? (
-        <View className="flex-1 justify-center items-center">
-          <ActivityIndicator size="large" color="#59C83A" />
+        <View className="flex-1">
+          {Array.from({ length: 5 }).map((_, index) => (
+            <AdminUserCardSkeleton key={`admin-skeleton-${index}`} isDark={isDark} />
+          ))}
         </View>
       ) : (
         <FlatList
@@ -427,7 +462,7 @@ export default function AdminDashboardScreen() {
                   >
                     {item.full_name}
                   </Text>
-                  
+
                   <View
                     className={`px-2 py-0.5 rounded-full ${
                       item.role === 'admin'
@@ -466,7 +501,7 @@ export default function AdminDashboardScreen() {
               </View>
 
               <View className="flex-row items-center gap-2">
-                {/* 🟢 OCULTA O ÍCONE DE SINO CASO O USUÁRIO SEJA ADMIN */}
+                {/* OCULTA O ÍCONE DE SINO CASO O USUÁRIO SEJA ADMIN */}
                 {item.role !== 'admin' && (
                   <TouchableOpacity
                     onPress={() => {
