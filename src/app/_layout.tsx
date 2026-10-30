@@ -12,7 +12,7 @@ if (SafeAreaProvider) {
   (SafeAreaProvider as any).displayName = 'SafeAreaProvider';
 }
 
-import '../global.css';
+import '../../global.css';
 
 import React, { useEffect, useState } from 'react';
 import { View, Alert, Text, TouchableOpacity } from 'react-native';
