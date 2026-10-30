@@ -2,7 +2,7 @@
 // TELA DE FREQUÊNCIA DE TREINOS (PERSONAL TRAINER) COM SKELETON LOADING
 // ============================================================================
 // Apresenta o histórico de assiduidade e métricas semanais dos alunos
-// vinculados ao Personal com busca segura em duas etapas e Skeletons animados.
+// vinculados ao Personal com busca segura, sanitização e Skeletons animados.
 // ============================================================================
 
 import React, { useMemo } from 'react';
@@ -24,8 +24,10 @@ import {
 } from 'phosphor-react-native';
 import { useQuery } from '@tanstack/react-query';
 import { MotiView } from 'moti';
+
 import { supabase } from '../../../../lib/supabase';
-import { Skeleton } from '../../../../components/SkeletonLoading'; // 🟢 Importação do Skeleton
+import { sanitizeInput } from '../../../../lib/security'; // 🟢 Importação da função de sanitização
+import { Skeleton } from '../../../../components/SkeletonLoading';
 
 // --- ESTRUTURA DE DADOS ---
 interface AttendanceLog {
@@ -88,7 +90,7 @@ function AttendanceScreenSkeleton() {
 }
 
 /**
- * Busca com segurança o histórico de frequência dos alunos vinculados ao Personal logado
+ * Busca com segurança o histórico de frequência dos alunos vinculados ao Personal logado com sanitização
  */
 async function fetchAttendanceLogs(): Promise<AttendanceLog[]> {
   const {
@@ -138,7 +140,16 @@ async function fetchAttendanceLogs(): Promise<AttendanceLog[]> {
     throw new Error('Não foi possível carregar o histórico de frequência.');
   }
 
-  return (data || []) as unknown as AttendanceLog[];
+  return (data || []).map((log: any) => ({
+    ...log,
+    workout_title: log.workout_title ? sanitizeInput(log.workout_title) : 'Treino Finalizado',
+    profiles: log.profiles
+      ? {
+          ...log.profiles,
+          full_name: sanitizeInput(log.profiles.full_name || 'Aluno Não Identificado'),
+        }
+      : null,
+  })) as AttendanceLog[];
 }
 
 export default function PersonalAttendanceScreen() {

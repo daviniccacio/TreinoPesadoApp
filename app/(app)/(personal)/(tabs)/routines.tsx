@@ -2,7 +2,7 @@
 // DOCUMENTAÇÃO: BIBLIOTECA DE ROTINAS DA APLICAÇÃO (PERSONAL TRAINER)
 // ============================================================================
 // Exibe os modelos de treinos reutilizáveis do Personal, permitindo criar,
-// editar, excluir e atribuir cópias das fichas aos alunos com Skeletons.
+// editar, excluir, sanitizar entradas e atribuir cópias das fichas aos alunos.
 // ============================================================================
 
 import React, { useState, useCallback } from 'react';
@@ -31,9 +31,11 @@ import {
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { MotiView } from 'moti';
+
 import { supabase } from '../../../../lib/supabase';
+import { sanitizeInput } from '../../../../lib/security'; // 🟢 Importação da função de sanitização
 import { CustomModal } from '../../../../components/CustomModal';
-import { Skeleton } from '../../../../components/SkeletonLoading'; // 🟢 Importação do Skeleton
+import { Skeleton } from '../../../../components/SkeletonLoading';
 
 // --- TIPAGENS DE DADOS ---
 interface RoutineItem {
@@ -87,7 +89,7 @@ function RoutineCardSkeleton() {
 }
 
 /**
- * Busca os modelos de treino (onde student_id é NULL) do Personal no Supabase
+ * Busca os modelos de treino (onde student_id é NULL) do Personal no Supabase com sanitização
  */
 async function fetchLibraryRoutines(): Promise<RoutineItem[]> {
   const {
@@ -111,11 +113,17 @@ async function fetchLibraryRoutines(): Promise<RoutineItem[]> {
     .order('created_at', { ascending: false });
 
   if (error) throw new Error(error.message);
-  return (data || []) as unknown as RoutineItem[];
+
+  return (data || []).map((item: any) => ({
+    ...item,
+    name: sanitizeInput(item.name || 'Modelo de Treino'),
+    description: item.description ? sanitizeInput(item.description) : null,
+    objective: item.objective ? sanitizeInput(item.objective) : null,
+  })) as RoutineItem[];
 }
 
 /**
- * Busca APENAS a lista de alunos vinculados ao Personal Trainer logado
+ * Busca a lista de alunos vinculados ao Personal Trainer logado com sanitização
  */
 async function fetchStudentsList(): Promise<StudentItem[]> {
   const {
@@ -135,12 +143,13 @@ async function fetchStudentsList(): Promise<StudentItem[]> {
     throw new Error(error.message);
   }
 
-  return (data || []).map((student) => ({
+  return (data || []).map((student: any) => ({
     id: student.id,
-    full_name:
+    full_name: sanitizeInput(
       student.full_name && student.full_name.trim() !== ''
         ? student.full_name.trim()
-        : 'Aluno sem nome',
+        : 'Aluno sem nome'
+    ),
   }));
 }
 
@@ -490,7 +499,7 @@ export default function PersonalRoutinesScreen() {
                     activeOpacity={0.7}
                     onPress={() =>
                       router.push({
-                        pathname: '/(personal)/routine/[id]',
+                        pathname: '/(personal)/routine/[id]' as any,
                         params: { id: item.id },
                       })
                     }
@@ -523,7 +532,7 @@ export default function PersonalRoutinesScreen() {
                     <TouchableOpacity
                       onPress={() =>
                         router.push({
-                          pathname: '/(personal)/create-workout',
+                          pathname: '/(personal)/create-workout' as any,
                           params: { planId: item.id },
                         })
                       }

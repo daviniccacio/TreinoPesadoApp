@@ -2,7 +2,7 @@
 // DOCUMENTAÇÃO: TELA DE DEMONSTRAÇÃO DO EXERCÍCIO (PERSONAL TRAINER) COM SKELETON
 // ============================================================================
 // Exibe a execução em GIF animado e as instruções técnicas detalhadas de um
-// exercício específico selecionado no catálogo.
+// exercício específico selecionado no catálogo com sanitização de dados.
 // ============================================================================
 
 import React, { useState } from 'react';
@@ -22,8 +22,9 @@ import { Image } from 'expo-image';
 import { MotiView } from 'moti';
 
 import { supabase } from '../../../../lib/supabase';
+import { sanitizeInput } from '../../../../lib/security'; // 🟢 Importação da função de sanitização
 import { getExerciseGif } from '../../../../lib/exerciseGifs';
-import { Skeleton } from '../../../../components/SkeletonLoading'; // 🟢 Importação do Skeleton
+import { Skeleton } from '../../../../components/SkeletonLoading';
 
 interface ExerciseDetail {
   id: string;
@@ -55,7 +56,7 @@ function ExerciseDetailSkeleton() {
 }
 
 /**
- * Busca os detalhes do exercício no Supabase
+ * Busca os detalhes do exercício no Supabase com sanitização
  */
 async function fetchExerciseDetail(exerciseId: string): Promise<ExerciseDetail> {
   if (!exerciseId) throw new Error('ID do exercício não fornecido');
@@ -71,7 +72,13 @@ async function fetchExerciseDetail(exerciseId: string): Promise<ExerciseDetail> 
     throw new Error(error.message);
   }
 
-  return data as ExerciseDetail;
+  const rawData = data as ExerciseDetail;
+
+  return {
+    ...rawData,
+    name: sanitizeInput(rawData.name || 'Exercício'),
+    instructions: rawData.instructions ? sanitizeInput(rawData.instructions) : undefined,
+  };
 }
 
 export default function PersonalExerciseDetailScreen() {
@@ -104,11 +111,11 @@ export default function PersonalExerciseDetailScreen() {
 
     if (targetCategory) {
       router.replace({
-        pathname: '/(personal)/category/[id]',
+        pathname: '/(personal)/category/[id]' as any,
         params: { id: targetCategory, title: categoryTitle },
       });
     } else {
-      router.replace('/(personal)/exercises');
+      router.replace('/(personal)/exercises' as any);
     }
   }
 

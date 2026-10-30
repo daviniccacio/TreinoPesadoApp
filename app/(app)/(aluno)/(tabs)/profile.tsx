@@ -3,7 +3,7 @@
 // ============================================================================
 // Inclui gerenciamento de perfil, estatísticas, vínculo com personal, notificações,
 // modal de informações pessoais (visualização/edição), exclusão de conta,
-// revalidação automática de dados e proteção contra erros do TypeScript.
+// revalidação automática de dados, sanitização de entradas e proteção contra erros do TypeScript.
 // ============================================================================
 
 import React, { useState, useCallback } from 'react';
@@ -47,7 +47,9 @@ import {
 } from 'phosphor-react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { MotiView } from 'moti';
+
 import { supabase } from '../../../../lib/supabase';
+import { sanitizeInput } from '../../../../lib/security'; // 🟢 Importação do módulo de segurança
 import { CustomModal } from '../../../../components/CustomModal';
 import { UserNotificationModal } from '../../../../components/UserNotificationModal';
 import { useTheme } from '../../../../context/ThemeContext';
@@ -161,7 +163,7 @@ async function fetchStudentProfileData(): Promise<StudentProfileData> {
     .eq('id', user.id)
     .maybeSingle();
 
-  let fullName = profile?.full_name ? profile.full_name.trim() : 'Atleta';
+  let fullName = profile?.full_name ? sanitizeInput(profile.full_name.trim()) : 'Atleta';
   if (fullName === 'Atleta' && user.email) {
     fullName = user.email.split('@')[0];
   }
@@ -176,7 +178,7 @@ async function fetchStudentProfileData(): Promise<StudentProfileData> {
       .maybeSingle();
 
     if (personalProfile?.full_name) {
-      personalName = personalProfile.full_name.trim();
+      personalName = sanitizeInput(personalProfile.full_name.trim());
     }
   }
 
@@ -206,7 +208,7 @@ async function fetchStudentProfileData(): Promise<StudentProfileData> {
   return {
     fullName,
     email: user.email || '',
-    phone: profile?.phone || '',
+    phone: profile?.phone ? sanitizeInput(profile.phone) : '',
     birthDate: profile?.birth_date || '',
     personalName,
     totalWorkoutsCompleted,
@@ -216,7 +218,7 @@ async function fetchStudentProfileData(): Promise<StudentProfileData> {
 
 /** Realiza o vínculo do aluno com o Personal Trainer pelo código */
 async function linkStudentToPersonalByCode(inviteCode: string) {
-  const cleanCode = inviteCode.trim().toUpperCase();
+  const cleanCode = sanitizeInput(inviteCode).trim().toUpperCase();
 
   if (!cleanCode) {
     throw new Error('Por favor, digite o código de acesso do seu Personal.');
@@ -239,7 +241,7 @@ async function linkStudentToPersonalByCode(inviteCode: string) {
   }
 
   const foundPersonalName = personalProfile.full_name
-    ? personalProfile.full_name.trim()
+    ? sanitizeInput(personalProfile.full_name.trim())
     : 'Personal Trainer';
 
   const { error: updateError } = await supabase
@@ -383,7 +385,7 @@ export default function StudentProfileScreen() {
     staleTime: 1000 * 10,
   });
 
-  // MUTAÇÃO PARA ATUALIZAR NOME E TELEFONE DO ALUNO
+  // MUTAÇÃO PARA ATUALIZAR NOME E TELEFONE DO ALUNO COM SANITIZAÇÃO
   const updateProfileMutation = useMutation({
     mutationFn: async ({ name, phone }: { name: string; phone: string }) => {
       const {
@@ -392,11 +394,14 @@ export default function StudentProfileScreen() {
 
       if (!user) throw new Error('Usuário não autenticado.');
 
+      const cleanName = sanitizeInput(name).trim();
+      const cleanPhone = phone ? sanitizeInput(phone).trim() : null;
+
       const { error } = await supabase
         .from('profiles')
         .update({
-          full_name: name.trim(),
-          phone: phone.trim() || null,
+          full_name: cleanName,
+          phone: cleanPhone,
         })
         .eq('id', user.id);
 

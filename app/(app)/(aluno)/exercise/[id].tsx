@@ -2,7 +2,7 @@
 // DOCUMENTAÇÃO: TELA DE DETALHES DO EXERCÍCIO (COM SKELETON E TIMER GLOBAL)
 // ============================================================================
 // Exibe o GIF demonstrativo do exercício, métricas de execução (séries, reps e carga)
-// e painel de timer/descanso com estado global e esqueletos de carregamento visual.
+// e painel de timer/descanso com estado global, sanitização e esqueletos de carregamento.
 // ============================================================================
 
 import React, { useState } from 'react';
@@ -33,9 +33,10 @@ import { MotiView } from 'moti';
 import { Image } from 'expo-image';
 
 import { supabase } from '../../../../lib/supabase';
+import { sanitizeInput } from '../../../../lib/security'; // 🟢 Importação da função de sanitização
 import { getExerciseGif } from '../../../../lib/exerciseGifs';
 import { useTimer } from '../../../../context/TimerContext';
-import { Skeleton } from '../../../../components/SkeletonLoading'; // 🟢 Importação do Skeleton
+import { Skeleton } from '../../../../components/SkeletonLoading';
 
 interface ExerciseDetail {
   id: string;
@@ -83,6 +84,9 @@ function ExerciseDetailSkeleton() {
   );
 }
 
+/**
+ * Busca os detalhes do exercício no Supabase com sanitização de campos
+ */
 async function fetchExerciseDetail(exerciseId: string): Promise<ExerciseDetail> {
   if (!exerciseId) throw new Error('ID do exercício não fornecido');
 
@@ -93,7 +97,16 @@ async function fetchExerciseDetail(exerciseId: string): Promise<ExerciseDetail> 
     .single();
 
   if (error) throw new Error(error.message);
-  return data as ExerciseDetail;
+
+  const rawData = data as ExerciseDetail;
+
+  return {
+    ...rawData,
+    name: sanitizeInput(rawData.name || 'Exercício'),
+    reps: sanitizeInput(String(rawData.reps || '')),
+    weight: sanitizeInput(String(rawData.weight || '')),
+    category_id: sanitizeInput(rawData.category_id || ''),
+  };
 }
 
 export default function ExerciseDetailScreen() {

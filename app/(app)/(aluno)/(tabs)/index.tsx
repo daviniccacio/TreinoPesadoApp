@@ -20,8 +20,10 @@ import { Plus, CaretRight } from "phosphor-react-native";
 import { useQuery } from "@tanstack/react-query";
 import { MotiView } from "moti";
 import { Image } from "expo-image";
+
 import { supabase } from "../../../../lib/supabase";
-import { Skeleton } from "../../../../components/SkeletonLoading"; // 🟢 Importação do Skeleton
+import { sanitizeInput } from "../../../../lib/security"; // 🟢 Importação do módulo de sanitização
+import { Skeleton } from "../../../../components/SkeletonLoading";
 
 // --- TIPAGENS DE DADOS ---
 interface Category {
@@ -88,7 +90,8 @@ async function fetchStudentHomeData(): Promise<StudentHomeData> {
     }
 
     if (profile?.full_name && profile.full_name.trim() !== "") {
-      userName = profile.full_name.trim().split(" ")[0];
+      const cleanFullName = sanitizeInput(profile.full_name).trim();
+      userName = cleanFullName.split(" ")[0] || "Atleta";
     }
   }
 

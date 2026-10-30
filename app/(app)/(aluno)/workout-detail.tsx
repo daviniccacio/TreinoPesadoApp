@@ -2,7 +2,8 @@
 // DOCUMENTAÇÃO: TELA DE DETALHES DA FICHA DE TREINO (ÁREA DO ALUNO COM SKELETON)
 // ============================================================================
 // Exibe os detalhes completos de uma ficha prescrita pelo Personal Trainer,
-// incluindo resumo, objetivo, lista de exercícios ordenados e Skeleton Loading.
+// incluindo resumo, objetivo, lista de exercícios ordenados, sanitização de dados
+// e Skeleton Loading durante a requisição no Supabase.
 // ============================================================================
 
 import React, { useCallback } from 'react';
@@ -27,8 +28,10 @@ import {
 } from 'phosphor-react-native';
 import { useQuery } from '@tanstack/react-query';
 import { MotiView } from 'moti';
+
 import { supabase } from '../../../lib/supabase';
-import { Skeleton } from '../../../components/SkeletonLoading'; // 🟢 Importação do Skeleton
+import { sanitizeInput } from '../../../lib/security'; // 🟢 Importação da função de sanitização
+import { Skeleton } from '../../../components/SkeletonLoading';
 
 // --- TIPAGENS DE DADOS ---
 interface PlanExercise {
@@ -101,7 +104,7 @@ function StudentWorkoutDetailSkeleton() {
 }
 
 /**
- * Função responsável por buscar a ficha prescrita e ordenar seus exercícios no Supabase
+ * Busca a ficha prescrita no Supabase com ordenação e sanitização de dados
  */
 async function fetchWorkoutPlanDetail(id?: string): Promise<WorkoutPlanDetail> {
   if (!id) throw new Error('Identificador do treino não encontrado.');
@@ -131,12 +134,24 @@ async function fetchWorkoutPlanDetail(id?: string): Promise<WorkoutPlanDetail> {
     throw new Error('Não foi possível carregar os detalhes desta ficha.');
   }
 
-  const sortedExercises = (data.plan_exercises || []).sort(
-    (a: PlanExercise, b: PlanExercise) => a.order_index - b.order_index
-  );
+  const sortedExercises = (data.plan_exercises || [])
+    .sort((a: PlanExercise, b: PlanExercise) => a.order_index - b.order_index)
+    .map((ex: PlanExercise) => ({
+      ...ex,
+      name: sanitizeInput(ex.name || 'Exercício'),
+      sets: sanitizeInput(String(ex.sets || '')),
+      reps: sanitizeInput(String(ex.reps || '')),
+      notes: ex.notes ? sanitizeInput(ex.notes) : null,
+    }));
 
   return {
     ...data,
+    name: sanitizeInput(data.name || 'Ficha de Treino'),
+    description: data.description ? sanitizeInput(data.description) : null,
+    objective: data.objective ? sanitizeInput(data.objective) : null,
+    days_of_week: data.days_of_week
+      ? data.days_of_week.map((day: string) => sanitizeInput(day))
+      : null,
     plan_exercises: sortedExercises,
   };
 }

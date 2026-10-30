@@ -1,9 +1,9 @@
 // ============================================================================
-// DOCUMENTAÇÃO: TELA DE DETALHES DO TREINO PERSONALIZADO (ÁREA DO ALUNO COM SKELETON)
+// DOCUMENTAÇÃO: TELA DE DETALHES DO TREINO PERSONALIZADO (ÁREA DO ALUNO)
 // ============================================================================
 // Exibe a lista completa de exercícios de um treino criado pelo próprio aluno,
 // permitindo navegação para os detalhes do exercício, edição, exclusão e
-// suporte a Skeleton Loading durante o carregamento de dados.
+// suporte a Skeleton Loading com sanitização de segurança durante o carregamento.
 // ============================================================================
 
 import React, { useState } from 'react';
@@ -20,10 +20,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ArrowLeft, Trash, CaretRight, PencilSimple } from 'phosphor-react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { MotiView } from 'moti';
-import { supabase } from '../../../../lib/supabase';
-import { CustomModal } from '../../../../components/CustomModal';
-import { Skeleton } from '../../../../components/SkeletonLoading'; // 🟢 Importação do Skeleton
 
+import { supabase } from '../../../../lib/supabase';
+import { sanitizeInput } from '../../../../lib/security'; // 🟢 Importação da função de sanitização
+import { CustomModal } from '../../../../components/CustomModal';
+import { Skeleton } from '../../../../components/SkeletonLoading';
+
+// --- INTERFACES DE DADOS ---
 interface WorkoutExerciseItem {
   id: string;
   sets: number;
@@ -71,7 +74,7 @@ function CustomWorkoutSkeleton() {
 }
 
 /**
- * Busca os detalhes do treino personalizado no Supabase
+ * Busca os detalhes do treino personalizado no Supabase com sanitização de dados
  */
 async function fetchCustomWorkoutDetail(workoutId: string): Promise<CustomWorkoutDetail> {
   if (!workoutId) throw new Error('ID do treino não fornecido');
@@ -97,7 +100,25 @@ async function fetchCustomWorkoutDetail(workoutId: string): Promise<CustomWorkou
     .single();
 
   if (error) throw new Error(error.message);
-  return data as unknown as CustomWorkoutDetail;
+
+  const rawData = data as unknown as CustomWorkoutDetail;
+
+  return {
+    ...rawData,
+    title: sanitizeInput(rawData.title || 'Treino Personalizado'),
+    custom_workout_exercises: (rawData.custom_workout_exercises || []).map((item) => ({
+      ...item,
+      reps: sanitizeInput(String(item.reps || '')),
+      weight: sanitizeInput(String(item.weight || '')),
+      exercises: item.exercises
+        ? {
+            ...item.exercises,
+            name: sanitizeInput(item.exercises.name || 'Exercício'),
+            category_id: sanitizeInput(item.exercises.category_id || ''),
+          }
+        : { id: '', name: 'Exercício', category_id: '' },
+    })),
+  };
 }
 
 export default function CustomWorkoutDetailScreen() {

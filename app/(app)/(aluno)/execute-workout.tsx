@@ -2,7 +2,8 @@
 // DOCUMENTAÇÃO: TELA DE EXECUÇÃO DE TREINO COM SKELETON LOADING (ÁREA DO ALUNO)
 // ============================================================================
 // Gerencia a execução do treino, cronômetro de tempo total, descanso automático
-// na conclusão dos exercícios, abertura de mídias demonstrativas e Skeleton Loading.
+// na conclusão dos exercícios, abertura de mídias demonstrativas, sanitização de
+// dados e Skeleton Loading para excelente experiência visual.
 // ============================================================================
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
@@ -37,11 +38,12 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { MotiView } from "moti";
 
 import { supabase } from "../../../lib/supabase";
+import { sanitizeInput } from "../../../lib/security"; // 🟢 Importação da função de sanitização
 import { getExerciseGif } from "../../../lib/exerciseGifs";
 import { useThrottledCallback } from "../../../lib/useThrottle";
 import { CustomModal } from "../../../components/CustomModal";
 import { sendNotificationToUser } from "../../../lib/notifications";
-import { Skeleton } from "../../../components/SkeletonLoading"; // 🟢 Importação do Skeleton
+import { Skeleton } from "../../../components/SkeletonLoading";
 
 // --- TIPAGENS DE DADOS ---
 interface ExerciseItem {
@@ -127,7 +129,7 @@ function WorkoutExecutionSkeleton() {
 }
 
 /**
- * Busca os dados da ficha de treino no Supabase (Customizada ou Prescrita)
+ * Busca os dados da ficha de treino no Supabase (Customizada ou Prescrita) com sanitização de campos
  */
 async function fetchWorkoutExecutionData(
   id?: string,
@@ -161,14 +163,14 @@ async function fetchWorkoutExecutionData(
     ).map((item: any) => ({
       id: item.id,
       exercise_id: item.exercise_id,
-      name: item.exercises?.name || "Exercício",
-      sets: String(item.sets || 3),
-      reps: String(item.reps || 10),
-      notes: item.weight ? `Carga: ${item.weight}` : null,
+      name: sanitizeInput(item.exercises?.name || "Exercício"),
+      sets: sanitizeInput(String(item.sets || 3)),
+      reps: sanitizeInput(String(item.reps || 10)),
+      notes: item.weight ? sanitizeInput(`Carga: ${item.weight}`) : null,
     }));
 
     return {
-      workoutName: data.title || "Treino Customizado",
+      workoutName: sanitizeInput(data.title || "Treino Customizado"),
       exercises: formatted,
     };
   } else {
@@ -197,9 +199,18 @@ async function fetchWorkoutExecutionData(
       (a: any, b: any) => a.order_index - b.order_index
     );
 
+    const formatted: ExerciseItem[] = sorted.map((item: any) => ({
+      id: item.id,
+      exercise_id: item.exercise_id,
+      name: sanitizeInput(item.name || "Exercício"),
+      sets: sanitizeInput(String(item.sets || 3)),
+      reps: sanitizeInput(String(item.reps || 10)),
+      notes: item.notes ? sanitizeInput(item.notes) : null,
+    }));
+
     return {
-      workoutName: data.name || "Ficha Prescrita",
-      exercises: sorted,
+      workoutName: sanitizeInput(data.name || "Ficha Prescrita"),
+      exercises: formatted,
     };
   }
 }
@@ -477,7 +488,7 @@ export default function ExecuteWorkoutScreen() {
       if (!error && data) {
         setDemoExercise((prev) => ({
           ...prev,
-          name: data.name || item.name,
+          name: sanitizeInput(data.name || item.name),
           gif_key: data.gif_key || null,
           description: null,
           sets: item.sets,

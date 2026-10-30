@@ -1,8 +1,9 @@
 // ============================================================================
-// DOCUMENTAÇÃO: PAINEL DE GESTÃO ADMINISTRATIVA COM SKELETON LOADING
+// DOCUMENTAÇÃO: PAINEL DE GESTÃO ADMINISTRATIVA COM SKELETON LOADING E SECURITY
 // ============================================================================
 // Inclui estados de carregamento em formato de esqueleto animado (Moti),
-// alternância de temas globais, disparo de notificações e gestão de bloqueios.
+// alternância de temas globais, sanitização de entradas em notificações/busca,
+// disparo de notificações e gestão de bloqueios de contas.
 // ============================================================================
 
 import React, { useState, useEffect } from 'react';
@@ -37,7 +38,10 @@ import {
 } from 'phosphor-react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { MotiView } from 'moti';
+import { useRouter } from 'expo-router';
+
 import { supabase } from '../../../lib/supabase';
+import { sanitizeInput } from '../../../lib/security'; // 🟢 Importação do módulo de sanitização
 import { CustomModal } from '../../../components/CustomModal';
 import { Skeleton } from '../../../components/SkeletonLoading';
 import {
@@ -45,7 +49,6 @@ import {
   sendNotificationToUser,
 } from '../../../lib/notifications';
 import { useTheme } from '../../../context/ThemeContext';
-import { useRouter } from 'expo-router';
 
 interface UserProfile {
   id: string;
@@ -171,8 +174,12 @@ export default function AdminDashboardScreen() {
     },
   });
 
+  // 🟢 ENVIO DE NOTIFICAÇÕES COM SANITIZAÇÃO DE DADOS
   async function handleSendNotification() {
-    if (!notifTitle.trim() || !notifMessage.trim()) {
+    const cleanTitle = sanitizeInput(notifTitle).trim();
+    const cleanMessage = sanitizeInput(notifMessage).trim();
+
+    if (!cleanTitle || !cleanMessage) {
       setAlertConfig({
         visible: true,
         title: 'Campos Obrigatórios',
@@ -188,15 +195,15 @@ export default function AdminDashboardScreen() {
       if (notifTarget === 'ALL') {
         await sendBroadcastNotification(
           currentAdminId,
-          notifTitle.trim(),
-          notifMessage.trim()
+          cleanTitle,
+          cleanMessage
         );
       } else {
         await sendNotificationToUser({
           targetUserId: notifTarget.id,
           senderId: currentAdminId,
-          title: notifTitle.trim(),
-          message: notifMessage.trim(),
+          title: cleanTitle,
+          message: cleanMessage,
           type: 'ANNOUNCEMENT',
         });
       }
@@ -227,9 +234,12 @@ export default function AdminDashboardScreen() {
     }
   }
 
+  // 🟢 BUSCA COM HIGIENIZAÇÃO DE TEXTO
+  const cleanSearchQuery = sanitizeInput(searchQuery).toLowerCase().trim();
+
   const filteredUsers = users
     .filter((u) =>
-      u.full_name.toLowerCase().includes(searchQuery.toLowerCase().trim())
+      u.full_name.toLowerCase().includes(cleanSearchQuery)
     )
     .sort((a, b) =>
       a.full_name.localeCompare(b.full_name, 'pt-BR', { sensitivity: 'base' })
@@ -501,7 +511,6 @@ export default function AdminDashboardScreen() {
               </View>
 
               <View className="flex-row items-center gap-2">
-                {/* OCULTA O ÍCONE DE SINO CASO O USUÁRIO SEJA ADMIN */}
                 {item.role !== 'admin' && (
                   <TouchableOpacity
                     onPress={() => {

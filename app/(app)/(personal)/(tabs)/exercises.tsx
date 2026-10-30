@@ -2,7 +2,7 @@
 // DOCUMENTAÇÃO: CATÁLOGO DE CATEGORIAS DE EXERCÍCIOS (PERSONAL TRAINER)
 // ============================================================================
 // Exibe uma grade (grid) de categorias de exercícios cadastradas no Supabase
-// utilizando animações Moti, tipografia customizada, suporte a modo escuro
+// utilizando animações Moti, sanitização de dados, suporte a modo escuro
 // e efeito de carregamento gradual em formato de Skeleton Loading.
 // ============================================================================
 
@@ -20,8 +20,10 @@ import { CaretRight } from 'phosphor-react-native';
 import { useQuery } from '@tanstack/react-query';
 import { MotiView } from 'moti';
 import { Image } from 'expo-image';
+
 import { supabase } from '../../../../lib/supabase';
-import { Skeleton } from '../../../../components/SkeletonLoading'; // 🟢 Importação do Skeleton
+import { sanitizeInput } from '../../../../lib/security'; // 🟢 Importação da função de sanitização
+import { Skeleton } from '../../../../components/SkeletonLoading';
 
 // --- TIPAGENS DE DADOS ---
 interface Category {
@@ -34,14 +36,13 @@ interface Category {
 function CategoryCardSkeleton() {
   return (
     <View className="w-[48%] mb-4">
-      {/* Bloco de esqueleto que simula o card h-44 com cantos arredondados */}
       <Skeleton width="100%" height={176} borderRadius={16} />
     </View>
   );
 }
 
 /**
- * Busca todas as categorias de exercícios cadastradas no Supabase ordenadas por título
+ * Busca todas as categorias de exercícios cadastradas no Supabase com sanitização
  */
 async function fetchCategories(): Promise<Category[]> {
   const { data, error } = await supabase
@@ -50,7 +51,11 @@ async function fetchCategories(): Promise<Category[]> {
     .order('title');
 
   if (error) throw new Error(error.message);
-  return (data || []) as Category[];
+
+  return (data || []).map((cat: Category) => ({
+    ...cat,
+    title: sanitizeInput(cat.title || 'Categoria'),
+  }));
 }
 
 export default function PersonalExercisesScreen() {
@@ -136,7 +141,7 @@ export default function PersonalExercisesScreen() {
                 <TouchableOpacity
                   onPress={() =>
                     router.push({
-                      pathname: '/(personal)/category/[id]',
+                      pathname: '/(personal)/category/[id]' as any,
                       params: { id: category.id, title: category.title },
                     })
                   }

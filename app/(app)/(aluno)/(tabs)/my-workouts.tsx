@@ -31,9 +31,11 @@ import {
 } from "phosphor-react-native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { MotiView } from "moti";
+
 import { supabase } from "../../../../lib/supabase";
+import { sanitizeInput } from "../../../../lib/security"; // 🟢 Importação da função de sanitização
 import { CustomModal } from "../../../../components/CustomModal";
-import { Skeleton } from "../../../../components/SkeletonLoading"; // 🟢 Importação do Skeleton
+import { Skeleton } from "../../../../components/SkeletonLoading";
 
 // --- MAPEAMENTO DE CATEGORIAS MUSCULARES ---
 const CATEGORY_MAP: Record<string, string> = {
@@ -253,9 +255,9 @@ async function fetchStudentWorkouts(): Promise<WorkoutCardItem[]> {
 
         combinedList.push({
           id: item.id,
-          title: item.name || item.title || "Treino do Personal",
+          title: sanitizeInput(item.name || item.title || "Treino do Personal"),
           type: "personal",
-          subtitle: item.goal || item.description || "Ficha recomendada",
+          subtitle: sanitizeInput(item.goal || item.description || "Ficha recomendada"),
           day_of_week: formatDaysOfWeek(rawDay),
           raw_days: rawDay,
         });
@@ -285,9 +287,9 @@ async function fetchStudentWorkouts(): Promise<WorkoutCardItem[]> {
 
         combinedList.push({
           id: item.id,
-          title: item.title || "Treino Personalizado",
+          title: sanitizeInput(item.title || "Treino Personalizado"),
           type: "custom",
-          subtitle: item.description || "Criado por mim",
+          subtitle: sanitizeInput(item.description || "Criado por mim"),
           day_of_week: formatDaysOfWeek(rawDay),
           raw_days: rawDay,
         });
@@ -358,9 +360,9 @@ async function fetchWorkoutExercises(
 
     return {
       id: item.id,
-      name: exerciseName,
+      name: sanitizeInput(exerciseName),
       sets: item.sets || 3,
-      reps: item.reps || "10-12",
+      reps: sanitizeInput(String(item.reps || "10-12")),
       weight: formatWeight(item.weight || item.load),
       category: categoryFormatted,
     };

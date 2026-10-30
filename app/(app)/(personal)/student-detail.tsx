@@ -3,7 +3,7 @@
 // ============================================================================
 // Apresenta o perfil do aluno, estatísticas de treinos concluídos, opções para
 // prescrever novas fichas do zero ou da biblioteca, gestão dos planos ativos
-// e telas de carregamento dinâmicas em Skeleton.
+// e telas de carregamento dinâmicas em Skeleton com sanitização de dados.
 // ============================================================================
 
 import React, { useState } from 'react';
@@ -31,9 +31,11 @@ import {
 } from 'phosphor-react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { MotiView } from 'moti';
+
 import { supabase } from '../../../lib/supabase';
+import { sanitizeInput } from '../../../lib/security'; // 🟢 Importação da função de sanitização
 import { CustomModal } from '../../../components/CustomModal';
-import { Skeleton } from '../../../components/SkeletonLoading'; // 🟢 Importação do Skeleton
+import { Skeleton } from '../../../components/SkeletonLoading';
 
 // --- TIPAGENS DE DADOS ---
 interface StudentStats {
@@ -134,7 +136,7 @@ function StudentDetailSkeleton() {
 }
 
 /**
- * Busca os dados do perfil, estatísticas de presença e planos de treino do aluno no Supabase
+ * Busca os dados do perfil, estatísticas de presença e planos de treino do aluno no Supabase com sanitização
  */
 async function fetchStudentDetailData(
   studentId?: string,
@@ -142,7 +144,7 @@ async function fetchStudentDetailData(
 ): Promise<StudentDetailData> {
   if (!studentId) {
     return {
-      studentName: fallbackName || 'Aluno',
+      studentName: sanitizeInput(fallbackName || 'Aluno'),
       stats: { prescribedWorkouts: 0, totalWorkouts: 0, lastWorkoutDate: null },
       workoutPlans: [],
     };
@@ -166,7 +168,7 @@ async function fetchStudentDetailData(
     throw new Error('Acesso negado: este aluno pertence a outro personal.');
   }
 
-  const studentName = profileData.full_name || fallbackName || 'Aluno';
+  const studentName = sanitizeInput(profileData.full_name || fallbackName || 'Aluno');
 
   const { data: plansData } = await supabase
     .from('workout_plans')
@@ -174,7 +176,13 @@ async function fetchStudentDetailData(
     .eq('student_id', studentId)
     .order('created_at', { ascending: false });
 
-  const workoutPlans: StudentWorkoutPlan[] = plansData || [];
+  const workoutPlans: StudentWorkoutPlan[] = (plansData || []).map((plan: any) => ({
+    ...plan,
+    name: sanitizeInput(plan.name || 'Plano de Treino'),
+    description: plan.description ? sanitizeInput(plan.description) : null,
+    objective: plan.objective ? sanitizeInput(plan.objective) : null,
+  }));
+
   const prescribedPlanNames = new Set(
     workoutPlans.map((plan) => plan.name.trim().toLowerCase())
   );
@@ -550,7 +558,7 @@ export default function StudentDetailScreen() {
                 activeOpacity={0.8}
                 onPress={() =>
                   router.push({
-                    pathname: '/(personal)/create-workout',
+                    pathname: '/(personal)/create-workout' as any,
                     params: { studentId, studentName },
                   })
                 }
@@ -583,7 +591,7 @@ export default function StudentDetailScreen() {
                 activeOpacity={0.7}
                 onPress={() =>
                   router.push({
-                    pathname: '/(personal)/routines',
+                    pathname: '/(personal)/routines' as any,
                     params: {
                       assignToStudentId: studentId,
                       assignToStudentName: studentName,
@@ -663,7 +671,7 @@ export default function StudentDetailScreen() {
                       <TouchableOpacity
                         onPress={() =>
                           router.push({
-                            pathname: '/(personal)/create-workout',
+                            pathname: '/(personal)/create-workout' as any,
                             params: { planId: plan.id, studentId, studentName },
                           })
                         }
