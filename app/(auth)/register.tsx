@@ -1,8 +1,8 @@
 // ============================================================================
-// DOCUMENTAÇÃO: TELA DE CADASTRO COM MÁSCARAS AUTOMÁTICAS E VALIDAÇÃO ZOD
+// DOCUMENTAÇÃO: TELA DE CADASTRO COM MÁSCARAS AUTOMÁTICAS, ZOD E SANITIZAÇÃO
 // ============================================================================
 // Permite o cadastro de Alunos e Personais capturando Nome, E-mail, Telefone,
-// Data de Nascimento, Senha e Tipo de Conta com formatação em tempo real.
+// Data de Nascimento, Senha e Tipo de Conta com formatação e sanitização.
 // ============================================================================
 
 import React, { useState } from "react";
@@ -35,7 +35,9 @@ import {
 } from 'phosphor-react-native';
 import { z } from 'zod';
 import { MotiView } from 'moti';
+
 import { supabase } from '../../lib/supabase';
+import { sanitizeInput } from '../../lib/security'; // 🟢 Importação da sanitização
 import { useThrottledCallback } from '../../lib/useThrottle';
 import { CustomModal } from '../../components/CustomModal';
 
@@ -49,7 +51,7 @@ const HERO_BG = '#0F1F0A';
 
 /** Formata o telefone em tempo real: (XX) XXXXX-XXXX ou (XX) XXXX-XXXX */
 function maskPhone(value: string): string {
-  const cleanValue = value.replace(/\D/g, ""); // Remove tudo que não for número
+  const cleanValue = value.replace(/\D/g, "");
 
   if (cleanValue.length <= 10) {
     return cleanValue
@@ -66,7 +68,7 @@ function maskPhone(value: string): string {
 
 /** Formata a data de nascimento em tempo real: DD/MM/AAAA */
 function maskDate(value: string): string {
-  const cleanValue = value.replace(/\D/g, ""); // Remove tudo que não for número
+  const cleanValue = value.replace(/\D/g, "");
 
   return cleanValue
     .replace(/(\d{2})(\d)/, "$1/$2")
@@ -124,7 +126,6 @@ const registerSchema = z.object({
   role: z.enum(["aluno", "personal"]),
 });
 
-/** Anel de pulso animado do hero */
 function PulseRing({ delay = 0, size = 96 }: { delay?: number; size?: number }) {
   return (
     <MotiView
@@ -143,7 +144,6 @@ function PulseRing({ delay = 0, size = 96 }: { delay?: number; size?: number }) 
   );
 }
 
-/** Selo/badge premium do hero */
 function EnergyBadge() {
   return (
     <View className="items-center justify-center" style={{ width: 100, height: 100 }}>
@@ -288,23 +288,28 @@ export default function RegisterScreen() {
     });
   }
 
-  // ATUALIZA O TELEFONE APLICANDO MÁSCARA AUTOMÁTICA
   function handlePhoneChange(text: string) {
     setPhone(maskPhone(text));
   }
 
-  // ATUALIZA A DATA APLICANDO MÁSCARA AUTOMÁTICA
   function handleDateChange(text: string) {
     setBirthDate(maskDate(text));
   }
 
+  // 🟢 CADASTRO COM SANITIZAÇÃO E VALIDAÇÃO ZOD
   async function handleRegister() {
+    const cleanName = sanitizeInput(name).trim();
+    const cleanEmail = sanitizeInput(email).trim().toLowerCase();
+    const cleanPhone = sanitizeInput(phone).trim();
+    const cleanBirthDate = sanitizeInput(birthDate).trim();
+    const cleanPassword = sanitizeInput(password).trim();
+
     const validationResult = registerSchema.safeParse({
-      name: name.trim(),
-      email: email.trim(),
-      phone: phone.trim(),
-      birthDate: birthDate.trim(),
-      password,
+      name: cleanName,
+      email: cleanEmail,
+      phone: cleanPhone,
+      birthDate: cleanBirthDate,
+      password: cleanPassword,
       role,
     });
 
@@ -321,17 +326,17 @@ export default function RegisterScreen() {
     setLoading(true);
 
     try {
-      const formattedBirthDate = parseDateToISO(birthDate);
+      const formattedBirthDate = parseDateToISO(cleanBirthDate);
 
       const { error } = await supabase.auth.signUp({
-        email: email.trim(),
-        password: password,
+        email: cleanEmail,
+        password: cleanPassword,
         options: {
           data: {
-            full_name: name.trim(),
-            name: name.trim(),
+            full_name: cleanName,
+            name: cleanName,
             role: role,
-            phone: phone.trim(),
+            phone: cleanPhone,
             birth_date: formattedBirthDate,
           },
         },
@@ -381,9 +386,7 @@ export default function RegisterScreen() {
           showsVerticalScrollIndicator={false}
           bounces={false}
         >
-          {/* ============================================================ */}
-          {/* HERO EDITORIAL                                               */}
-          {/* ============================================================ */}
+          {/* HERO EDITORIAL */}
           <View
             style={{
               backgroundColor: HERO_BG,
@@ -444,9 +447,7 @@ export default function RegisterScreen() {
             </View>
           </View>
 
-          {/* ============================================================ */}
-          {/* FORMULÁRIO DE CADASTRO                                       */}
-          {/* ============================================================ */}
+          {/* FORMULÁRIO DE CADASTRO */}
           <MotiView
             from={{ opacity: 0, translateY: 12 }}
             animate={{ opacity: 1, translateY: 0 }}
@@ -554,7 +555,7 @@ export default function RegisterScreen() {
               </View>
             </View>
 
-            {/* 🟢 Campo Telefone / WhatsApp */}
+            {/* Campo Telefone / WhatsApp */}
             <View className="mb-3">
               <Text className="font-sans-bold text-xs uppercase tracking-wider text-[#71717a] dark:text-zinc-400 mb-2 ml-1">
                 Telefone / WhatsApp
@@ -578,7 +579,7 @@ export default function RegisterScreen() {
               </View>
             </View>
 
-            {/* 🟢 Campo Data de Nascimento */}
+            {/* Campo Data de Nascimento */}
             <View className="mb-3">
               <Text className="font-sans-bold text-xs uppercase tracking-wider text-[#71717a] dark:text-zinc-400 mb-2 ml-1">
                 Data de Nascimento

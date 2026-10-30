@@ -1,8 +1,8 @@
 // ============================================================================
-// TELA DE GESTÃO DE ALUNOS (PERSONAL TRAINER) COM SKELETON LOADING
+// DOCUMENTAÇÃO: TELA DE GESTÃO DE ALUNOS (PERSONAL TRAINER) COM SANITIZAÇÃO
 // ============================================================================
 // Busca e exibe a lista de alunos vinculados ao Personal Trainer autenticado
-// com suporte a busca por nome, animações de interface e carregamento em Skeleton.
+// com suporte a busca local sanitizada, animações e carregamento em Skeleton.
 // ============================================================================
 
 import React, { useState } from 'react';
@@ -20,8 +20,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MagnifyingGlass, Users, CaretRight, X, Sparkle } from 'phosphor-react-native';
 import { useQuery } from '@tanstack/react-query';
 import { MotiView } from 'moti';
+
 import { supabase } from '../../../../lib/supabase';
-import { Skeleton } from '../../../../components/SkeletonLoading'; // 🟢 Importação do Skeleton
+import { Skeleton } from '../../../../components/SkeletonLoading';
+import { sanitizeInput } from '../../../../lib/security'; // 🟢 Importação do módulo de sanitização
 
 interface Student {
   id: string;
@@ -29,23 +31,19 @@ interface Student {
   role?: string;
 }
 
-// 🟢 SUBCOMPONENTE DE SKELETON PARA O CARD DO ALUNO
+// SUBCOMPONENTE DE SKELETON PARA O CARD DO ALUNO
 function StudentCardSkeleton() {
   return (
     <View className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl mb-3 border border-[#e2dfe1] dark:border-zinc-800 flex-row items-center justify-between">
       <View className="flex-row items-center flex-1 mr-2">
-        {/* Skeleton do Avatar / Iniciais */}
         <Skeleton width={48} height={48} borderRadius={16} className="mr-3.5" />
 
         <View className="flex-1">
-          {/* Skeleton do Nome do Aluno */}
           <Skeleton width="65%" height={16} borderRadius={6} className="mb-2" />
-          {/* Skeleton da Tag Atleta Ativo */}
           <Skeleton width={80} height={12} borderRadius={4} />
         </View>
       </View>
 
-      {/* Skeleton do Ícone de Navegação */}
       <Skeleton width={32} height={32} borderRadius={12} />
     </View>
   );
@@ -107,9 +105,11 @@ export default function PersonalStudentsScreen() {
     return full_name.trim().charAt(0).toUpperCase();
   }
 
-  const filteredStudents = students.filter((student) =>
-    student.full_name?.toLowerCase().includes(searchQuery.toLowerCase().trim())
-  );
+  // 🟢 FILTRAGEM SANITIZADA EM MEMÓRIA
+  const filteredStudents = students.filter((student) => {
+    const cleanQuery = sanitizeInput(searchQuery).toLowerCase().trim();
+    return student.full_name?.toLowerCase().includes(cleanQuery);
+  });
 
   const safeTopPadding = Math.max(insets?.top || 0, 16);
 
@@ -182,7 +182,7 @@ export default function PersonalStudentsScreen() {
         </View>
       )}
 
-      {/* 🟢 EXIBIÇÃO DE SKELETON CARREGANDO OU LISTA REAL */}
+      {/* EXIBIÇÃO DE SKELETON CARREGANDO OU LISTA REAL */}
       {isLoading ? (
         <View className="flex-1">
           {Array.from({ length: 5 }).map((_, index) => (

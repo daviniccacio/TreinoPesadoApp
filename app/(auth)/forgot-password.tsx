@@ -1,5 +1,8 @@
 // ============================================================================
-// DOCUMENTAÇÃO: TELA 1 - SOLICITAR CÓDIGO DE RECUPERAÇÃO
+// DOCUMENTAÇÃO: TELA 1 - SOLICITAR CÓDIGO DE RECUPERAÇÃO COM SANITIZAÇÃO
+// ============================================================================
+// Envia e-mail de redefinição via Supabase Auth com sanitização de entrada,
+// tratamento de erros traduzidos e navegação direta para verificação do OTP.
 // ============================================================================
 
 import React, { useState } from "react";
@@ -18,7 +21,9 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { EnvelopeSimple, PaperPlaneRight, ArrowLeft } from "phosphor-react-native";
 import { MotiView } from "moti";
+
 import { supabase } from "../../lib/supabase";
+import { sanitizeInput } from "../../lib/security"; // 🟢 Importação da função de sanitização
 import { CustomModal } from "../../components/CustomModal";
 
 function translateSupabaseError(errorMessage: string): string {
@@ -54,7 +59,10 @@ export default function ForgotPasswordScreen() {
   });
 
   async function handleSendCode() {
-    if (!email.trim()) {
+    // 🟢 Sanitização da entrada do e-mail
+    const cleanEmail = sanitizeInput(email).trim().toLowerCase();
+
+    if (!cleanEmail) {
       setModalConfig({
         visible: true,
         title: "Atenção",
@@ -67,7 +75,7 @@ export default function ForgotPasswordScreen() {
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email.trim());
+      const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail);
 
       if (error) {
         setModalConfig({
@@ -77,10 +85,9 @@ export default function ForgotPasswordScreen() {
           type: "danger",
         });
       } else {
-        // 🟢 NAVEGAÇÃO AUTOMÁTICA IMEDIATA SEM BLOQUEIO DE MODAL
         router.push({
           pathname: "/verify-otp" as any,
-          params: { email: email.trim() },
+          params: { email: cleanEmail },
         });
       }
     } catch (err) {

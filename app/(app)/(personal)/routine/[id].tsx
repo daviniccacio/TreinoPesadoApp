@@ -1,8 +1,9 @@
 // ============================================================================
-// DOCUMENTAÇÃO: TELA DE DETALHES DO MODELO DE TREINO (PERSONAL TRAINER) COM SKELETON
+// DOCUMENTAÇÃO: TELA DE DETALHES DO MODELO DE TREINO (PERSONAL TRAINER) COM SANITIZAÇÃO
 // ============================================================================
 // Exibe as informações gerais do modelo da biblioteca (objetivo e descrição)
-// juntamente com a lista de exercícios, séries, repetições e modal de GIF.
+// juntamente com a lista de exercícios, séries, repetições, modal de GIF
+// e sanitização de parâmetros de entrada.
 // ============================================================================
 
 import React, { useState, useCallback } from 'react';
@@ -30,7 +31,8 @@ import { MotiView } from 'moti';
 
 import { supabase } from '../../../../lib/supabase';
 import { getExerciseGif } from '../../../../lib/exerciseGifs';
-import { Skeleton } from '../../../../components/SkeletonLoading'; // 🟢 Importação do Skeleton
+import { Skeleton } from '../../../../components/SkeletonLoading';
+import { sanitizeInput } from '../../../../lib/security'; // 🟢 Importação do módulo de sanitização
 
 interface PlanExerciseItem {
   id: string;
@@ -50,7 +52,7 @@ interface RoutineDetail {
   objective: string;
 }
 
-// 🟢 SUBCOMPONENTE DE SKELETON PARA OS DETALHES DO TREINO
+// SUBCOMPONENTE DE SKELETON PARA OS DETALHES DO TREINO
 function RoutineDetailSkeleton() {
   return (
     <View className="flex-1 px-5 pt-4">
@@ -93,10 +95,13 @@ function RoutineDetailSkeleton() {
 async function fetchRoutineWithExercises(planId: string) {
   if (!planId) throw new Error('ID da rotina não fornecido');
 
+  // 🟢 SANITIZAÇÃO DO PARÂMETRO DA ROTA
+  const cleanPlanId = sanitizeInput(planId);
+
   const { data: plan, error: planError } = await supabase
     .from('workout_plans')
     .select('*')
-    .eq('id', planId)
+    .eq('id', cleanPlanId)
     .single();
 
   if (planError) throw new Error(planError.message);
@@ -114,7 +119,7 @@ async function fetchRoutineWithExercises(planId: string) {
         gif_key
       )
     `)
-    .eq('plan_id', planId)
+    .eq('plan_id', cleanPlanId)
     .order('order_index', { ascending: true });
 
   if (exercisesError) throw new Error(exercisesError.message);
@@ -133,7 +138,7 @@ export default function PersonalRoutineDetailScreen() {
   const isDark = colorScheme === 'dark';
 
   const handleBack = useCallback(() => {
-    router.navigate('/(personal)/routines');
+    router.navigate('/(personal)/routines' as any);
   }, [router]);
 
   const [selectedExerciseForGif, setSelectedExerciseForGif] = useState<{

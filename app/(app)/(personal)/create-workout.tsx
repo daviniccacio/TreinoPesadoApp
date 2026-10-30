@@ -1,9 +1,9 @@
 // ============================================================================
-// DOCUMENTAÇÃO: TELA DE CRIAÇÃO / EDIÇÃO DE PLANO DE TREINO COM SKELETON
+// DOCUMENTAÇÃO: TELA DE CRIAÇÃO / EDIÇÃO DE PLANO DE TREINO COM SANITIZAÇÃO
 // ============================================================================
 // Inclui proteção contra saída acidental com alterações não salvas, modal
-// com fecho instantâneo, persistência de exercícios, categorias dinâmicas
-// e carregamento gradual em Skeleton.
+// com fecho instantâneo, persistência de exercícios, categorias dinâmicas,
+// sanitização de entradas de texto e carregamento gradual em Skeleton.
 // ============================================================================
 
 import React, { useState, useCallback, useEffect } from 'react';
@@ -42,7 +42,8 @@ import { getExerciseGif } from '../../../lib/exerciseGifs';
 import { useThrottledCallback } from '../../../lib/useThrottle';
 import { CustomModal } from '../../../components/CustomModal';
 import { createWorkoutPlanSchema } from '../../../lib/validations/workout';
-import { Skeleton } from '../../../components/SkeletonLoading'; // 🟢 Importação do Skeleton
+import { Skeleton } from '../../../components/SkeletonLoading';
+import { sanitizeInput } from '../../../lib/security'; // 🟢 Importação do módulo de sanitização
 
 // --- TIPAGENS DE DADOS ---
 interface RegisteredExercise {
@@ -287,11 +288,11 @@ export default function CreateWorkoutPlanScreen() {
   const handleNavigateBack = useCallback(() => {
     if (studentId) {
       router.replace({
-        pathname: '/(personal)/student-detail',
+        pathname: '/(personal)/student-detail' as any,
         params: { id: studentId, name: studentName },
       });
     } else {
-      router.replace('/(personal)/routines');
+      router.replace('/(personal)/routines' as any);
     }
   }, [router, studentId, studentName]);
 
@@ -320,11 +321,12 @@ export default function CreateWorkoutPlanScreen() {
   async function loadExistingPlanData(id: string) {
     try {
       setLoadingPlanData(true);
+      const cleanPlanId = sanitizeInput(id);
 
       const { data: plan, error: planError } = await supabase
         .from('workout_plans')
         .select('*')
-        .eq('id', id)
+        .eq('id', cleanPlanId)
         .single();
 
       if (planError) throw planError;
@@ -344,7 +346,7 @@ export default function CreateWorkoutPlanScreen() {
             gif_key
           )
         `)
-        .eq('plan_id', id)
+        .eq('plan_id', cleanPlanId)
         .order('order_index', { ascending: true });
 
       if (exercisesError) throw exercisesError;
@@ -489,13 +491,25 @@ export default function CreateWorkoutPlanScreen() {
     setSelectedExercises((prev) => prev.filter((item) => item.tempId !== tempId));
   }
 
+  // 🟢 GRAVAÇÃO COM DADOS SANITIZADOS
   async function handleSavePlan() {
+    // 1. Sanitiza todas as entradas de texto antes da validação
+    const cleanPlanName = sanitizeInput(planName);
+    const cleanDescription = sanitizeInput(description);
+
+    const cleanedExercises = selectedExercises.map((ex) => ({
+      exercise_id: ex.exercise_id,
+      sets: sanitizeInput(ex.sets),
+      reps: sanitizeInput(ex.reps),
+      notes: sanitizeInput(ex.notes),
+    }));
+
     const payload = {
-      name: planName.trim(),
-      description: description.trim() || null,
+      name: cleanPlanName.trim(),
+      description: cleanDescription.trim() || null,
       objective,
       days_of_week: selectedDays,
-      exercises: selectedExercises.map((ex) => ({
+      exercises: cleanedExercises.map((ex) => ({
         exercise_id: ex.exercise_id,
         sets: ex.sets.trim(),
         reps: ex.reps.trim(),
@@ -503,6 +517,7 @@ export default function CreateWorkoutPlanScreen() {
       })),
     };
 
+    // 2. Valida o payload sanitizado usando o Zod
     const validation = createWorkoutPlanSchema.safeParse(payload);
 
     if (!validation.success) {
@@ -522,27 +537,29 @@ export default function CreateWorkoutPlanScreen() {
       } = await supabase.auth.getUser();
 
       if (planId) {
+        const cleanPlanId = sanitizeInput(planId);
+
         const { error: planError } = await supabase
           .from('workout_plans')
           .update({
-            name: planName.trim(),
-            description: description.trim() || null,
+            name: cleanPlanName.trim(),
+            description: cleanDescription.trim() || null,
             objective: objective,
             days_of_week: selectedDays,
           })
-          .eq('id', planId);
+          .eq('id', cleanPlanId);
 
         if (planError) throw planError;
 
-        await supabase.from('plan_exercises').delete().eq('plan_id', planId);
+        await supabase.from('plan_exercises').delete().eq('plan_id', cleanPlanId);
 
         const exercisesPayload = selectedExercises.map((ex, index) => ({
-          plan_id: planId,
+          plan_id: cleanPlanId,
           exercise_id: ex.exercise_id,
           name: ex.name,
-          sets: ex.sets.trim() || '3',
-          reps: ex.reps.trim() || '10',
-          notes: ex.notes.trim() || null,
+          sets: sanitizeInput(ex.sets).trim() || '3',
+          reps: sanitizeInput(ex.reps).trim() || '10',
+          notes: sanitizeInput(ex.notes).trim() || null,
           order_index: index,
         }));
 
@@ -569,11 +586,11 @@ export default function CreateWorkoutPlanScreen() {
         const { data: planData, error: planError } = await supabase
           .from('workout_plans')
           .insert({
-            name: planName.trim(),
-            description: description.trim() || null,
+            name: cleanPlanName.trim(),
+            description: cleanDescription.trim() || null,
             objective: objective,
             days_of_week: selectedDays,
-            student_id: studentId || null,
+            student_id: studentId ? sanitizeInput(studentId) : null,
             personal_id: user?.id,
           })
           .select('id')
@@ -585,9 +602,9 @@ export default function CreateWorkoutPlanScreen() {
           plan_id: planData.id,
           exercise_id: ex.exercise_id,
           name: ex.name,
-          sets: ex.sets.trim() || '3',
-          reps: ex.reps.trim() || '10',
-          notes: ex.notes.trim() || null,
+          sets: sanitizeInput(ex.sets).trim() || '3',
+          reps: sanitizeInput(ex.reps).trim() || '10',
+          notes: sanitizeInput(ex.notes).trim() || null,
           order_index: index,
         }));
 
@@ -621,8 +638,10 @@ export default function CreateWorkoutPlanScreen() {
     }
   }
 
+  // 🟢 FILTRAGEM SANITIZADA EM MEMÓRIA DENTRO DO MODAL
   const filteredRegisteredExercises = registeredExercises.filter((ex: RegisteredExercise) => {
-    const matchesSearch = ex.name.toLowerCase().includes(searchQuery.toLowerCase().trim());
+    const cleanSearch = sanitizeInput(searchQuery).toLowerCase().trim();
+    const matchesSearch = ex.name.toLowerCase().includes(cleanSearch);
     const matchesCategory =
       selectedCategoryFilter === 'todos' ||
       (ex.category_id && ex.category_id.toLowerCase().trim() === selectedCategoryFilter.toLowerCase().trim());
@@ -685,7 +704,7 @@ export default function CreateWorkoutPlanScreen() {
 
   const safeTopPadding = Math.max(insets?.top || 0, 16);
 
-  // 🟢 TELA EM CARREGAMENTO COM SKELETON
+  // TELA EM CARREGAMENTO COM SKELETON
   if (loadingPlanData) {
     return (
       <View className="flex-1 bg-white dark:bg-zinc-950 px-5" style={{ paddingTop: safeTopPadding }}>
@@ -1034,7 +1053,7 @@ export default function CreateWorkoutPlanScreen() {
                   </ScrollView>
                 </View>
 
-                {/* 🟢 EXIBIÇÃO DE SKELETON OU LISTA DE EXERCÍCIOS NO MODAL */}
+                {/* EXIBIÇÃO DE SKELETON OU LISTA DE EXERCÍCIOS NO MODAL */}
                 {loadingModalExercises ? (
                   <ModalExerciseSkeleton />
                 ) : (

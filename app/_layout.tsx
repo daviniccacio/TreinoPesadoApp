@@ -46,8 +46,8 @@ import { supabase } from '../lib/supabase';
 
 // IMPORTAÇÃO DOS PROVEDORES DE CONTEXTO E COMPONENTES
 import { ThemeProvider as AppThemeProvider, useTheme } from '../context/ThemeContext';
-import { TimerProvider } from '../context/TimerContext'; // 🟢 CONTEXTO GLOBAL DO TIMER
-import { FloatingTimer } from '../components/FloatingTimer'; // 🟢 WIDGET FLUTUANTE
+import { TimerProvider } from '../context/TimerContext';
+import { FloatingTimer } from '../components/FloatingTimer';
 import { AppEntranceLoading } from '../components/AppLoaders';
 import { OfflineBanner } from '../components/OfflineBanner';
 import { GlobalErrorBoundary } from '../components/ErrorBoundary';
@@ -214,41 +214,58 @@ function RootLayoutContent() {
     };
   }, []);
 
-  // ETAPA 2: BUSCA DO PERFIL NO SUPABASE
-  async function fetchUserProfile() {
-    if (!session?.user?.id) {
-      setUserProfile(null);
-      return;
-    }
+  // ETAPA 2: BUSCA DO PERFIL NO SUPABASE (SISTEMA CORRIGIDO COM .maybeSingle())
+  // ============================================================================
+// DOCUMENTAÇÃO: TRATAMENTO DE SESSÃO FANTASMA E CONTA EXCLUÍDA EM _LAYOUT.TSX
+// ============================================================================
+// Detecta se a sessão local pertence a uma conta excluída do banco.
+// Caso o perfil retorne nulo, encerra a sessão local e redireciona para o Login.
+// ============================================================================
 
-    setIsProfileLoading(true);
-    setNetworkError(false);
-
-    try {
-      const { data: profile, error } = await supabase
-        .from('profiles')
-        .select('role, is_blocked, accepted_terms')
-        .eq('id', session.user.id)
-        .single();
-
-      if (error) {
-        console.error('Erro ao verificar perfil do usuário:', error.message);
-        setNetworkError(true);
-      } else if (profile) {
-        setUserProfile(profile as UserProfile);
-        if (!profile.accepted_terms) {
-          setShowTermsModal(true);
-        } else {
-          setShowTermsModal(false);
-        }
-      }
-    } catch (err) {
-      console.error('Erro de conexão ao buscar perfil:', err);
-      setNetworkError(true);
-    } finally {
-      setIsProfileLoading(false);
-    }
+async function fetchUserProfile() {
+  if (!session?.user?.id) {
+    setUserProfile(null);
+    return;
   }
+
+  setIsProfileLoading(true);
+  setNetworkError(false);
+
+  try {
+    // Busca o perfil no Supabase de forma segura
+    const { data: profile, error } = await supabase
+      .from('profiles')
+      .select('role, is_blocked, accepted_terms')
+      .eq('id', session.user.id)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Erro ao verificar perfil do usuário:', error.message);
+      setNetworkError(true);
+    } else if (profile) {
+      // 🟢 CASO 1: Perfil encontrado com sucesso
+      setUserProfile(profile as UserProfile);
+      if (!profile.accepted_terms) {
+        setShowTermsModal(true);
+      } else {
+        setShowTermsModal(false);
+      }
+    } else {
+      // 🔴 CASO 2: SESSÃO FANTASMA DETECTADA (Conta excluída do Supabase)
+      // Se a sessão local existe mas o perfil não foi encontrado no banco, deslogamos o app!
+      console.warn('⚠️ Conta excluída detectada no banco. Encerrando sessão local...');
+      await supabase.auth.signOut();
+      setSession(null);
+      setUserProfile(null);
+      router.replace('/(auth)/login');
+    }
+  } catch (err) {
+    console.error('Erro de conexão ao buscar perfil:', err);
+    setNetworkError(true);
+  } finally {
+    setIsProfileLoading(false);
+  }
+}
 
   async function handleAcceptTerms() {
     if (!session?.user?.id) return;
@@ -344,23 +361,39 @@ function RootLayoutContent() {
   );
 
   if (networkError && !userProfile) {
-    return (
-      <View style={{ flex: 1, backgroundColor }} className="justify-center items-center px-6">
-        <Text className="text-base font-sans-bold text-red-500 mb-2 text-center">
-          Falha de Conexão com o Servidor
-        </Text>
-        <Text className="text-xs font-sans-medium text-zinc-400 mb-6 text-center">
-          Não foi possível verificar suas permissões devido a um tempo limite de rede (Gateway Timeout).
-        </Text>
-        <TouchableOpacity
-          onPress={fetchUserProfile}
-          className="bg-[#59C83A] px-6 py-3 rounded-2xl"
-        >
-          <Text className="text-white font-sans-bold text-sm">Tentar Novamente</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
+  return (
+    <View style={{ flex: 1, backgroundColor }} className="justify-center items-center px-6">
+      <Text className="text-base font-sans-bold text-red-500 mb-2 text-center">
+        Falha ao Carregar Perfil
+      </Text>
+      <Text className="text-xs font-sans-medium text-zinc-400 mb-6 text-center">
+        Não foi possível validar os dados da sua conta local com o banco de dados.
+      </Text>
+      
+      {/* Botão de Tentar Novamente */}
+      <TouchableOpacity
+        onPress={fetchUserProfile}
+        className="bg-[#59C83A] px-6 py-3 rounded-2xl mb-3 w-full items-center"
+      >
+        <Text className="text-white font-sans-bold text-sm">Tentar Novamente</Text>
+      </TouchableOpacity>
+
+      {/* 🟢 BOTÃO DE EMERGÊNCIA: Limpa a sessão fantasma local e vai para o login */}
+      <TouchableOpacity
+        onPress={async () => {
+          await supabase.auth.signOut();
+          setSession(null);
+          setUserProfile(null);
+          setNetworkError(false);
+          router.replace('/(auth)/login');
+        }}
+        className="bg-red-500/10 border border-red-500/30 px-6 py-3 rounded-2xl w-full items-center"
+      >
+        <Text className="text-red-500 font-sans-bold text-sm">Sair e Limpar Sessão</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
 
   if (!isEntranceFinished) {
     return (
@@ -392,7 +425,7 @@ function RootLayoutContent() {
         </Stack>
       </NavigationThemeProvider>
 
-      {/* 🟢 WIDGET FLUTUANTE DO CRONÔMETRO EXIBIDO EM QUALQUER TELA QUANDO ATIVO */}
+      {/* WIDGET FLUTUANTE DO CRONÔMETRO EXIBIDO EM QUALQUER TELA QUANDO ATIVO */}
       <FloatingTimer />
 
       {/* MODAL DE CONFORMIDADE LGPD */}
@@ -413,7 +446,6 @@ export default function RootLayout() {
     <GlobalErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <AppThemeProvider>
-          {/* 🟢 O TIMERPROVIDER PROVE O ESTADO DO TEMPORIZADOR PARA O APP TODO */}
           <TimerProvider>
             <RootLayoutContent />
           </TimerProvider>

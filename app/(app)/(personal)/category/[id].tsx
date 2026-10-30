@@ -1,8 +1,8 @@
 // ============================================================================
-// DOCUMENTAÇÃO: TELA DE EXERCÍCIOS POR CATEGORIA (PERSONAL TRAINER) COM SKELETON
+// DOCUMENTAÇÃO: TELA DE EXERCÍCIOS POR CATEGORIA (PERSONAL TRAINER) COM SANITIZAÇÃO
 // ============================================================================
 // Exibe a lista de exercícios cadastrados para uma categoria específica do
-// Supabase, permitindo filtragem em tempo real e esqueletos animadores de transição.
+// Supabase, permitindo filtragem em tempo real sanitizada e Skeleton Loading.
 // ============================================================================
 
 import React, { useState } from 'react';
@@ -27,8 +27,10 @@ import {
 } from 'phosphor-react-native';
 import { useQuery } from '@tanstack/react-query';
 import { MotiView } from 'moti';
+
 import { supabase } from '../../../../lib/supabase';
-import { Skeleton } from '../../../../components/SkeletonLoading'; // 🟢 Importação do Skeleton
+import { Skeleton } from '../../../../components/SkeletonLoading';
+import { sanitizeInput } from '../../../../lib/security'; // 🟢 Importação do módulo de sanitização
 
 // --- TIPAGENS DE DADOS ---
 interface Exercise {
@@ -37,18 +39,15 @@ interface Exercise {
   category_id: string;
 }
 
-// 🟢 SUBCOMPONENTE DE SKELETON PARA ITEM DA LISTA DE EXERCÍCIOS
+// SUBCOMPONENTE DE SKELETON PARA ITEM DA LISTA DE EXERCÍCIOS
 function CategoryExerciseSkeleton() {
   return (
     <View className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl mb-3 flex-row items-center justify-between border border-[#e2dfe1] dark:border-zinc-800">
       <View className="flex-row items-center flex-1 mr-3">
-        {/* Skeleton do Ícone de Anilha */}
         <Skeleton width={40} height={40} borderRadius={12} className="mr-3" />
-        {/* Skeleton do Nome do Exercício */}
         <Skeleton width="60%" height={18} borderRadius={6} />
       </View>
 
-      {/* Skeleton do Botão de Seta */}
       <Skeleton width={36} height={36} borderRadius={18} />
     </View>
   );
@@ -60,10 +59,13 @@ function CategoryExerciseSkeleton() {
 async function fetchExercisesByCategory(categoryId: string): Promise<Exercise[]> {
   if (!categoryId) return [];
 
+  // Sanitiza a chave da categoria recebida via parâmetros
+  const cleanCategoryId = sanitizeInput(categoryId);
+
   const { data, error } = await supabase
     .from('exercises')
     .select('*')
-    .eq('category_id', categoryId)
+    .eq('category_id', cleanCategoryId)
     .order('name');
 
   if (error) {
@@ -96,11 +98,14 @@ export default function PersonalCategoryScreen() {
     enabled: !!id,
   });
 
-  const categoryTitle = title || (id ? id.charAt(0).toUpperCase() + id.slice(1) : 'Categoria');
+  const categoryTitle =
+    title || (id ? sanitizeInput(id).charAt(0).toUpperCase() + sanitizeInput(id).slice(1) : 'Categoria');
 
-  const filteredExercises = exercises.filter((item) =>
-    item.name.toLowerCase().includes(searchQuery.toLowerCase().trim())
-  );
+  // 🟢 FILTRAGEM SANITIZADA EM MEMÓRIA
+  const filteredExercises = exercises.filter((item) => {
+    const cleanQuery = sanitizeInput(searchQuery).toLowerCase().trim();
+    return item.name.toLowerCase().includes(cleanQuery);
+  });
 
   function handleGoBack() {
     router.replace('/(personal)/exercises');
@@ -173,7 +178,9 @@ export default function PersonalCategoryScreen() {
           refreshControl={
             <RefreshControl
               refreshing={isRefetching}
-              onRefresh={async () => { await refetch(); }}
+              onRefresh={async () => {
+                await refetch();
+              }}
               tintColor="#59C83A"
             />
           }

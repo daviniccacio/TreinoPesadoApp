@@ -1,8 +1,8 @@
 // ============================================================================
-// DOCUMENTAÇÃO: TELA DE REDEFINIÇÃO DE SENHA COM MEDIDOR ANIMADO E TELA FINAL
+// DOCUMENTAÇÃO: TELA DE REDEFINIÇÃO DE SENHA COM SANITIZAÇÃO E TELA FINAL
 // ============================================================================
-// Inclui réguas de força de senha animadas, tela dedicada de sucesso sem modais
-// e botão de retorno que faz logout antes de navegar para a tela de login.
+// Inclui medidor animado de força, sanitização de senhas, validação inline,
+// tela dedicada de sucesso e logout preventivo antes de redirecionar ao login.
 // ============================================================================
 
 import React, { useState } from "react";
@@ -29,7 +29,9 @@ import {
   WarningCircle,
 } from "phosphor-react-native";
 import { MotiView, MotiText } from "moti";
+
 import { supabase } from "../../lib/supabase";
+import { sanitizeInput } from "../../lib/security"; // 🟢 Importação da função de sanitização
 
 export default function ResetPasswordScreen() {
   const router = useRouter();
@@ -41,12 +43,11 @@ export default function ResetPasswordScreen() {
   const [confirmPassword, setConfirmPassword] = useState<string>("");
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
-  
-  // 🟢 ESTADOS DE ERRO E DE SUCESSO DA TELA (SEM MODAIS)
+
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSuccess, setIsSuccess] = useState<boolean>(false);
 
-  // 🟢 ALGORITMO DE AVALIAÇÃO DE FORÇA DA SENHA
+  // ALGORITMO DE AVALIAÇÃO DE FORÇA DA SENHA
   function getPasswordStrength(pass: string) {
     if (!pass) return { score: 0, label: "", color: "#e2dfe1" };
 
@@ -72,12 +73,16 @@ export default function ResetPasswordScreen() {
   async function handleUpdatePassword() {
     setErrorMessage(null);
 
-    if (newPassword.length < 6) {
+    // 🟢 Sanitização das senhas antes da validação e gravação
+    const cleanPassword = sanitizeInput(newPassword).trim();
+    const cleanConfirmPassword = sanitizeInput(confirmPassword).trim();
+
+    if (cleanPassword.length < 6) {
       setErrorMessage("A nova senha deve conter pelo menos 6 caracteres.");
       return;
     }
 
-    if (newPassword !== confirmPassword) {
+    if (cleanPassword !== cleanConfirmPassword) {
       setErrorMessage("As senhas digitadas não coincidem.");
       return;
     }
@@ -86,13 +91,12 @@ export default function ResetPasswordScreen() {
 
     try {
       const { error } = await supabase.auth.updateUser({
-        password: newPassword.trim(),
+        password: cleanPassword,
       });
 
       if (error) {
         setErrorMessage(error.message || "Não foi possível atualizar a senha.");
       } else {
-        // 🟢 MOSTRA A TELA DE SUCESSO DEDICADA
         setIsSuccess(true);
       }
     } catch (err) {
@@ -102,12 +106,11 @@ export default function ResetPasswordScreen() {
     }
   }
 
-  // 🟢 FUNÇÃO DE RETORNO AO LOGIN COM ENCERRAMENTO EXPLÍCITO DE SESSÃO
   async function handleGoToLogin() {
     try {
       await supabase.auth.signOut();
     } catch (err) {
-      // Ignora erro ao limpar sessão
+      // Ignora erro ao encerrar sessão temporária
     } finally {
       router.replace("/(auth)/login" as any);
     }
@@ -116,9 +119,7 @@ export default function ResetPasswordScreen() {
   const safeTopPadding = Math.max(insets?.top || 0, 16);
   const safeBottomPadding = Math.max(insets?.bottom || 0, 16);
 
-  // ============================================================================
-  // TELA DE CONFIRMAÇÃO DE SUCESSO (EXIBIDA APÓS A TROCA DA SENHA)
-  // ============================================================================
+  // TELA DE CONFIRMAÇÃO DE SUCESSO
   if (isSuccess) {
     return (
       <View className="flex-1 bg-white dark:bg-zinc-950 justify-center items-center px-6">
@@ -128,7 +129,6 @@ export default function ResetPasswordScreen() {
           transition={{ type: "spring", damping: 18, stiffness: 160 } as any}
           className="w-full items-center text-center"
         >
-          {/* ÍCONE DE SUCESSO COM BRILHO */}
           <MotiView
             from={{ scale: 0.5, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
@@ -138,17 +138,14 @@ export default function ResetPasswordScreen() {
             <SuccessIcon size={48} color="#59C83A" weight="bold" />
           </MotiView>
 
-          {/* TÍTULO */}
           <Text className="text-2xl font-outfit-extrabold text-[#1b1b1d] dark:text-white text-center mb-2">
             Senha Alterada com Sucesso!
           </Text>
 
-          {/* SUBTÍTULO */}
           <Text className="text-xs font-sans-regular text-[#71717a] dark:text-zinc-400 text-center mb-8 leading-relaxed px-4">
             Sua senha foi atualizada. Agora você já pode acessar a sua conta com a nova credencial.
           </Text>
 
-          {/* BOTÃO PARA IR AO LOGIN */}
           <TouchableOpacity
             onPress={handleGoToLogin}
             style={{ backgroundColor: "#59C83A" }}
@@ -164,9 +161,7 @@ export default function ResetPasswordScreen() {
     );
   }
 
-  // ============================================================================
-  // FORMULÁRIO DE NOVA SENHA COM MEDIDOR ANIMADO DE FORÇA
-  // ============================================================================
+  // FORMULÁRIO DE NOVA SENHA
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
@@ -182,7 +177,6 @@ export default function ResetPasswordScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {/* BOTÃO VOLTAR */}
         <MotiView
           from={{ opacity: 0, translateX: -15 }}
           animate={{ opacity: 1, translateX: 0 }}
@@ -200,7 +194,6 @@ export default function ResetPasswordScreen() {
           </TouchableOpacity>
         </MotiView>
 
-        {/* CABEÇALHO DA TELA */}
         <MotiView
           from={{ opacity: 0, translateY: -16 }}
           animate={{ opacity: 1, translateY: 0 }}
@@ -220,7 +213,6 @@ export default function ResetPasswordScreen() {
           animate={{ opacity: 1, translateY: 0 }}
           transition={{ type: "spring", damping: 20, stiffness: 140, delay: 200 } as any}
         >
-          {/* CAMPO: NOVA SENHA */}
           <View className="mb-2">
             <Text className="text-xs font-sans-bold uppercase tracking-wider text-[#71717a] dark:text-zinc-400 mb-1.5 ml-1">
               Nova Senha
@@ -248,7 +240,7 @@ export default function ResetPasswordScreen() {
             </View>
           </View>
 
-          {/* 🟢 MEDIDOR ANIMADO DE FORÇA DE SENHA (3 BARRAS COM TRANSIÇÃO SUAVE) */}
+          {/* MEDIDOR ANIMADO DE FORÇA DE SENHA */}
           {newPassword.length > 0 && (
             <MotiView
               from={{ opacity: 0, translateY: -4 }}
@@ -257,7 +249,6 @@ export default function ResetPasswordScreen() {
               className="mb-4 px-1"
             >
               <View className="flex-row justify-between items-center gap-2 my-2">
-                {/* BARRA 1 */}
                 <MotiView
                   animate={{
                     backgroundColor: strength.score >= 1 ? strength.color : isDark ? "#27272a" : "#e4e4e7",
@@ -265,7 +256,6 @@ export default function ResetPasswordScreen() {
                   transition={{ type: "timing", duration: 300 } as any}
                   className="flex-1 h-1.5 rounded-full"
                 />
-                {/* BARRA 2 */}
                 <MotiView
                   animate={{
                     backgroundColor: strength.score >= 2 ? strength.color : isDark ? "#27272a" : "#e4e4e7",
@@ -273,7 +263,6 @@ export default function ResetPasswordScreen() {
                   transition={{ type: "timing", duration: 300 } as any}
                   className="flex-1 h-1.5 rounded-full"
                 />
-                {/* BARRA 3 */}
                 <MotiView
                   animate={{
                     backgroundColor: strength.score >= 3 ? strength.color : isDark ? "#27272a" : "#e4e4e7",
@@ -283,7 +272,6 @@ export default function ResetPasswordScreen() {
                 />
               </View>
 
-              {/* TEXTO EXPLICATIVO ANIMADO */}
               <MotiText
                 animate={{ color: strength.color } as any}
                 style={{ color: strength.color }}
@@ -295,7 +283,6 @@ export default function ResetPasswordScreen() {
             </MotiView>
           )}
 
-          {/* CAMPO: CONFIRMAR NOVA SENHA */}
           <View className="mb-4 mt-1">
             <Text className="text-xs font-sans-bold uppercase tracking-wider text-[#71717a] dark:text-zinc-400 mb-1.5 ml-1">
               Confirmar Nova Senha
@@ -316,7 +303,6 @@ export default function ResetPasswordScreen() {
             </View>
           </View>
 
-          {/* 🟢 MENSAGEM DE ERRO INLINE */}
           {errorMessage && (
             <MotiView
               from={{ opacity: 0, translateY: -4 }}
@@ -330,7 +316,6 @@ export default function ResetPasswordScreen() {
             </MotiView>
           )}
 
-          {/* BOTÃO DE SALVAR */}
           <TouchableOpacity
             onPress={handleUpdatePassword}
             disabled={loading}

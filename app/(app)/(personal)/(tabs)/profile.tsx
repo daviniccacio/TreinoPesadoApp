@@ -1,9 +1,8 @@
 // ============================================================================
-// DOCUMENTAÇÃO: TELA DE PERFIL DO PERSONAL TRAINER COM TIPAGEM E MODAL
+// DOCUMENTAÇÃO: TELA DE PERFIL DO PERSONAL TRAINER COM SANITIZAÇÃO E MODAL
 // ============================================================================
 // Exibe resumo profissional, código de acesso para alunos, métricas de trabalho,
-// alternância de tema global e modal interativo para exibição e edição de dados,
-// completamente ajustado contra erros de compilação do TypeScript.
+// alternância de tema global, sanitização de dados e modal interativo de edição.
 // ============================================================================
 
 import React, { useState, useCallback } from 'react';
@@ -50,6 +49,7 @@ import { CustomModal } from '../../../../components/CustomModal';
 import { SendNotificationModal } from '../../../../components/SendNotificationModal';
 import { Skeleton } from '../../../../components/SkeletonLoading';
 import { useTheme } from '../../../../context/ThemeContext';
+import { sanitizeInput } from '../../../../lib/security'; // 🟢 Importação do utilitário de sanitização
 
 // --- TIPAGENS DE DADOS ---
 interface PersonalProfileData {
@@ -277,7 +277,6 @@ export default function PersonalProfileScreen() {
     data: profile,
     isLoading,
     isError,
-    error,
     refetch,
     isRefetching,
   } = useQuery({
@@ -369,8 +368,12 @@ export default function PersonalProfileScreen() {
     setIsInfoModalOpen(true);
   }
 
+  // 🟢 VALIDAÇÃO E SANITIZAÇÃO ANTES DO ENVIO
   function handleSaveInfo() {
-    if (!editName.trim() || editName.trim().length < 3) {
+    const cleanName = sanitizeInput(editName);
+    const cleanPhone = sanitizeInput(editPhone);
+
+    if (!cleanName.trim() || cleanName.trim().length < 3) {
       showAlertModal({
         title: 'Nome Inválido',
         message: 'Por favor, informe seu nome completo com pelo menos 3 caracteres.',
@@ -380,8 +383,8 @@ export default function PersonalProfileScreen() {
     }
 
     updateProfileMutation.mutate({
-      name: editName,
-      phone: editPhone,
+      name: cleanName,
+      phone: cleanPhone,
     });
   }
 
@@ -417,7 +420,7 @@ export default function PersonalProfileScreen() {
   const safeTopPadding = Math.max(insets?.top || 0, 16);
   const safeBottomPadding = Math.max(insets?.bottom || 0, 16);
 
-  // EXTRAÇÃO SEGURA DOS DADOS DO PERFIL (EVITA ERROS DE 'UNDEFINED')
+  // EXTRAÇÃO SEGURA DOS DADOS DO PERFIL
   const fullName = profile?.fullName ?? 'Personal Trainer';
   const email = profile?.email ?? '';
   const inviteCode = profile?.inviteCode ?? 'PERS-XXXX';

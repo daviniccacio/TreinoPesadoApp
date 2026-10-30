@@ -1,5 +1,5 @@
 // ============================================================================
-// DOCUMENTAÇÃO: TELA DE VERIFICAÇÃO COM SUPORTE A AUTO-FILL NATIVO (iOS/ANDROID)
+// DOCUMENTAÇÃO: TELA DE VERIFICAÇÃO COM SANITIZAÇÃO E AUTO-FILL NATIVO
 // ============================================================================
 // Inclui suporte aos atributos textContentType="oneTimeCode" e autoComplete="one-time-code"
 // permitindo que o teclado sugira e preencha automaticamente o código de 6 dígitos.
@@ -20,23 +20,24 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ArrowLeft, ShieldCheck, WarningCircle } from "phosphor-react-native";
 import { MotiView } from "moti";
+
 import { supabase } from "../../lib/supabase";
+import { sanitizeInput } from "../../lib/security"; // 🟢 Importação da sanitização
 
 export default function VerifyOtpScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ email?: string }>();
   const insets = useSafeAreaInsets();
 
-  const email = params.email ?? "";
+  const rawEmail = params.email ?? "";
   const [code, setCode] = useState<string[]>(["", "", "", "", "", ""]);
   const [loading, setLoading] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [shakeKey, setShakeKey] = useState<number>(0);
 
-  // 🟢 CORREÇÃO DE TIPAGEM: React.ElementRef<typeof TextInput> captura a instância nativa do TextInput
   const inputRefs = useRef<Array<React.ElementRef<typeof TextInput> | null>>([]);
 
-  // 🟢 DISPARO AUTOMÁTICO QUANDO OS 6 DÍGITOS SÃO PREENCHIDOS
+  // DISPARO AUTOMÁTICO QUANDO OS 6 DÍGITOS SÃO PREENCHIDOS
   useEffect(() => {
     const fullCode = code.join("");
     if (fullCode.length === 6 && !loading) {
@@ -44,8 +45,12 @@ export default function VerifyOtpScreen() {
     }
   }, [code]);
 
+  // 🟢 VERIFICAÇÃO COM SANITIZAÇÃO DO TOKEN E E-MAIL
   async function verifyOtpAutomatically(otpString: string) {
-    if (!email) {
+    const cleanEmail = sanitizeInput(rawEmail).trim().toLowerCase();
+    const cleanOtp = sanitizeInput(otpString).trim();
+
+    if (!cleanEmail) {
       setErrorMessage("E-mail não identificado. Volte e tente novamente.");
       return;
     }
@@ -55,8 +60,8 @@ export default function VerifyOtpScreen() {
 
     try {
       const { error } = await supabase.auth.verifyOtp({
-        email,
-        token: otpString,
+        email: cleanEmail,
+        token: cleanOtp,
         type: "recovery",
       });
 
@@ -68,7 +73,7 @@ export default function VerifyOtpScreen() {
       } else {
         router.push({
           pathname: "/reset-password" as any,
-          params: { email, code: otpString },
+          params: { email: cleanEmail, code: cleanOtp },
         });
       }
     } catch (err) {
@@ -78,11 +83,10 @@ export default function VerifyOtpScreen() {
     }
   }
 
-  // 🟢 TRATAMENTO DE DIGITAÇÃO E AUTO-FILL NATIVO DO TECLADO
+  // TRATAMENTO DE DIGITAÇÃO E AUTO-FILL NATIVO DO TECLADO
   function handleOtpChange(text: string, index: number) {
     if (errorMessage) setErrorMessage(null);
 
-    // Se o iOS/Android enviou a string inteira de 6 dígitos via Auto-Fill:
     if (text.length >= 6) {
       const digits = text.replace(/\D/g, "").slice(0, 6).split("");
       if (digits.length === 6) {
@@ -92,7 +96,6 @@ export default function VerifyOtpScreen() {
       }
     }
 
-    // Digitação normal caractere por caractere
     const cleanText = text.replace(/\D/g, "");
     const newCode = [...code];
     newCode[index] = cleanText;
@@ -168,7 +171,7 @@ export default function VerifyOtpScreen() {
           </Text>
           <Text className="text-xs font-sans-regular text-[#71717a] dark:text-zinc-400 leading-relaxed">
             Digite o código de 6 dígitos enviado para{" "}
-            <Text className="font-sans-bold text-zinc-900 dark:text-zinc-200">{email}</Text>
+            <Text className="font-sans-bold text-zinc-900 dark:text-zinc-200">{rawEmail}</Text>
           </Text>
         </MotiView>
 

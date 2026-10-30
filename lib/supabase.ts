@@ -11,11 +11,9 @@ const CHUNK_SIZE = 2000;
 const LargeSecureStoreAdapter = {
   getItem: async (key: string): Promise<string | null> => {
     try {
-      // 1. Tenta buscar a chave diretamente
       const singleValue = await SecureStore.getItemAsync(key);
       if (singleValue) return singleValue;
 
-      // 2. Se não encontrou valor único, verifica se existem blocos (chunks)
       const countStr = await SecureStore.getItemAsync(`${key}_chunk_count`);
       if (!countStr) return null;
 
@@ -80,6 +78,15 @@ const LargeSecureStoreAdapter = {
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
+
+// 🟢 LOG DE AUDITORIA DE AMBIENTE AO INICIAR O APP
+if (__DEV__) {
+  const isDevDatabase = supabaseUrl.includes('dev') || !supabaseUrl.includes('qubfxyvvkpybqivxnfpq');
+  console.log('--------------------------------------------------');
+  console.log(`🔌 [SUPABASE AMBIENTE]: ${isDevDatabase ? '🟢 DESENVOLVIMENTO / TESTES' : '🔴 PRODUÇÃO'}`);
+  console.log(`🌐 URL: ${supabaseUrl}`);
+  console.log('--------------------------------------------------');
+}
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {

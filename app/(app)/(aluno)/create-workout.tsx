@@ -1,8 +1,8 @@
 // ============================================================================
-// DOCUMENTAÇÃO: TELA DE CRIAÇÃO / EDIÇÃO DE TREINO CUSTOMIZADO COM SKELETON
+// DOCUMENTAÇÃO: TELA DE CRIAÇÃO / EDIÇÃO DE TREINO CUSTOMIZADO COM SANITIZAÇÃO
 // ============================================================================
-// Permite ao aluno criar ou editar uma ficha personalizada com categorias
-// formatadas, animações fluidas e esqueletos visuais durante o carregamento.
+// Permite ao aluno criar ou editar uma ficha personalizada com proteção
+// de dados, animações fluidas e esqueletos visuais durante o carregamento.
 // ============================================================================
 
 import React, { useState, useEffect, useMemo, useCallback } from "react";
@@ -39,7 +39,9 @@ import { MotiView } from "moti";
 import { supabase } from "../../../lib/supabase";
 import { getExerciseGif } from "../../../lib/exerciseGifs";
 import { CustomModal } from "../../../components/CustomModal";
-import { Skeleton } from "../../../components/SkeletonLoading"; // 🟢 Importação do Skeleton
+import { Skeleton } from "../../../components/SkeletonLoading";
+import { sanitizeInput } from "../../../lib/security"; // 🟢 Importação do módulo de sanitização
+import { createWorkoutPlanSchema } from '../../../lib/validations/workout'
 
 const DAYS_OF_WEEK = [
   "Livre",
@@ -50,19 +52,16 @@ const DAYS_OF_WEEK = [
   "Sexta",
 ];
 
-// 🟢 SUBCOMPONENTE DE SKELETON PARA O FORMULÁRIO DE TREINO
+// SUBCOMPONENTE DE SKELETON PARA O FORMULÁRIO DE TREINO
 function CreateWorkoutSkeleton() {
   return (
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
-      {/* Skeleton do Campo Nome do Treino */}
       <Skeleton width={120} height={14} borderRadius={4} className="mb-2" />
       <Skeleton width="100%" height={52} borderRadius={16} className="mb-4" />
 
-      {/* Skeleton do Campo Propósito */}
       <Skeleton width={160} height={14} borderRadius={4} className="mb-2" />
       <Skeleton width="100%" height={48} borderRadius={16} className="mb-4" />
 
-      {/* Skeleton do Dia Sugerido */}
       <Skeleton width={180} height={14} borderRadius={4} className="mb-2" />
       <View className="flex-row gap-2 mb-6">
         <Skeleton width={70} height={32} borderRadius={12} />
@@ -71,13 +70,11 @@ function CreateWorkoutSkeleton() {
         <Skeleton width={70} height={32} borderRadius={12} />
       </View>
 
-      {/* Skeleton do Cabeçalho da Seção de Exercícios */}
       <View className="flex-row justify-between items-center mb-4">
         <Skeleton width={140} height={20} borderRadius={6} />
         <Skeleton width={90} height={32} borderRadius={12} />
       </View>
 
-      {/* Skeleton dos Cards de Exercícios Selecionados */}
       {Array.from({ length: 3 }).map((_, index) => (
         <View
           key={`workout-skeleton-${index}`}
@@ -95,13 +92,11 @@ function CreateWorkoutSkeleton() {
         </View>
       ))}
 
-      {/* Skeleton do Botão Salvar */}
       <Skeleton width="100%" height={52} borderRadius={16} className="mt-4" />
     </ScrollView>
   );
 }
 
-// FUNÇÃO UTILITÁRIA PARA FORMATAR AS CATEGORIAS DE FORMA AMIGÁVEL
 function formatCategoryLabel(rawCategory?: string): string {
   if (!rawCategory) return "Geral";
   const normalized = rawCategory.trim().toLowerCase();
@@ -181,10 +176,8 @@ export default function CreateOrEditWorkoutScreen() {
   const [selectedCategory, setSelectedCategory] = useState<string>("TODOS");
   const [searchQuery, setSearchQuery] = useState<string>("");
 
-  // ESTADO QUE GUARDA APENAS 1 GIF EXPANDIDO POR VEZ
   const [expandedModalExerciseId, setExpandedModalExerciseId] = useState<string | null>(null);
 
-  // ESTADO DO MODAL PERSONALIZADO DE ALERTA
   const [modalConfig, setModalConfig] = useState<{
     visible: boolean;
     title: string;
@@ -229,7 +222,6 @@ export default function CreateOrEditWorkoutScreen() {
     });
   }
 
-  // AVALIA SE EXISTEM DADOS DIGITADOS OU EXERCÍCIOS SELECIONADOS
   const isFormDirty =
     selectedExercises.length > 0 ||
     workoutTitle.trim().length > 0 ||
@@ -260,7 +252,6 @@ export default function CreateOrEditWorkoutScreen() {
     return unsubscribe;
   }, [navigation, isFormDirty, isSaved]);
 
-  // 1. CARREGA OS DADOS DO TREINO SE ESTIVER NO MODO DE EDIÇÃO
   useEffect(() => {
     async function loadWorkoutForEditing() {
       if (!planId) return;
@@ -327,7 +318,6 @@ export default function CreateOrEditWorkoutScreen() {
     loadWorkoutForEditing();
   }, [planId]);
 
-  // 2. BUSCA A LISTA DE TODOS OS EXERCÍCIOS DISPONÍVEIS
   async function handleOpenAddExerciseModal() {
     setIsModalOpen(true);
     setExpandedModalExerciseId(null);
@@ -356,7 +346,6 @@ export default function CreateOrEditWorkoutScreen() {
     }
   }
 
-  // 3. EXTRAÇÃO DINÂMICA DE CATEGORIAS DISPONÍVEIS
   const categoriesList = useMemo(() => {
     const rawCategories = availableExercises
       .map((item) => item.category_id)
@@ -365,8 +354,10 @@ export default function CreateOrEditWorkoutScreen() {
     return ["TODOS", ...uniqueCategories];
   }, [availableExercises]);
 
-  // 4. FILTRAGEM DE EXERCÍCIOS POR CATEGORIA E BUSCA
+  // FILTRAGEM COM BUSCA SANITIZADA
   const filteredExercises = useMemo(() => {
+    const cleanSearch = sanitizeInput(searchQuery).toLowerCase().trim();
+
     return availableExercises.filter((item) => {
       const matchesCategory =
         selectedCategory === "TODOS" ||
@@ -374,13 +365,12 @@ export default function CreateOrEditWorkoutScreen() {
 
       const matchesSearch = item.name
         .toLowerCase()
-        .includes(searchQuery.toLowerCase().trim());
+        .includes(cleanSearch);
 
       return matchesCategory && matchesSearch;
     });
   }, [availableExercises, selectedCategory, searchQuery]);
 
-  // 5. SELEÇÃO DE EXERCÍCIO
   function handleSelectExercise(exercise: ExerciseOption) {
     const alreadyExists = selectedExercises.some(
       (e) => e.exercise_id === exercise.id
@@ -410,25 +400,24 @@ export default function CreateOrEditWorkoutScreen() {
     }
   }
 
-  // 6. ATUALIZA SÉRIES, REPETIÇÕES OU CARGA
   function handleUpdateExerciseField(
     index: number,
     field: "sets" | "reps" | "weight",
     value: string
   ) {
+    // Sanitiza valores numéricos de séries e carga para evitar caracteres de controle
+    const cleanVal = sanitizeInput(value);
     setSelectedExercises((prev) => {
       const updated = [...prev];
-      updated[index][field] = value;
+      updated[index][field] = cleanVal;
       return updated;
     });
   }
 
-  // 7. REMOVE UM EXERCÍCIO DA LISTA LOCAL
   function handleRemoveExercise(index: number) {
     setSelectedExercises((prev) => prev.filter((_, i) => i !== index));
   }
 
-  // ITEM DO MODAL MEMORIZADO COM FORMATADOR DE CATEGORIA
   const renderModalExerciseItem = useCallback(
     ({ item }: { item: ExerciseOption }) => {
       const isAdded = selectedExercises.some((e) => e.exercise_id === item.id);
@@ -488,9 +477,13 @@ export default function CreateOrEditWorkoutScreen() {
     [selectedExercises, expandedModalExerciseId]
   );
 
-  // 8. SALVA OU ATUALIZA O TREINO NO SUPABASE
+  // SALVAMENTO SEGURO COM DADOS SANITIZADOS
   async function handleSaveWorkout() {
-    if (!workoutTitle.trim()) {
+    // 🟢 SANITIZAÇÃO DAS ENTRADAS ANTES DO ENVIO AO SUPABASE
+    const cleanTitle = sanitizeInput(workoutTitle);
+    const cleanDescription = sanitizeInput(workoutDescription);
+
+    if (!cleanTitle) {
       showAlertModal({
         title: "Campo Obrigatório",
         message: "Por favor, informe o nome do treino.",
@@ -519,8 +512,8 @@ export default function CreateOrEditWorkoutScreen() {
       let currentWorkoutId = planId;
 
       const payload = {
-        title: workoutTitle.trim(),
-        description: workoutDescription.trim(),
+        title: cleanTitle,
+        description: cleanDescription,
         day_of_week: selectedDay,
       };
 
@@ -533,7 +526,7 @@ export default function CreateOrEditWorkoutScreen() {
         if (updateError) {
           const { error: fallbackUpdateError } = await supabase
             .from("custom_workouts")
-            .update({ title: workoutTitle.trim() })
+            .update({ title: cleanTitle })
             .eq("id", planId);
 
           if (fallbackUpdateError) throw new Error(fallbackUpdateError.message);
@@ -567,7 +560,7 @@ export default function CreateOrEditWorkoutScreen() {
           const fallbackInsert = await supabase
             .from("custom_workouts")
             .insert({
-              title: workoutTitle.trim(),
+              title: cleanTitle,
               user_id: user.id,
               student_id: user.id,
             })
@@ -587,9 +580,9 @@ export default function CreateOrEditWorkoutScreen() {
         const exercisesToInsert = selectedExercises.map((item) => ({
           custom_workout_id: currentWorkoutId,
           exercise_id: item.exercise_id,
-          sets: parseInt(item.sets, 10) || 3,
-          reps: item.reps || "10",
-          weight: item.weight || "0kg",
+          sets: parseInt(sanitizeInput(item.sets), 10) || 3,
+          reps: sanitizeInput(item.reps) || "10",
+          weight: sanitizeInput(item.weight) || "0kg",
         }));
 
         const { error: exercisesError } = await supabase
@@ -600,9 +593,9 @@ export default function CreateOrEditWorkoutScreen() {
           const fallbackToInsert = selectedExercises.map((item) => ({
             workout_id: currentWorkoutId,
             exercise_id: item.exercise_id,
-            sets: parseInt(item.sets, 10) || 3,
-            reps: item.reps || "10",
-            weight: item.weight || "0kg",
+            sets: parseInt(sanitizeInput(item.sets), 10) || 3,
+            reps: sanitizeInput(item.reps) || "10",
+            weight: sanitizeInput(item.weight) || "0kg",
           }));
 
           const { error: fallbackError } = await supabase
@@ -656,7 +649,6 @@ export default function CreateOrEditWorkoutScreen() {
       className="flex-1 bg-white dark:bg-zinc-950 px-5"
       style={{ paddingTop: safeTopPadding + 10 }}
     >
-      {/* 1. CABEÇALHO ANIMADO */}
       <MotiView
         from={{ opacity: 0, translateY: -8 }}
         animate={{ opacity: 1, translateY: 0 }}
@@ -689,7 +681,6 @@ export default function CreateOrEditWorkoutScreen() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: 40 }}
         >
-          {/* 2. CAMPOS DO FORMULÁRIO */}
           <MotiView
             from={{ opacity: 0, translateY: 10 }}
             animate={{ opacity: 1, translateY: 0 }}
@@ -762,7 +753,6 @@ export default function CreateOrEditWorkoutScreen() {
             </ScrollView>
           </MotiView>
 
-          {/* 3. CABEÇALHO DA SEÇÃO DE EXERCÍCIOS */}
           <MotiView
             from={{ opacity: 0, translateY: 10 }}
             animate={{ opacity: 1, translateY: 0 }}
@@ -789,7 +779,6 @@ export default function CreateOrEditWorkoutScreen() {
             </TouchableOpacity>
           </MotiView>
 
-          {/* 4. LISTA DE EXERCÍCIOS SELECIONADOS */}
           {selectedExercises.length === 0 ? (
             <MotiView
               from={{ opacity: 0, scale: 0.96 }}
@@ -841,7 +830,6 @@ export default function CreateOrEditWorkoutScreen() {
                   </TouchableOpacity>
                 </View>
 
-                {/* CAMPOS DE SÉRIES, REPS E CARGA */}
                 <View className="flex-row justify-between gap-2">
                   <View className="flex-1">
                     <Text className="text-[10px] font-sans-bold text-[#71717a] dark:text-zinc-400 mb-1">
@@ -887,7 +875,6 @@ export default function CreateOrEditWorkoutScreen() {
             ))
           )}
 
-          {/* 5. BOTÃO SALVAR / ATUALIZAR */}
           <MotiView
             from={{ opacity: 0, translateY: 12 }}
             animate={{ opacity: 1, translateY: 0 }}
@@ -930,7 +917,6 @@ export default function CreateOrEditWorkoutScreen() {
           <View className="flex-1 bg-black/60 justify-end">
             <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
               <View className="bg-white dark:bg-zinc-900 rounded-t-3xl p-6 h-[85%] border-t border-[#e2dfe1] dark:border-zinc-800">
-                {/* CABEÇALHO DO MODAL */}
                 <View className="flex-row items-center justify-between mb-4 pb-3 border-b border-[#e2dfe1] dark:border-zinc-800">
                   <View>
                     <Text className="text-lg font-outfit-extrabold text-[#1b1b1d] dark:text-white">
@@ -949,7 +935,7 @@ export default function CreateOrEditWorkoutScreen() {
                   </TouchableOpacity>
                 </View>
 
-                {/* CAMPO DE BUSCA */}
+                {/* CAMPO DE BUSCA SANITIZADO */}
                 <View className="flex-row items-center bg-[#f8f9fa] dark:bg-zinc-950 border border-[#e2dfe1] dark:border-zinc-800 rounded-xl px-3 py-2.5 mb-3">
                   <MagnifyingGlass size={18} color={isDark ? "#71717a" : "#a1a1aa"} />
                   <TextInput
@@ -966,7 +952,6 @@ export default function CreateOrEditWorkoutScreen() {
                   )}
                 </View>
 
-                {/* FILTRO DE CATEGORIAS HORIZONTAL COM RÓTULOS FORMATADOS */}
                 <View className="mb-4">
                   <ScrollView
                     horizontal
@@ -1002,7 +987,6 @@ export default function CreateOrEditWorkoutScreen() {
                   </ScrollView>
                 </View>
 
-                {/* LISTA DE EXERCÍCIOS DISPONÍVEIS OTIMIZADA COM FLATLIST */}
                 {isLoadingAvailable ? (
                   <View className="flex-1 justify-center items-center">
                     <ActivityIndicator size="large" color="#59C83A" />
@@ -1032,7 +1016,6 @@ export default function CreateOrEditWorkoutScreen() {
         </TouchableWithoutFeedback>
       </Modal>
 
-      {/* COMPONENTE DO MODAL PERSONALIZADO REUTILIZÁVEL */}
       <CustomModal
         visible={modalConfig.visible}
         title={modalConfig.title}

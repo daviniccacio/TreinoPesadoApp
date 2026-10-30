@@ -1,8 +1,8 @@
 // ============================================================================
-// DOCUMENTAÇÃO: TELA DE LOGIN INTEGRADA AO TEMA GLOBAL E NOVO FLUXO DE AUTH
+// DOCUMENTAÇÃO: TELA DE LOGIN BLINDADA CONTRA TRAVAMENTOS, TIMEOUTS E INJEÇÕES
 // ============================================================================
-// Tela de autenticação atualizada para utilizar o tema global, overlay de
-// carregamento e redirecionamento direto para a nova tela de recuperação.
+// Inclui proteção com Promise.race (timeout de 10s), sanitização de e-mail e
+// senha, tratamento de exceções no SecureStore e navegação por papel (role).
 // ============================================================================
 
 import React, { useState } from 'react';
@@ -28,8 +28,9 @@ import {
   Lightning,
 } from 'phosphor-react-native';
 import { MotiView } from 'moti';
+
 import { supabase } from '../../lib/supabase';
-import { useThrottledCallback } from '../../lib/useThrottle';
+import { sanitizeInput } from '../../lib/security'; // 🟢 Importação do módulo de sanitização
 import { CustomModal } from '../../components/CustomModal';
 import { AuthLoadingOverlay } from '../../components/AppLoaders';
 import { useTheme } from '../../context/ThemeContext';
@@ -142,17 +143,15 @@ function EnergyBadge() {
 export default function LoginScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-
-  // SUBSCRITO AO TEMA GLOBAL DO APLICATIVO
   const { isDark } = useTheme();
 
-  // ESTADOS DE LOGIN
+  // ESTADOS DE AUTENTICAÇÃO
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [showPassword, setShowPassword] = useState<boolean>(false);
 
-  // ESTADO DO MODAL PERSONALIZADO DE ALERTA
+  // CONFIGURAÇÃO DO MODAL DE ALERTA
   const [modalConfig, setModalConfig] = useState<{
     visible: boolean;
     title: string;
@@ -205,10 +204,16 @@ export default function LoginScreen() {
     });
   }
 
+  // FUNÇÃO DE LOGIN PROTEGIDA COM TIMEOUT, SANITIZAÇÃO E LOGS
   async function handleLogin() {
-    const cleanEmail = email.trim().toLowerCase();
+    if (loading) return;
 
-    if (!cleanEmail || !password.trim()) {
+    // 1. Sanitização e limpeza das entradas de texto
+    const cleanEmail = sanitizeInput(email).trim().toLowerCase();
+    const cleanPassword = sanitizeInput(password).trim();
+
+    // 2. Validação dos campos
+    if (!cleanEmail || !cleanPassword) {
       showAlertModal({
         title: 'Campos Obrigatórios',
         message: 'Por favor, preencha o e-mail e a senha.',
@@ -229,10 +234,22 @@ export default function LoginScreen() {
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      // 3. Criação do Timeout de Segurança (10 Segundos)
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(
+          () => reject(new Error('TIMEOUT_EXCEEDED')),
+          10000
+        )
+      );
+
+      // 4. Execução paralela da autenticação contra o Timeout
+      const authPromise = supabase.auth.signInWithPassword({
         email: cleanEmail,
-        password: password,
+        password: cleanPassword,
       });
+
+      const response = (await Promise.race([authPromise, timeoutPromise])) as any;
+      const { data, error } = response;
 
       if (error) {
         if (error.status === 429 || error.message.toLowerCase().includes('rate limit')) {
@@ -244,7 +261,6 @@ export default function LoginScreen() {
           return;
         }
 
-        // 🟢 CORREÇÃO: REDIRECIONA DIRETO PARA A NOVA TELA DE RECUPERAÇÃO COM O E-MAIL PREENCHIDO
         showAlertModal({
           title: 'Erro ao entrar',
           message: 'E-mail ou senha incorretos. Deseja redefinir sua senha?',
@@ -259,19 +275,43 @@ export default function LoginScreen() {
             });
           },
         });
+        return;
       }
-    } catch (err) {
-      showAlertModal({
-        title: 'Erro de Conexão',
-        message: 'Ocorreu um erro inesperado ao conectar com o servidor.',
-        type: 'danger',
-      });
+
+      // 5. Verificação de Perfil para Redirecionamento Imediato
+      const userId = data?.user?.id;
+      if (userId) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', userId)
+          .maybeSingle();
+
+        if (profile?.role === 'personal') {
+          router.replace('/(app)/(personal)/(tabs)');
+        } else {
+          router.replace('/(app)/(aluno)/(tabs)');
+        }
+      }
+    } catch (err: any) {
+      if (err.message === 'TIMEOUT_EXCEEDED') {
+        showAlertModal({
+          title: 'Conexão Lenta 🌐',
+          message: 'O servidor demorou muito para responder. Verifique sua conexão com a internet e tente novamente.',
+          type: 'danger',
+        });
+      } else {
+        showAlertModal({
+          title: 'Erro de Conexão',
+          message: err.message || 'Ocorreu um erro inesperado ao conectar com o servidor.',
+          type: 'danger',
+        });
+      }
     } finally {
+      // GARANTE QUE O OVERLAY DE CARREGAMENTO SEJA DESATIVADO
       setLoading(false);
     }
   }
-
-  const handleLoginThrottled = useThrottledCallback(handleLogin, 2000);
 
   const safeTopPadding = Math.max(insets?.top || 0, 16);
   const safeBottomPadding = Math.max(insets?.bottom || 0, 16);
@@ -358,7 +398,7 @@ export default function LoginScreen() {
             className="px-6 pt-8"
             style={{ paddingBottom: safeBottomPadding }}
           >
-            {/* Campo E-mail */}
+            {/* CAMPO E-MAIL */}
             <View className="mb-3">
               <Text
                 className={`font-sans-bold text-xs uppercase tracking-wider mb-2 ml-1 ${
@@ -394,11 +434,12 @@ export default function LoginScreen() {
                   onChangeText={setEmail}
                   keyboardType="email-address"
                   autoCapitalize="none"
+                  autoCorrect={false}
                 />
               </View>
             </View>
 
-            {/* Campo Senha */}
+            {/* CAMPO SENHA */}
             <View className="mb-1">
               <Text
                 className={`font-sans-bold text-xs uppercase tracking-wider mb-2 ml-1 ${
@@ -433,6 +474,7 @@ export default function LoginScreen() {
                   value={password}
                   onChangeText={setPassword}
                   secureTextEntry={!showPassword}
+                  autoCapitalize="none"
                 />
                 <TouchableOpacity onPress={() => setShowPassword(!showPassword)} hitSlop={8}>
                   {showPassword ? (
@@ -444,12 +486,13 @@ export default function LoginScreen() {
               </View>
             </View>
 
-            {/* Esqueci minha senha */}
+            {/* ESQUECI MINHA SENHA */}
             <TouchableOpacity
               onPress={() => {
+                const cleanEmail = sanitizeInput(email).trim().toLowerCase();
                 router.push({
                   pathname: '/(auth)/forgot-password' as any,
-                  params: { email: email.trim().toLowerCase() },
+                  params: { email: cleanEmail },
                 });
               }}
               className="items-end mb-5 py-1"
@@ -459,9 +502,9 @@ export default function LoginScreen() {
               </Text>
             </TouchableOpacity>
 
-            {/* Botão Entrar */}
+            {/* BOTÃO ENTRAR */}
             <TouchableOpacity
-              onPress={handleLoginThrottled}
+              onPress={handleLogin}
               disabled={loading}
               style={{
                 backgroundColor: BRAND_GREEN,
@@ -480,7 +523,7 @@ export default function LoginScreen() {
               <ArrowRight size={20} color="#ffffff" weight="bold" />
             </TouchableOpacity>
 
-            {/* Link para Cadastro */}
+            {/* LINK PARA CADASTRO */}
             <TouchableOpacity
               onPress={() => router.push('/(auth)/register')}
               className="items-center py-4 mt-2"
@@ -514,7 +557,7 @@ export default function LoginScreen() {
         onClose={() => setModalConfig((prev) => ({ ...prev, visible: false }))}
       />
 
-      {/* OVERLAY DE CARREGAMENTO BLOQUEANTE DURANTE O LOGIN */}
+      {/* OVERLAY DE CARREGAMENTO BLOQUEANTE */}
       <AuthLoadingOverlay
         visible={loading}
         message="Entrando na sua conta..."

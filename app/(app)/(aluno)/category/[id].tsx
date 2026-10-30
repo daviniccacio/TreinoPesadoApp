@@ -1,8 +1,8 @@
 // ============================================================================
-// DOCUMENTAÇÃO: TELA DE EXERCÍCIOS POR CATEGORIA (ÁREA DO ALUNO COM SKELETON)
+// DOCUMENTAÇÃO: TELA DE EXERCÍCIOS POR CATEGORIA (COM SANITIZAÇÃO E SKELETON)
 // ============================================================================
 // Exibe a lista de exercícios cadastrados para uma categoria específica,
-// com suporte a busca local, animação de entrada, Skeleton Loading,
+// com suporte a busca local sanitizada, animação de entrada, Skeleton Loading,
 // Pull-to-Refresh e mapeamento correto de nomes formatados com acentuação.
 // ============================================================================
 
@@ -27,8 +27,10 @@ import {
 } from 'phosphor-react-native';
 import { useQuery } from '@tanstack/react-query';
 import { MotiView } from 'moti';
+
 import { supabase } from '../../../../lib/supabase';
-import { Skeleton } from '../../../../components/SkeletonLoading'; // 🟢 Importação do Skeleton
+import { Skeleton } from '../../../../components/SkeletonLoading';
+import { sanitizeInput } from '../../../../lib/security'; // 🟢 Importação do utilitário de sanitização
 
 // ============================================================================
 // DICIONÁRIO DE MAPEAMENTO DE CATEGORIAS
@@ -56,7 +58,7 @@ interface Exercise {
   category_id: string;
 }
 
-// 🟢 SUBCOMPONENTE DE SKELETON PARA A LISTA DE EXERCÍCIOS
+// SUBCOMPONENTE DE SKELETON PARA A LISTA DE EXERCÍCIOS
 function CategorySkeleton() {
   return (
     <View className="px-5 pt-4 flex-1">
@@ -90,10 +92,13 @@ function CategorySkeleton() {
 async function fetchExercisesByCategory(categoryId: string): Promise<Exercise[]> {
   if (!categoryId) return [];
 
+  // Sanitiza a chave da categoria recebida via parâmetros de rota
+  const cleanCategoryId = sanitizeInput(categoryId);
+
   const { data, error } = await supabase
     .from('exercises')
     .select('*')
-    .eq('category_id', categoryId);
+    .eq('category_id', cleanCategoryId);
 
   if (error) {
     throw new Error(error.message);
@@ -125,13 +130,15 @@ export default function CategoryScreen() {
 
   const categoryTitle = React.useMemo(() => {
     if (!id) return 'Categoria';
-    const normalizedKey = id.toLowerCase().trim();
+    const normalizedKey = sanitizeInput(id).toLowerCase().trim();
     return CATEGORY_MAP[normalizedKey] || (id.charAt(0).toUpperCase() + id.slice(1));
   }, [id]);
 
-  const filteredExercises = exercises.filter((item) =>
-    item.name.toLowerCase().includes(searchQuery.toLowerCase().trim())
-  );
+  // Filtro de busca sanitizado em memória
+  const filteredExercises = exercises.filter((item) => {
+    const cleanQuery = sanitizeInput(searchQuery).toLowerCase().trim();
+    return item.name.toLowerCase().includes(cleanQuery);
+  });
 
   const safeTopPadding = Math.max(insets?.top || 0, 16);
 
