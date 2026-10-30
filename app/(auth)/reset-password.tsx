@@ -125,14 +125,14 @@ export default function ResetPasswordScreen() {
         <MotiView
           from={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
-          transition={{ type: "spring", damping: 18, stiffness: 160 }}
+          transition={{ type: "spring", damping: 18, stiffness: 160 } as any}
           className="w-full items-center text-center"
         >
           {/* ÍCONE DE SUCESSO COM BRILHO */}
           <MotiView
             from={{ scale: 0.5, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            transition={{ type: "spring", damping: 12, stiffness: 200, delay: 100 }}
+            transition={{ type: "spring", damping: 12, stiffness: 200, delay: 100 } as any}
             className="w-20 h-20 rounded-3xl bg-[#59C83A]/15 border border-[#59C83A]/30 items-center justify-center mb-6"
           >
             <SuccessIcon size={48} color="#59C83A" weight="bold" />
@@ -186,7 +186,7 @@ export default function ResetPasswordScreen() {
         <MotiView
           from={{ opacity: 0, translateX: -15 }}
           animate={{ opacity: 1, translateX: 0 }}
-          transition={{ type: "spring", damping: 20, stiffness: 150 }}
+          transition={{ type: "spring", damping: 20, stiffness: 150 } as any}
         >
           <TouchableOpacity
             onPress={handleGoToLogin}
@@ -204,7 +204,7 @@ export default function ResetPasswordScreen() {
         <MotiView
           from={{ opacity: 0, translateY: -16 }}
           animate={{ opacity: 1, translateY: 0 }}
-          transition={{ type: "spring", damping: 22, stiffness: 160, delay: 100 }}
+          transition={{ type: "spring", damping: 22, stiffness: 160, delay: 100 } as any}
           className="mb-6"
         >
           <Text className="text-2xl font-outfit-extrabold text-[#1b1b1d] dark:text-white mb-2">
@@ -218,7 +218,7 @@ export default function ResetPasswordScreen() {
         <MotiView
           from={{ opacity: 0, translateY: 20 }}
           animate={{ opacity: 1, translateY: 0 }}
-          transition={{ type: "spring", damping: 20, stiffness: 140, delay: 200 }}
+          transition={{ type: "spring", damping: 20, stiffness: 140, delay: 200 } as any}
         >
           {/* CAMPO: NOVA SENHA */}
           <View className="mb-2">
@@ -253,7 +253,7 @@ export default function ResetPasswordScreen() {
             <MotiView
               from={{ opacity: 0, translateY: -4 }}
               animate={{ opacity: 1, translateY: 0 }}
-              transition={{ type: "timing", duration: 250 }}
+              transition={{ type: "timing", duration: 250 } as any}
               className="mb-4 px-1"
             >
               <View className="flex-row justify-between items-center gap-2 my-2">
@@ -262,7 +262,7 @@ export default function ResetPasswordScreen() {
                   animate={{
                     backgroundColor: strength.score >= 1 ? strength.color : isDark ? "#27272a" : "#e4e4e7",
                   }}
-                  transition={{ type: "timing", duration: 300 }}
+                  transition={{ type: "timing", duration: 300 } as any}
                   className="flex-1 h-1.5 rounded-full"
                 />
                 {/* BARRA 2 */}
@@ -270,7 +270,7 @@ export default function ResetPasswordScreen() {
                   animate={{
                     backgroundColor: strength.score >= 2 ? strength.color : isDark ? "#27272a" : "#e4e4e7",
                   }}
-                  transition={{ type: "timing", duration: 300 }}
+                  transition={{ type: "timing", duration: 300 } as any}
                   className="flex-1 h-1.5 rounded-full"
                 />
                 {/* BARRA 3 */}
@@ -278,7 +278,7 @@ export default function ResetPasswordScreen() {
                   animate={{
                     backgroundColor: strength.score >= 3 ? strength.color : isDark ? "#27272a" : "#e4e4e7",
                   }}
-                  transition={{ type: "timing", duration: 300 }}
+                  transition={{ type: "timing", duration: 300 } as any}
                   className="flex-1 h-1.5 rounded-full"
                 />
               </View>
@@ -287,7 +287,7 @@ export default function ResetPasswordScreen() {
               <MotiText
                 animate={{ color: strength.color } as any}
                 style={{ color: strength.color }}
-                transition={{ type: "timing", duration: 300 }}
+                transition={{ type: "timing", duration: 300 } as any}
                 className="text-xs font-sans-bold text-right"
               >
                 {strength.label}

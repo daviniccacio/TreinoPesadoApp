@@ -50,7 +50,7 @@ function PulseRing({ delay = 0, size = 96 }: { delay?: number; size?: number }) 
     <MotiView
       from={{ scale: 0.7, opacity: 0.35 }}
       animate={{ scale: 1.55, opacity: 0 }}
-      transition={{ type: 'timing', duration: 2800, loop: true, delay }}
+      transition={{ type: 'timing', duration: 2800, loop: true, delay } as any}
       style={{
         position: 'absolute',
         width: size,
@@ -329,7 +329,7 @@ export default function LoginScreen() {
               <MotiView
                 from={{ opacity: 0, translateY: -10 }}
                 animate={{ opacity: 1, translateY: 0 }}
-                transition={{ type: 'spring', damping: 24, stiffness: 160 }}
+                transition={{ type: 'spring', damping: 24, stiffness: 160 } as any}
                 className="flex-1 pr-3"
               >
                 <Text className="font-outfit text-white text-[34px] leading-[36px]">
@@ -354,7 +354,7 @@ export default function LoginScreen() {
           <MotiView
             from={{ opacity: 0, translateY: 12 }}
             animate={{ opacity: 1, translateY: 0 }}
-            transition={{ type: 'spring', damping: 22, stiffness: 150, delay: 80 }}
+            transition={{ type: 'spring', damping: 22, stiffness: 150, delay: 80 } as any}
             className="px-6 pt-8"
             style={{ paddingBottom: safeBottomPadding }}
           >

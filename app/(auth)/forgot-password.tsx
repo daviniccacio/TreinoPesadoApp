@@ -116,7 +116,7 @@ export default function ForgotPasswordScreen() {
         <MotiView
           from={{ opacity: 0, translateX: -15 }}
           animate={{ opacity: 1, translateX: 0 }}
-          transition={{ type: "spring", damping: 20, stiffness: 150 }}
+          transition={{ type: "spring", damping: 20, stiffness: 150 } as any}
         >
           <TouchableOpacity
             onPress={() => router.back()}
@@ -133,7 +133,7 @@ export default function ForgotPasswordScreen() {
         <MotiView
           from={{ opacity: 0, translateY: -16 }}
           animate={{ opacity: 1, translateY: 0 }}
-          transition={{ type: "spring", damping: 22, stiffness: 160, delay: 100 }}
+          transition={{ type: "spring", damping: 22, stiffness: 160, delay: 100 } as any}
           className="mb-8"
         >
           <Text className="text-2xl font-outfit-extrabold text-[#1b1b1d] dark:text-white mb-2">
@@ -147,7 +147,7 @@ export default function ForgotPasswordScreen() {
         <MotiView
           from={{ opacity: 0, translateY: 20 }}
           animate={{ opacity: 1, translateY: 0 }}
-          transition={{ type: "spring", damping: 20, stiffness: 140, delay: 200 }}
+          transition={{ type: "spring", damping: 20, stiffness: 140, delay: 200 } as any}
         >
           <View className="mb-6">
             <Text className="text-xs font-sans-bold uppercase tracking-wider text-[#71717a] dark:text-zinc-400 mb-2 ml-1">

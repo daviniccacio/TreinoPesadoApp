@@ -33,7 +33,8 @@ export default function VerifyOtpScreen() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [shakeKey, setShakeKey] = useState<number>(0);
 
-  const inputRefs = useRef<Array<TextInput | null>>([]);
+  // 🟢 CORREÇÃO DE TIPAGEM: React.ElementRef<typeof TextInput> captura a instância nativa do TextInput
+  const inputRefs = useRef<Array<React.ElementRef<typeof TextInput> | null>>([]);
 
   // 🟢 DISPARO AUTOMÁTICO QUANDO OS 6 DÍGITOS SÃO PREENCHIDOS
   useEffect(() => {
@@ -139,7 +140,7 @@ export default function VerifyOtpScreen() {
         <MotiView
           from={{ opacity: 0, translateX: -15 }}
           animate={{ opacity: 1, translateX: 0 }}
-          transition={{ type: "spring", damping: 20, stiffness: 150 }}
+          transition={{ type: "spring", damping: 20, stiffness: 150 } as any}
         >
           <TouchableOpacity
             onPress={handleGoBack}
@@ -156,7 +157,7 @@ export default function VerifyOtpScreen() {
         <MotiView
           from={{ opacity: 0, translateY: -16 }}
           animate={{ opacity: 1, translateY: 0 }}
-          transition={{ type: "spring", damping: 22, stiffness: 160, delay: 100 }}
+          transition={{ type: "spring", damping: 22, stiffness: 160, delay: 100 } as any}
           className="mb-8"
         >
           <View className="w-12 h-12 rounded-2xl bg-[#59C83A]/15 items-center justify-center mb-3">
@@ -175,7 +176,7 @@ export default function VerifyOtpScreen() {
           key={shakeKey}
           from={{ translateX: 0 }}
           animate={{ translateX: shakeKey > 0 ? [-12, 12, -8, 8, -4, 4, 0] : 0 }}
-          transition={{ type: "timing", duration: 400 }}
+          transition={{ type: "timing", duration: 400 } as any}
           className="mb-4"
         >
           <View className="flex-row justify-between items-center mb-2">
@@ -189,7 +190,7 @@ export default function VerifyOtpScreen() {
                   damping: 15,
                   stiffness: 180,
                   delay: 150 + index * 70,
-                }}
+                } as any}
                 className={`w-12 h-14 rounded-2xl border items-center justify-center bg-[#f8f9fa] dark:bg-zinc-900 ${
                   errorMessage
                     ? "border-red-500 bg-red-500/5"
@@ -204,13 +205,11 @@ export default function VerifyOtpScreen() {
                   }}
                   className="text-xl font-outfit-bold text-[#1b1b1d] dark:text-white text-center w-full h-full"
                   keyboardType="number-pad"
-                  // 🟢 O primeiro campo aceita até 6 caracteres para permitir a colagem automática do Auto-Fill do sistema
                   maxLength={index === 0 ? 6 : 1}
                   value={digit}
                   onChangeText={(text) => handleOtpChange(text, index)}
                   onKeyPress={(e) => handleKeyPress(e, index)}
                   autoFocus={index === 0}
-                  // 🟢 SUPORTE COMPLETO AO AUTO-FILL DO SISTEMA OPERACIONAL
                   textContentType="oneTimeCode"
                   autoComplete="one-time-code"
                 />
@@ -222,7 +221,7 @@ export default function VerifyOtpScreen() {
             <MotiView
               from={{ opacity: 0, translateY: -6 }}
               animate={{ opacity: 1, translateY: 0 }}
-              transition={{ type: "timing", duration: 200 }}
+              transition={{ type: "timing", duration: 200 } as any}
               className="flex-row items-center justify-center mt-3"
             >
               <WarningCircle size={16} color="#EF4444" weight="fill" />
