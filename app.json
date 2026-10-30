@@ -58,6 +58,15 @@
           "icon": "./assets/logo-treino-pesado-icon.png",
           "color": "#59C83A"
         }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "enableMinifyInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true
+          }
+        }
       ]
     ]
   }
