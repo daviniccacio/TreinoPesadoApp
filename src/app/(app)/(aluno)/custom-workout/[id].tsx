@@ -1,0 +1,405 @@
+// ============================================================================
+// DOCUMENTAÇÃO: TELA DE DETALHES DO TREINO PERSONALIZADO (ÁREA DO ALUNO)
+// ============================================================================
+// Exibe a lista completa de exercícios de um treino criado pelo próprio aluno,
+// permitindo navegação para os detalhes do exercício, edição, exclusão e
+// suporte a Skeleton Loading com sanitização de segurança durante o carregamento.
+// ============================================================================
+
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  ScrollView,
+  ActivityIndicator,
+  useColorScheme,
+} from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ArrowLeft, Trash, CaretRight, PencilSimple } from 'phosphor-react-native';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { MotiView } from 'moti';
+
+import { supabase } from '@/lib/supabase';
+import { sanitizeInput } from '@/lib/security'; // 🟢 Importação da função de sanitização
+import { CustomModal } from '@/components/CustomModal';
+import { Skeleton } from '@/components/SkeletonLoading';
+
+// --- INTERFACES DE DADOS ---
+interface WorkoutExerciseItem {
+  id: string;
+  sets: number;
+  reps: string;
+  weight: string;
+  exercises: {
+    id: string;
+    name: string;
+    category_id: string;
+  };
+}
+
+interface CustomWorkoutDetail {
+  id: string;
+  title: string;
+  custom_workout_exercises: WorkoutExerciseItem[];
+}
+
+// 🟢 SUBCOMPONENTE DE SKELETON PARA OS DETALHES DO TREINO PERSONALIZADO
+function CustomWorkoutSkeleton() {
+  return (
+    <ScrollView className="flex-1 px-5 pt-4" showsVerticalScrollIndicator={false}>
+      {/* Skeleton do Título e Subtítulo */}
+      <View className="mb-6">
+        <Skeleton width={220} height={28} borderRadius={8} className="mb-2" />
+        <Skeleton width={140} height={14} borderRadius={4} />
+      </View>
+
+      {/* Skeleton da Lista de Exercícios */}
+      {Array.from({ length: 5 }).map((_, index) => (
+        <View
+          key={`custom-workout-skeleton-${index}`}
+          className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl mb-3 flex-row items-center justify-between border border-[#e2dfe1] dark:border-zinc-800"
+        >
+          <View className="flex-1 mr-3">
+            <Skeleton width={100} height={12} borderRadius={4} className="mb-1.5" />
+            <Skeleton width="70%" height={18} borderRadius={6} className="mb-2" />
+            <Skeleton width="85%" height={14} borderRadius={4} />
+          </View>
+          <Skeleton width={36} height={36} borderRadius={18} />
+        </View>
+      ))}
+    </ScrollView>
+  );
+}
+
+/**
+ * Busca os detalhes do treino personalizado no Supabase com sanitização de dados
+ */
+async function fetchCustomWorkoutDetail(workoutId: string): Promise<CustomWorkoutDetail> {
+  if (!workoutId) throw new Error('ID do treino não fornecido');
+
+  const { data, error } = await supabase
+    .from('custom_workouts')
+    .select(`
+      id,
+      title,
+      custom_workout_exercises (
+        id,
+        sets,
+        reps,
+        weight,
+        exercises (
+          id,
+          name,
+          category_id
+        )
+      )
+    `)
+    .eq('id', workoutId)
+    .single();
+
+  if (error) throw new Error(error.message);
+
+  const rawData = data as unknown as CustomWorkoutDetail;
+
+  return {
+    ...rawData,
+    title: sanitizeInput(rawData.title || 'Treino Personalizado'),
+    custom_workout_exercises: (rawData.custom_workout_exercises || []).map((item) => ({
+      ...item,
+      reps: sanitizeInput(String(item.reps || '')),
+      weight: sanitizeInput(String(item.weight || '')),
+      exercises: item.exercises
+        ? {
+            ...item.exercises,
+            name: sanitizeInput(item.exercises.name || 'Exercício'),
+            category_id: sanitizeInput(item.exercises.category_id || ''),
+          }
+        : { id: '', name: 'Exercício', category_id: '' },
+    })),
+  };
+}
+
+export default function CustomWorkoutDetailScreen() {
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const queryClient = useQueryClient();
+
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
+
+  const [modalConfig, setModalConfig] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    type: 'success' | 'danger' | 'info';
+    confirmText: string;
+    cancelText: string;
+    showCancelButton: boolean;
+    onConfirm: () => void;
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+    type: 'info',
+    confirmText: 'Entendi',
+    cancelText: 'Cancelar',
+    showCancelButton: true,
+    onConfirm: () => {},
+  });
+
+  function showAlertModal({
+    title,
+    message,
+    type = 'info',
+    confirmText = 'Entendi',
+    cancelText = 'Cancelar',
+    showCancelButton = true,
+    onConfirm,
+  }: {
+    title: string;
+    message: string;
+    type?: 'success' | 'danger' | 'info';
+    confirmText?: string;
+    cancelText?: string;
+    showCancelButton?: boolean;
+    onConfirm?: () => void;
+  }) {
+    setModalConfig({
+      visible: true,
+      title,
+      message,
+      type,
+      confirmText,
+      cancelText,
+      showCancelButton,
+      onConfirm: () => {
+        setModalConfig((prev) => ({ ...prev, visible: false }));
+        if (onConfirm) onConfirm();
+      },
+    });
+  }
+
+  const {
+    data: workout,
+    isLoading,
+  } = useQuery({
+    queryKey: ['custom-workout-detail', id],
+    queryFn: () => fetchCustomWorkoutDetail(id || ''),
+    enabled: !!id,
+  });
+
+  const deleteWorkoutMutation = useMutation({
+    mutationFn: async (workoutId: string) => {
+      const { error } = await supabase
+        .from('custom_workouts')
+        .delete()
+        .eq('id', workoutId);
+
+      if (error) throw new Error(error.message);
+      return workoutId;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['student-workouts'] });
+      queryClient.invalidateQueries({ queryKey: ['student-home-data'] });
+
+      showAlertModal({
+        title: 'Sucesso! 🎉',
+        message: 'Treino excluído com sucesso!',
+        type: 'success',
+        showCancelButton: false,
+        onConfirm: () => router.replace('/(aluno)/(tabs)/my-workouts' as any),
+      });
+    },
+    onError: (err: any) => {
+      showAlertModal({
+        title: 'Erro ao Excluir',
+        message: err.message || 'Não foi possível excluir o treino.',
+        type: 'danger',
+        showCancelButton: false,
+      });
+    },
+  });
+
+  function handleDeleteWorkout() {
+    showAlertModal({
+      title: 'Excluir Treino',
+      message: 'Tem certeza de que deseja apagar este treino personalizado? Esta ação não poderá ser desfeita.',
+      type: 'danger',
+      confirmText: 'Excluir',
+      cancelText: 'Cancelar',
+      showCancelButton: true,
+      onConfirm: () => deleteWorkoutMutation.mutate(id || ''),
+    });
+  }
+
+  function handleGoBack() {
+    router.replace('/(aluno)/(tabs)/my-workouts' as any);
+  }
+
+  const safeTopPadding = Math.max(insets?.top || 0, 16);
+
+  return (
+    <View className="flex-1 bg-white dark:bg-zinc-950" style={{ paddingTop: safeTopPadding }}>
+      {/* CABEÇALHO ANIMADO */}
+      <MotiView
+        from={{ opacity: 0, translateY: -8 }}
+        animate={{ opacity: 1, translateY: 0 }}
+        transition={{
+          type: 'spring',
+          damping: 24,
+          stiffness: 160,
+        } as any}
+        className="flex-row items-center justify-between px-5 py-3 border-b border-[#f0edef] dark:border-zinc-800"
+      >
+        <TouchableOpacity
+          onPress={handleGoBack}
+          className="w-10 h-10 rounded-full bg-[#f8f9fa] dark:bg-zinc-900 items-center justify-center border border-[#e2dfe1] dark:border-zinc-800"
+          activeOpacity={0.7}
+        >
+          <ArrowLeft size={20} color={isDark ? '#59C83A' : '#1b1b1d'} />
+        </TouchableOpacity>
+
+        <Text
+          className="text-lg font-outfit-bold text-[#1b1b1d] dark:text-white flex-1 text-center mx-2"
+          numberOfLines={1}
+        >
+          {workout?.title || 'Detalhes do Treino'}
+        </Text>
+
+        <View className="flex-row items-center gap-2">
+          <TouchableOpacity
+            onPress={() =>
+              router.push({
+                pathname: '/(aluno)/create-workout' as any,
+                params: { planId: id },
+              })
+            }
+            className="w-10 h-10 rounded-full bg-zinc-100 dark:bg-zinc-800 items-center justify-center border border-zinc-200 dark:border-zinc-700"
+            activeOpacity={0.7}
+          >
+            <PencilSimple size={18} color={isDark ? '#ffffff' : '#1b1b1d'} weight="bold" />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={handleDeleteWorkout}
+            disabled={deleteWorkoutMutation.isPending}
+            className="w-10 h-10 rounded-full bg-[#ffebe8] dark:bg-red-950/40 items-center justify-center border border-transparent dark:border-red-900/30"
+            activeOpacity={0.7}
+          >
+            {deleteWorkoutMutation.isPending ? (
+              <ActivityIndicator size="small" color="#e11d48" />
+            ) : (
+              <Trash size={20} color="#e11d48" />
+            )}
+          </TouchableOpacity>
+        </View>
+      </MotiView>
+
+      {/* CONTEÚDO PRINCIPAL */}
+      {isLoading ? (
+        <CustomWorkoutSkeleton />
+      ) : workout ? (
+        <ScrollView className="flex-1 px-5 pt-4" showsVerticalScrollIndicator={false}>
+          {/* TÍTULO E RESUMO ANIMADO */}
+          <MotiView
+            from={{ opacity: 0, translateY: 10 }}
+            animate={{ opacity: 1, translateY: 0 }}
+            transition={{
+              type: 'spring',
+              damping: 22,
+              stiffness: 150,
+              delay: 30,
+            } as any}
+          >
+            <Text className="text-2xl font-outfit-extrabold text-[#1b1b1d] dark:text-white mb-1">
+              {workout.title}
+            </Text>
+            <Text style={{ color: '#59C83A' }} className="text-xs font-sans-bold uppercase mb-6">
+              {workout.custom_workout_exercises?.length || 0} Exercícios no Total
+            </Text>
+          </MotiView>
+
+          {/* LISTA DE EXERCÍCIOS EM CASCATA */}
+          {workout.custom_workout_exercises?.map((item, index) => (
+            <MotiView
+              key={item.id}
+              from={{ opacity: 0, translateY: 14, scale: 0.97 }}
+              animate={{ opacity: 1, translateY: 0, scale: 1 }}
+              transition={{
+                type: 'spring',
+                damping: 22,
+                stiffness: 150,
+                delay: index * 40,
+              } as any}
+            >
+              <TouchableOpacity
+                onPress={() =>
+                  router.push({
+                    pathname: '/(aluno)/exercise/[id]' as any,
+                    params: {
+                      id: item.exercises?.id,
+                      from: 'custom-workout',
+                      workoutId: id,
+                    },
+                  })
+                }
+                className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl mb-3 flex-row items-center justify-between border border-[#e2dfe1] dark:border-zinc-800"
+                activeOpacity={0.8}
+              >
+                <View className="flex-1 mr-3">
+                  <Text style={{ color: '#59C83A' }} className="text-xs font-sans-bold uppercase mb-0.5">
+                    {index + 1}. {item.exercises?.category_id}
+                  </Text>
+                  <Text className="text-base font-outfit-bold text-[#1b1b1d] dark:text-white mb-1">
+                    {item.exercises?.name}
+                  </Text>
+                  <View className="flex-row items-center gap-3">
+                    <Text className="text-xs font-sans-medium text-[#414755] dark:text-zinc-400">
+                      <Text style={{ color: '#59C83A' }} className="font-sans-bold">
+                        {item.sets}
+                      </Text>{' '}
+                      séries
+                    </Text>
+                    <Text className="text-xs font-sans-medium text-[#414755] dark:text-zinc-400">
+                      <Text style={{ color: '#59C83A' }} className="font-sans-bold">
+                        {item.reps}
+                      </Text>{' '}
+                      reps
+                    </Text>
+                    <Text className="text-xs font-sans-medium text-[#414755] dark:text-zinc-400">
+                      Carga:{' '}
+                      <Text style={{ color: '#59C83A' }} className="font-sans-bold">
+                        {item.weight}
+                      </Text>
+                    </Text>
+                  </View>
+                </View>
+
+                <View className="w-9 h-9 rounded-full bg-white dark:bg-zinc-800 items-center justify-center border border-[#e0dddf] dark:border-zinc-700">
+                  <CaretRight size={16} color="#59C83A" />
+                </View>
+              </TouchableOpacity>
+            </MotiView>
+          ))}
+
+          <View className="h-10" />
+        </ScrollView>
+      ) : null}
+
+      <CustomModal
+        visible={modalConfig.visible}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        type={modalConfig.type}
+        confirmText={modalConfig.confirmText}
+        cancelText={modalConfig.cancelText}
+        showCancelButton={modalConfig.showCancelButton}
+        onConfirm={modalConfig.onConfirm}
+        onClose={() => setModalConfig((prev) => ({ ...prev, visible: false }))}
+      />
+    </View>
+  );
+}

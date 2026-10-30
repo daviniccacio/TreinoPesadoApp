@@ -1,0 +1,1070 @@
+// ============================================================================
+// DOCUMENTAÇÃO: TELA DE EXECUÇÃO DE TREINO COM SKELETON LOADING (ÁREA DO ALUNO)
+// ============================================================================
+// Gerencia a execução do treino, cronômetro de tempo total, descanso automático
+// na conclusão dos exercícios, abertura de mídias demonstrativas, sanitização de
+// dados e Skeleton Loading para excelente experiência visual.
+// ============================================================================
+
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import {
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  ActivityIndicator,
+  Modal,
+  Platform,
+  useColorScheme,
+} from "react-native";
+import { useLocalSearchParams, useRouter, useFocusEffect } from "expo-router";
+import { Image } from "expo-image";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  Check,
+  CheckCircle,
+  Timer,
+  Clock,
+  PlayCircle,
+  X,
+  Barbell,
+  Pause,
+  Play,
+  ArrowCounterClockwise,
+  Stack,
+  Repeat,
+} from "phosphor-react-native";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { MotiView } from "moti";
+
+import { supabase } from "@/lib/supabase";
+import { sanitizeInput } from "@/lib/security"; // 🟢 Importação da função de sanitização
+import { getExerciseGif } from "@/lib/exerciseGifs";
+import { useThrottledCallback } from "@/lib/useThrottle";
+import { CustomModal } from "@/components/CustomModal";
+import { sendNotificationToUser } from "@/lib/notifications";
+import { Skeleton } from "@/components/SkeletonLoading";
+
+// --- TIPAGENS DE DADOS ---
+interface ExerciseItem {
+  id: string;
+  exercise_id: string;
+  name: string;
+  sets: string;
+  reps: string;
+  notes?: string | null;
+}
+
+interface WorkoutExecutionData {
+  workoutName: string;
+  exercises: ExerciseItem[];
+}
+
+interface DemoExerciseData {
+  name: string;
+  gif_key?: string | null;
+  description?: string | null;
+  sets?: string;
+  reps?: string;
+  notes?: string | null;
+}
+
+interface ShowAlertModalOptions {
+  title: string;
+  message: string;
+  type?: "success" | "danger" | "info";
+  confirmText?: string;
+  cancelText?: string;
+  showCancelButton?: boolean;
+  onConfirm?: () => void;
+}
+
+// 🟢 SUBCOMPONENTE DE SKELETON PARA A TELA DE EXECUÇÃO
+function WorkoutExecutionSkeleton() {
+  return (
+    <View className="flex-1">
+      {/* Skeleton do Cabeçalho */}
+      <View className="flex-row items-center justify-between mb-4 border-b border-[#e2dfe1] dark:border-zinc-800 pb-3">
+        <Skeleton width={40} height={40} borderRadius={12} />
+        <Skeleton width={160} height={20} borderRadius={6} />
+        <Skeleton width={90} height={36} borderRadius={12} />
+      </View>
+
+      {/* Skeleton do Cronômetro Geral */}
+      <View className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl mb-4 border border-[#e2dfe1] dark:border-zinc-800 items-center">
+        <Skeleton width={130} height={12} borderRadius={4} className="mb-2" />
+        <Skeleton width={170} height={36} borderRadius={8} className="my-1" />
+        <View className="flex-row gap-3 mt-3">
+          <Skeleton width={90} height={32} borderRadius={12} />
+          <Skeleton width={80} height={32} borderRadius={12} />
+        </View>
+      </View>
+
+      {/* Skeleton da Lista de Exercícios */}
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
+        {Array.from({ length: 3 }).map((_, index) => (
+          <View
+            key={`exec-skeleton-${index}`}
+            className="p-4 rounded-2xl mb-4 border bg-[#f8f9fa] dark:bg-zinc-900 border-[#e2dfe1] dark:border-zinc-800"
+          >
+            <View className="flex-row items-center justify-between mb-3">
+              <Skeleton width="50%" height={18} borderRadius={6} />
+              <View className="flex-row gap-2">
+                <Skeleton width={70} height={26} borderRadius={8} />
+                <Skeleton width={80} height={26} borderRadius={8} />
+              </View>
+            </View>
+
+            {/* Checklist de Séries */}
+            <View className="gap-2 mt-1">
+              <Skeleton width="100%" height={44} borderRadius={12} />
+              <Skeleton width="100%" height={44} borderRadius={12} />
+              <Skeleton width="100%" height={44} borderRadius={12} />
+            </View>
+          </View>
+        ))}
+      </ScrollView>
+    </View>
+  );
+}
+
+/**
+ * Busca os dados da ficha de treino no Supabase (Customizada ou Prescrita) com sanitização de campos
+ */
+async function fetchWorkoutExecutionData(
+  id?: string,
+  type?: string
+): Promise<WorkoutExecutionData> {
+  if (!id) throw new Error("ID do treino não fornecido");
+
+  if (type === "custom") {
+    const { data, error } = await supabase
+      .from("custom_workouts")
+      .select(
+        `
+        title,
+        custom_workout_exercises (
+          id,
+          exercise_id,
+          sets,
+          reps,
+          weight,
+          exercises ( name )
+        )
+      `
+      )
+      .eq("id", id)
+      .single();
+
+    if (error) throw new Error(error.message);
+
+    const formatted: ExerciseItem[] = (
+      data.custom_workout_exercises || []
+    ).map((item: any) => ({
+      id: item.id,
+      exercise_id: item.exercise_id,
+      name: sanitizeInput(item.exercises?.name || "Exercício"),
+      sets: sanitizeInput(String(item.sets || 3)),
+      reps: sanitizeInput(String(item.reps || 10)),
+      notes: item.weight ? sanitizeInput(`Carga: ${item.weight}`) : null,
+    }));
+
+    return {
+      workoutName: sanitizeInput(data.title || "Treino Customizado"),
+      exercises: formatted,
+    };
+  } else {
+    const { data, error } = await supabase
+      .from("workout_plans")
+      .select(
+        `
+        name,
+        plan_exercises (
+          id,
+          exercise_id,
+          name,
+          sets,
+          reps,
+          notes,
+          order_index
+        )
+      `
+      )
+      .eq("id", id)
+      .single();
+
+    if (error) throw new Error(error.message);
+
+    const sorted = (data.plan_exercises || []).sort(
+      (a: any, b: any) => a.order_index - b.order_index
+    );
+
+    const formatted: ExerciseItem[] = sorted.map((item: any) => ({
+      id: item.id,
+      exercise_id: item.exercise_id,
+      name: sanitizeInput(item.name || "Exercício"),
+      sets: sanitizeInput(String(item.sets || 3)),
+      reps: sanitizeInput(String(item.reps || 10)),
+      notes: item.notes ? sanitizeInput(item.notes) : null,
+    }));
+
+    return {
+      workoutName: sanitizeInput(data.name || "Ficha Prescrita"),
+      exercises: formatted,
+    };
+  }
+}
+
+export default function ExecuteWorkoutScreen() {
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === "dark";
+  const queryClient = useQueryClient();
+
+  const { id, type } = useLocalSearchParams<{ id?: string; type?: string }>();
+
+  // --- CRONÔMETRO PRINCIPAL DO TREINO ---
+  const [elapsedSeconds, setElapsedSeconds] = useState<number>(0);
+  const [isTimerPaused, setIsTimerPaused] = useState<boolean>(true);
+
+  // --- CONTROLE DE SÉRIES E EXERCÍCIOS CONCLUÍDOS ---
+  const [completedSets, setCompletedSets] = useState<Set<string>>(new Set());
+  const [completedExercises, setCompletedExercises] = useState<Set<string>>(
+    new Set()
+  );
+
+  // --- CRONÔMETRO DE DESCANSO ---
+  const [isResting, setIsResting] = useState<boolean>(false);
+  const [restSecondsLeft, setRestSecondsLeft] = useState<number>(60);
+  const DEFAULT_REST_TIME = 60;
+
+  // --- MODAL DE DEMONSTRAÇÃO DO GIF ---
+  const [demoModalVisible, setDemoModalVisible] = useState<boolean>(false);
+  const [loadingDemo, setLoadingDemo] = useState<boolean>(false);
+  const [isGifLoading, setIsGifLoading] = useState<boolean>(true);
+  const [demoExercise, setDemoExercise] = useState<DemoExerciseData | null>(
+    null
+  );
+
+  // --- ESTADO DO MODAL PERSONALIZADO DE ALERTA ---
+  const [modalConfig, setModalConfig] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    type: "success" | "danger" | "info";
+    confirmText: string;
+    cancelText: string;
+    showCancelButton: boolean;
+    onConfirm: () => void;
+  }>({
+    visible: false,
+    title: "",
+    message: "",
+    type: "info",
+    confirmText: "Entendi",
+    cancelText: "Cancelar",
+    showCancelButton: false,
+    onConfirm: () => {},
+  });
+
+  const workoutTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const restTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  function showAlertModal({
+    title,
+    message,
+    type = "info",
+    confirmText = "Entendi",
+    cancelText = "Cancelar",
+    showCancelButton = false,
+    onConfirm,
+  }: ShowAlertModalOptions) {
+    setModalConfig({
+      visible: true,
+      title,
+      message,
+      type,
+      confirmText,
+      cancelText,
+      showCancelButton,
+      onConfirm: () => {
+        setModalConfig((prev) => ({ ...prev, visible: false }));
+        if (onConfirm) onConfirm();
+      },
+    });
+  }
+
+  const handleFinishThrottled = useThrottledCallback(handleFinishWorkout, 2000);
+
+  const { data: workoutData, isLoading } = useQuery({
+    queryKey: ["workout-execution", type, id],
+    queryFn: () => fetchWorkoutExecutionData(id, type),
+    enabled: !!id,
+  });
+
+  const workoutName = workoutData?.workoutName || "Treino";
+  const exercises = workoutData?.exercises || [];
+
+  const finishWorkoutMutation = useMutation({
+    mutationFn: async (duration: number) => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) throw new Error("Usuário não autenticado.");
+
+      const { error } = await supabase.from("workout_logs").insert({
+        student_id: user.id,
+        workout_title: workoutName,
+        duration_seconds: duration,
+      });
+
+      if (error) throw new Error(error.message);
+
+      const { data: studentProfile } = await supabase
+        .from("profiles")
+        .select("name, personal_id")
+        .eq("id", user.id)
+        .single();
+
+      if (studentProfile?.personal_id) {
+        const studentName = studentProfile.name || "Seu aluno";
+
+        await sendNotificationToUser({
+          targetUserId: studentProfile.personal_id,
+          senderId: user.id,
+          title: "Treino Finalizado! 🏋️‍♂️",
+          message: `${studentName} acabou de concluir o treino "${workoutName}".`,
+          type: "WORKOUT_COMPLETED",
+        });
+      }
+
+      return duration;
+    },
+    onSuccess: (finalTime) => {
+      queryClient.invalidateQueries({ queryKey: ["workout-history"] });
+      queryClient.invalidateQueries({ queryKey: ["student-profile-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["student-home-data"] });
+
+      resetWorkoutState();
+
+      showAlertModal({
+        title: "Treino Concluído! 🎉",
+        message: `Parabéns! Você completou o "${workoutName}" em ${formatTime(
+          finalTime
+        )}.`,
+        type: "success",
+        confirmText: "Voltar",
+        showCancelButton: false,
+        onConfirm: () => handleNavigateBack(),
+      });
+    },
+    onError: (error: any) => {
+      showAlertModal({
+        title: "Erro ao Salvar",
+        message: error.message || "Não foi possível registrar o treino.",
+        type: "danger",
+        showCancelButton: false,
+      });
+    },
+  });
+
+  const handleNavigateBack = useCallback(() => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace("/(app)/(aluno)" as any);
+    }
+  }, [router]);
+
+  const resetWorkoutState = useCallback(() => {
+    if (workoutTimerRef.current) {
+      clearInterval(workoutTimerRef.current);
+      workoutTimerRef.current = null;
+    }
+    if (restTimerRef.current) {
+      clearInterval(restTimerRef.current);
+      restTimerRef.current = null;
+    }
+    setElapsedSeconds(0);
+    setIsTimerPaused(true);
+    setCompletedSets(new Set());
+    setCompletedExercises(new Set());
+    setIsResting(false);
+    setRestSecondsLeft(DEFAULT_REST_TIME);
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      resetWorkoutState();
+      return () => {
+        resetWorkoutState();
+      };
+    }, [id, type, resetWorkoutState])
+  );
+
+  // Cronômetro Geral do Treino
+  useEffect(() => {
+    if (!isLoading && !isTimerPaused) {
+      workoutTimerRef.current = setInterval(() => {
+        setElapsedSeconds((prev) => prev + 1);
+      }, 1000);
+    } else {
+      if (workoutTimerRef.current) {
+        clearInterval(workoutTimerRef.current);
+        workoutTimerRef.current = null;
+      }
+    }
+
+    return () => {
+      if (workoutTimerRef.current) clearInterval(workoutTimerRef.current);
+    };
+  }, [isLoading, isTimerPaused]);
+
+  // Timer de Descanso
+  useEffect(() => {
+    if (isResting && restSecondsLeft > 0) {
+      restTimerRef.current = setInterval(() => {
+        setRestSecondsLeft((prev) => prev - 1);
+      }, 1000);
+    } else if (restSecondsLeft === 0) {
+      setIsResting(false);
+      if (restTimerRef.current) clearInterval(restTimerRef.current);
+    }
+
+    return () => {
+      if (restTimerRef.current) clearInterval(restTimerRef.current);
+    };
+  }, [isResting, restSecondsLeft]);
+
+  function handleExitWorkout() {
+    const hasStarted = elapsedSeconds > 0 || completedSets.size > 0;
+
+    if (!hasStarted) {
+      resetWorkoutState();
+      handleNavigateBack();
+      return;
+    }
+
+    showAlertModal({
+      title: "Sair do Treino",
+      message:
+        "Deseja cancelar o treino em andamento? O tempo e progresso atual não serão salvos.",
+      type: "danger",
+      confirmText: "Sair sem Salvar",
+      cancelText: "Continuar Treinando",
+      showCancelButton: true,
+      onConfirm: () => {
+        resetWorkoutState();
+        handleNavigateBack();
+      },
+    });
+  }
+
+  async function handleOpenExerciseDemo(item: ExerciseItem) {
+    try {
+      setDemoModalVisible(true);
+      setLoadingDemo(true);
+      setIsGifLoading(true);
+      setDemoExercise({
+        name: item.name,
+        sets: item.sets,
+        reps: item.reps,
+        notes: item.notes,
+      });
+
+      if (!item.exercise_id) {
+        setLoadingDemo(false);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("exercises")
+        .select("name, gif_key")
+        .eq("id", item.exercise_id)
+        .single();
+
+      if (!error && data) {
+        setDemoExercise((prev) => ({
+          ...prev,
+          name: sanitizeInput(data.name || item.name),
+          gif_key: data.gif_key || null,
+          description: null,
+          sets: item.sets,
+          reps: item.reps,
+          notes: item.notes,
+        }));
+      }
+    } catch (err) {
+      console.error("Erro ao buscar exercício:", err);
+    } finally {
+      setLoadingDemo(false);
+    }
+  }
+
+  function toggleSetCompletion(
+    exerciseId: string,
+    setIndex: number,
+    totalSetsCount: number
+  ) {
+    const key = `${exerciseId}-${setIndex}`;
+    const nextCompletedSets = new Set(completedSets);
+    const nextCompletedExercises = new Set(completedExercises);
+
+    if (nextCompletedSets.has(key)) {
+      nextCompletedSets.delete(key);
+      nextCompletedExercises.delete(exerciseId);
+    } else {
+      nextCompletedSets.add(key);
+
+      let allDone = true;
+      for (let i = 0; i < totalSetsCount; i++) {
+        if (i !== setIndex && !nextCompletedSets.has(`${exerciseId}-${i}`)) {
+          allDone = false;
+          break;
+        }
+      }
+
+      if (allDone) {
+        nextCompletedExercises.add(exerciseId);
+        startRestTimer(DEFAULT_REST_TIME);
+      }
+    }
+
+    setCompletedSets(nextCompletedSets);
+    setCompletedExercises(nextCompletedExercises);
+  }
+
+  function toggleExerciseCompletion(
+    exerciseId: string,
+    totalSetsCount: number
+  ) {
+    const nextCompletedExercises = new Set(completedExercises);
+    const nextCompletedSets = new Set(completedSets);
+
+    const isCurrentlyDone = nextCompletedExercises.has(exerciseId);
+
+    if (isCurrentlyDone) {
+      nextCompletedExercises.delete(exerciseId);
+      for (let i = 0; i < totalSetsCount; i++) {
+        nextCompletedSets.delete(`${exerciseId}-${i}`);
+      }
+    } else {
+      nextCompletedExercises.add(exerciseId);
+      for (let i = 0; i < totalSetsCount; i++) {
+        nextCompletedSets.add(`${exerciseId}-${i}`);
+      }
+      startRestTimer(DEFAULT_REST_TIME);
+    }
+
+    setCompletedExercises(nextCompletedExercises);
+    setCompletedSets(nextCompletedSets);
+  }
+
+  function startRestTimer(seconds: number) {
+    setRestSecondsLeft(seconds);
+    setIsResting(true);
+  }
+
+  function addRestTime(secondsToAdd: number) {
+    setRestSecondsLeft((prev) => prev + secondsToAdd);
+  }
+
+  function skipRest() {
+    setIsResting(false);
+    setRestSecondsLeft(0);
+  }
+
+  function formatTime(seconds: number) {
+    const hrs = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    const pad = (num: number) => String(num).padStart(2, "0");
+
+    if (hrs > 0) {
+      return `${pad(hrs)}:${pad(mins)}:${pad(secs)}`;
+    }
+    return `${pad(mins)}:${pad(secs)}`;
+  }
+
+  function handleFinishWorkout() {
+    finishWorkoutMutation.mutate(elapsedSeconds);
+  }
+
+  const sortedExercises = [...exercises].sort((a, b) => {
+    const aDone = completedExercises.has(a.id);
+    const bDone = completedExercises.has(b.id);
+    if (aDone === bDone) return 0;
+    return aDone ? 1 : -1;
+  });
+
+  const safeTopPadding = Math.max(insets?.top || 0, 16);
+  const safeBottomPadding = Platform.OS === 'android'
+    ? Math.max(insets?.bottom || 0, 24) + 20
+    : Math.max(insets?.bottom || 0, 16) + 12;
+
+  return (
+    <View
+      className="flex-1 bg-[#ffffff] dark:bg-[#09090b] px-5"
+      style={{ paddingTop: safeTopPadding + 10 }}
+    >
+      {isLoading ? (
+        <WorkoutExecutionSkeleton />
+      ) : (
+        <>
+          {/* 1. CABEÇALHO ANIMADO */}
+          <MotiView
+            from={{ opacity: 0, translateY: -8 }}
+            animate={{ opacity: 1, translateY: 0 }}
+            transition={{
+              type: "spring",
+              damping: 24,
+              stiffness: 160,
+            } as any}
+            className="flex-row items-center justify-between mb-4 border-b border-[#e2dfe1] dark:border-zinc-800 pb-3"
+          >
+            <TouchableOpacity
+              onPress={handleExitWorkout}
+              className="w-10 h-10 rounded-xl bg-[#f8f9fa] dark:bg-zinc-900 justify-center items-center border border-[#e2dfe1] dark:border-zinc-800"
+            >
+              <X size={20} color={isDark ? "#ffffff" : "#1b1b1d"} />
+            </TouchableOpacity>
+
+            <Text
+              className="text-base font-outfit text-[#1b1b1d] dark:text-white flex-1 mx-3 text-center"
+              numberOfLines={1}
+            >
+              {workoutName}
+            </Text>
+
+            <TouchableOpacity
+              onPress={handleFinishThrottled}
+              disabled={finishWorkoutMutation.isPending}
+              className="bg-[#59C83A] px-3.5 py-2 rounded-xl flex-row items-center shadow-sm"
+            >
+              {finishWorkoutMutation.isPending ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <>
+                  <CheckCircle size={18} color="#FFFFFF" weight="bold" />
+                  <Text className="text-white font-sans-bold ml-1 text-xs">
+                    Finalizar
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </MotiView>
+
+          {/* 2. CARD DO CRONÔMETRO PRINCIPAL */}
+          <MotiView
+            from={{ opacity: 0, scale: 0.96, translateY: 10 }}
+            animate={{ opacity: 1, scale: 1, translateY: 0 }}
+            transition={{
+              type: "spring",
+              damping: 22,
+              stiffness: 150,
+              delay: 30,
+            } as any}
+            className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl mb-4 border border-[#e2dfe1] dark:border-zinc-800 items-center justify-center"
+          >
+            <Text className="text-[10px] font-sans-bold text-[#59C83A] uppercase tracking-wider mb-1">
+              {elapsedSeconds === 0 && isTimerPaused
+                ? "Pronto para Iniciar"
+                : isTimerPaused
+                ? "Treino Pausado"
+                : "Treino em Andamento"}
+            </Text>
+
+            <View className="flex-row items-center justify-center my-1">
+              <Clock
+                size={22}
+                color={isTimerPaused ? "#EAB308" : "#59C83A"}
+                weight="bold"
+              />
+              <Text className="text-3xl font-outfit-extrabold text-[#1b1b1d] dark:text-white ml-2">
+                {formatTime(elapsedSeconds)}
+              </Text>
+            </View>
+
+            <View className="flex-row items-center gap-3 mt-3">
+              <TouchableOpacity
+                onPress={() => setIsTimerPaused((prev) => !prev)}
+                className="flex-row items-center bg-[#59C83A] px-4 py-2 rounded-xl"
+              >
+                {isTimerPaused ? (
+                  <>
+                    <Play size={16} color="#FFFFFF" weight="bold" />
+                    <Text className="text-white font-sans-bold text-xs ml-1.5">
+                      {elapsedSeconds === 0 ? "Iniciar" : "Continuar"}
+                    </Text>
+                  </>
+                ) : (
+                  <>
+                    <Pause size={16} color="#FFFFFF" weight="bold" />
+                    <Text className="text-white font-sans-bold text-xs ml-1.5">
+                      Pausar
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => {
+                  setElapsedSeconds(0);
+                  setIsTimerPaused(true);
+                }}
+                className="flex-row items-center bg-zinc-200 dark:bg-zinc-800 px-4 py-2 rounded-xl border border-zinc-300 dark:border-zinc-700"
+              >
+                <ArrowCounterClockwise
+                  size={16}
+                  color={isDark ? "#ffffff" : "#1b1b1d"}
+                  weight="bold"
+                />
+                <Text className="text-[#1b1b1d] dark:text-white font-sans-bold text-xs ml-1.5">
+                  Zerar
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </MotiView>
+
+          {/* 3. LISTA DE EXERCÍCIOS ANIMADA */}
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingBottom: 100 }}
+          >
+            {sortedExercises.map((exercise) => {
+              const totalSetsCount = parseInt(exercise.sets) || 3;
+              const setsArray = Array.from({ length: totalSetsCount });
+              const isExerciseDone = completedExercises.has(exercise.id);
+
+              const originalIndex =
+                exercises.findIndex((e) => e.id === exercise.id) + 1;
+
+              return (
+                <MotiView
+                  key={exercise.id}
+                  from={{ opacity: 0, translateY: 14, scale: 0.97 }}
+                  animate={{
+                    opacity: isExerciseDone ? 0.5 : 1,
+                    scale: 1,
+                    translateY: 0,
+                  }}
+                  transition={{
+                    type: "spring",
+                    damping: 22,
+                    stiffness: 150,
+                  } as any}
+                  className={`p-4 rounded-2xl mb-4 border ${
+                    isExerciseDone
+                      ? "bg-zinc-100/70 dark:bg-zinc-900/40 border-dashed border-zinc-300 dark:border-zinc-800"
+                      : "bg-[#f8f9fa] dark:bg-zinc-900 border-[#e2dfe1] dark:border-zinc-800"
+                  }`}
+                >
+                  <View className="flex-row items-center justify-between mb-2">
+                    <Text
+                      className={`text-base font-outfit flex-1 mr-2 ${
+                        isExerciseDone
+                          ? "text-[#71717a] dark:text-zinc-500 line-through"
+                          : "text-[#1b1b1d] dark:text-white"
+                      }`}
+                    >
+                      {originalIndex}. {exercise.name}
+                    </Text>
+
+                    <View className="flex-row items-center gap-2">
+                      <TouchableOpacity
+                        onPress={() => handleOpenExerciseDemo(exercise)}
+                        className="bg-[#59C83A]/10 px-2.5 py-1 rounded-lg flex-row items-center border border-[#59C83A]/30"
+                      >
+                        <PlayCircle size={14} color="#59C83A" weight="bold" />
+                        <Text className="text-[11px] font-sans-bold text-[#59C83A] ml-1">
+                          Ver GIF
+                        </Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        onPress={() =>
+                          toggleExerciseCompletion(exercise.id, totalSetsCount)
+                        }
+                        className={`px-2.5 py-1 rounded-lg flex-row items-center border ${
+                          isExerciseDone
+                            ? "bg-[#59C83A] border-[#59C83A]"
+                            : "bg-zinc-200 dark:bg-zinc-800 border-zinc-300 dark:border-zinc-700"
+                        }`}
+                      >
+                        <CheckCircle
+                          size={14}
+                          color={
+                            isExerciseDone
+                              ? "#FFFFFF"
+                              : isDark
+                              ? "#A1A1AA"
+                              : "#71717A"
+                          }
+                          weight="bold"
+                        />
+                        <Text
+                          className={`text-[11px] font-sans-bold ml-1 ${
+                            isExerciseDone
+                              ? "text-white"
+                              : "text-[#71717a] dark:text-zinc-400"
+                          }`}
+                        >
+                          {isExerciseDone ? "Concluído" : "Finalizar"}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+
+                  {exercise.notes ? (
+                    <Text className="text-xs text-[#71717a] dark:text-zinc-400 mb-3 font-sans-medium">
+                      💬 {exercise.notes}
+                    </Text>
+                  ) : null}
+
+                  {/* CHECKLIST DE SÉRIES */}
+                  <View className="gap-2 mt-1">
+                    {setsArray.map((_, setIndex) => {
+                      const setKey = `${exercise.id}-${setIndex}`;
+                      const isDone = completedSets.has(setKey);
+
+                      return (
+                        <TouchableOpacity
+                          key={setIndex}
+                          activeOpacity={0.8}
+                          onPress={() =>
+                            toggleSetCompletion(
+                              exercise.id,
+                              setIndex,
+                              totalSetsCount
+                            )
+                          }
+                          className={`p-3 rounded-xl border flex-row items-center justify-between ${
+                            isDone
+                              ? "bg-[#59C83A]/10 border-[#59C83A]"
+                              : "bg-white dark:bg-zinc-950 border-[#e2dfe1] dark:border-zinc-800"
+                          }`}
+                        >
+                          <View className="flex-row items-center">
+                            <View
+                              className={`w-6 h-6 rounded-lg items-center justify-center mr-3 ${
+                                isDone
+                                  ? "bg-[#59C83A]"
+                                  : "bg-zinc-200 dark:bg-zinc-800"
+                              }`}
+                            >
+                              {isDone ? (
+                                <Check size={14} color="#FFFFFF" weight="bold" />
+                              ) : (
+                                <Text className="text-xs font-sans-bold text-[#71717a] dark:text-zinc-400">
+                                  {setIndex + 1}
+                                </Text>
+                              )}
+                            </View>
+                            <Text
+                              className={`text-xs font-sans-bold ${
+                                isDone
+                                  ? "text-[#59C83A] line-through"
+                                  : "text-[#1b1b1d] dark:text-white"
+                              }`}
+                            >
+                              Série {setIndex + 1}
+                            </Text>
+                          </View>
+
+                          <Text
+                            className={`text-xs font-sans-bold ${
+                              isDone
+                                ? "text-[#59C83A]"
+                                : "text-[#71717a] dark:text-zinc-400"
+                            }`}
+                          >
+                            {exercise.reps} reps
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </MotiView>
+              );
+            })}
+          </ScrollView>
+        </>
+      )}
+
+      {/* MODAL DE DEMONSTRAÇÃO */}
+      <Modal visible={demoModalVisible} transparent animationType="slide">
+        <View className="flex-1 bg-black/70 justify-end">
+          <View
+            className="bg-white dark:bg-zinc-900 rounded-t-3xl p-5 h-[82%] border-t border-[#e2dfe1] dark:border-zinc-800"
+            style={{ paddingBottom: safeBottomPadding }}
+          >
+            <View className="flex-row items-center justify-between mb-3 border-b border-[#e2dfe1] dark:border-zinc-800 pb-3">
+              <Text
+                className="text-base font-outfit text-[#1b1b1d] dark:text-white flex-1 mr-2"
+                numberOfLines={1}
+              >
+                {demoExercise?.name}
+              </Text>
+              <TouchableOpacity
+                onPress={() => setDemoModalVisible(false)}
+                className="w-8 h-8 rounded-full bg-zinc-100 dark:bg-zinc-800 items-center justify-center"
+              >
+                <X size={18} color={isDark ? "#ffffff" : "#1b1b1d"} />
+              </TouchableOpacity>
+            </View>
+
+            {loadingDemo ? (
+              <View className="flex-1 justify-center items-center">
+                <ActivityIndicator size="large" color="#59C83A" />
+                <Text className="text-xs font-sans-medium text-[#71717a] dark:text-zinc-400 mt-2">
+                  Buscando exercício...
+                </Text>
+              </View>
+            ) : (
+              <ScrollView
+                showsVerticalScrollIndicator={false}
+                className="flex-1"
+                contentContainerStyle={{ paddingBottom: 16 }}
+              >
+                {/* CONTAINER DO GIF */}
+                <View className="w-full h-60 bg-white dark:bg-white rounded-3xl overflow-hidden mb-4 items-center justify-center p-2 border border-[#e2dfe1] dark:border-zinc-800 relative">
+                  {isGifLoading && (
+                    <View className="absolute inset-0 justify-center items-center bg-white dark:bg-white z-10">
+                      <ActivityIndicator size="large" color="#59C83A" />
+                      <Text className="text-xs font-sans-medium text-[#71717a] mt-2">
+                        Carregando exercício...
+                      </Text>
+                    </View>
+                  )}
+
+                  <Image
+                    source={getExerciseGif(demoExercise?.gif_key ?? undefined)}
+                    style={{ width: "100%", height: "100%", borderRadius: 16 }}
+                    contentFit="contain"
+                    autoplay={true}
+                    transition={200}
+                    onLoadStart={() => setIsGifLoading(true)}
+                    onLoad={() => setIsGifLoading(false)}
+                    onError={() => setIsGifLoading(false)}
+                  />
+                </View>
+
+                {/* CARDS DE MÉTRICAS */}
+                <View className="flex-row justify-between mb-4">
+                  <View className="w-[31%] bg-[#f8f9fa] dark:bg-zinc-800/80 p-3 rounded-2xl items-center border border-[#e2dfe1] dark:border-zinc-700">
+                    <Stack size={20} color="#59C83A" weight="bold" />
+                    <Text className="text-[10px] font-sans-bold text-[#414755] dark:text-zinc-400 mt-1">
+                      Séries
+                    </Text>
+                    <Text className="text-base font-outfit-extrabold text-[#1b1b1d] dark:text-white mt-0.5">
+                      {demoExercise?.sets || "3"}
+                    </Text>
+                  </View>
+
+                  <View className="w-[31%] bg-[#f8f9fa] dark:bg-zinc-800/80 p-3 rounded-2xl items-center border border-[#e2dfe1] dark:border-zinc-700">
+                    <Repeat size={20} color="#59C83A" weight="bold" />
+                    <Text className="text-[10px] font-sans-bold text-[#414755] dark:text-zinc-400 mt-1">
+                      Reps
+                    </Text>
+                    <Text className="text-base font-outfit-extrabold text-[#1b1b1d] dark:text-white mt-0.5">
+                      {demoExercise?.reps || "10"}
+                    </Text>
+                  </View>
+
+                  <View className="w-[31%] bg-[#f8f9fa] dark:bg-zinc-800/80 p-3 rounded-2xl items-center border border-[#e2dfe1] dark:border-zinc-700">
+                    <Barbell size={20} color="#59C83A" weight="bold" />
+                    <Text className="text-[10px] font-sans-bold text-[#414755] dark:text-zinc-400 mt-1">
+                      Carga
+                    </Text>
+                    <Text
+                      className="text-base font-outfit-extrabold text-[#1b1b1d] dark:text-white mt-0.5"
+                      numberOfLines={1}
+                    >
+                      {demoExercise?.notes
+                        ? demoExercise.notes.replace("Carga: ", "")
+                        : "Livre"}
+                    </Text>
+                  </View>
+                </View>
+
+                <Text className="text-xs font-outfit text-[#1b1b1d] dark:text-white mb-1">
+                  Postura e Execução:
+                </Text>
+                <Text className="text-xs font-sans-medium text-[#71717a] dark:text-zinc-400 leading-5 mb-2">
+                  {demoExercise?.description ||
+                    "Execute o movimento de forma controlada, mantendo a postura firme e respeitando a cadência recomendada pelo seu personal trainer."}
+                </Text>
+              </ScrollView>
+            )}
+
+            <TouchableOpacity
+              onPress={() => setDemoModalVisible(false)}
+              className="bg-[#59C83A] py-4 rounded-xl items-center mt-2"
+              activeOpacity={0.8}
+            >
+              <Text className="text-xs font-sans-bold text-white">
+                Voltar para o Treino
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* MODAL DE DESCANSO AUTOMÁTICO */}
+      <Modal visible={isResting} transparent animationType="slide">
+        <View className="flex-1 bg-black/60 justify-end">
+          <View
+            className="bg-white dark:bg-zinc-900 rounded-t-3xl p-6 border-t border-[#e2dfe1] dark:border-zinc-800 items-center"
+            style={{ paddingBottom: safeBottomPadding }}
+          >
+            <View className="w-12 h-12 rounded-full bg-[#59C83A]/10 items-center justify-center border border-[#59C83A]/30 mb-3">
+              <Timer size={28} color="#59C83A" weight="bold" />
+            </View>
+
+            <Text className="text-sm font-sans-bold text-[#71717a] dark:text-zinc-400">
+              Tempo de Descanso
+            </Text>
+            <Text className="text-5xl font-outfit-extrabold text-[#1b1b1d] dark:text-white my-2">
+              {formatTime(restSecondsLeft)}
+            </Text>
+
+            <View className="flex-row items-center gap-3 mt-4 w-full">
+              <TouchableOpacity
+                onPress={() => addRestTime(30)}
+                className="flex-1 bg-zinc-100 dark:bg-zinc-800 py-3.5 rounded-xl items-center border border-zinc-200 dark:border-zinc-700"
+              >
+                <Text className="text-xs font-sans-bold text-[#1b1b1d] dark:text-white">
+                  +30 Segundos
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={skipRest}
+                className="flex-1 bg-[#59C83A] py-3.5 rounded-xl items-center"
+              >
+                <Text className="text-xs font-sans-bold text-white">
+                  Pular Descanso
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* MODAL DE ALERTA REUTILIZÁVEL */}
+      <CustomModal
+        visible={modalConfig.visible}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        type={modalConfig.type}
+        confirmText={modalConfig.confirmText}
+        cancelText={modalConfig.cancelText}
+        showCancelButton={modalConfig.showCancelButton}
+        onConfirm={modalConfig.onConfirm}
+        onClose={() => setModalConfig((prev) => ({ ...prev, visible: false }))}
+      />
+    </View>
+  );
+}

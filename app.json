@@ -5,11 +5,11 @@
     "scheme": "treinopesado",
     "version": "1.2.7",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "src/assets/icon.png",
     "userInterfaceStyle": "automatic",
     "jsEngine": "hermes",
     "splash": {
-      "image": "./assets/splash.png",
+      "image": "src/assets/splash.png",
       "resizeMode": "contain",
       "backgroundColor": "#09090b"
     },
@@ -25,14 +25,14 @@
       "jsEngine": "hermes",
       "versionCode": 8,
       "adaptiveIcon": {
-        "foregroundImage": "./assets/logo-treino-pesado-icon.png",
+        "foregroundImage": "src/assets/logo-treino-pesado-icon.png",
         "backgroundColor": "#1b1b1d"
       },
       "package": "com.daviniccacio.treinopesado",
       "backgroundColor": "#09090b"
     },
     "web": {
-      "favicon": "./assets/icon.png"
+      "favicon": "src/assets/icon.png"
     },
     "extra": {
       "eas": {
@@ -55,7 +55,7 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/logo-treino-pesado-icon.png",
+          "icon": "src/assets/logo-treino-pesado-icon.png",
           "color": "#59C83A"
         }
       ],
