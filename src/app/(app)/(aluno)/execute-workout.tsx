@@ -1,9 +1,8 @@
 // ============================================================================
-// DOCUMENTAÇÃO: TELA DE EXECUÇÃO DE TREINO COM SKELETON LOADING (ÁREA DO ALUNO)
+// DOCUMENTAÇÃO: TELA DE EXECUÇÃO DE TREINO COM SUPORTE A BACKGROUND E KEEP-AWAKE
 // ============================================================================
-// Gerencia a execução do treino, cronômetro de tempo total, descanso automático
-// na conclusão dos exercícios, abertura de mídias demonstrativas, sanitização de
-// dados e Skeleton Loading para excelente experiência visual.
+// Gerencia a execução do treino utilizando timestamps para impedir que o tempo
+// congele em segundo plano. Mantém a tela acesa via expo-keep-awake.
 // ============================================================================
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
@@ -16,8 +15,11 @@ import {
   Modal,
   Platform,
   useColorScheme,
+  AppState,
+  AppStateStatus,
 } from "react-native";
 import { useLocalSearchParams, useRouter, useFocusEffect } from "expo-router";
+import { useKeepAwake } from "expo-keep-awake";
 import { Image } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
@@ -38,14 +40,13 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { MotiView } from "moti";
 
 import { supabase } from "@/lib/supabase";
-import { sanitizeInput } from "@/lib/security"; // 🟢 Importação da função de sanitização
+import { sanitizeInput } from "@/lib/security";
 import { getExerciseGif } from "@/lib/exerciseGifs";
 import { useThrottledCallback } from "@/lib/useThrottle";
 import { CustomModal } from "@/components/CustomModal";
 import { sendNotificationToUser } from "@/lib/notifications";
 import { Skeleton } from "@/components/SkeletonLoading";
 
-// --- TIPAGENS DE DADOS ---
 interface ExerciseItem {
   id: string;
   exercise_id: string;
@@ -79,18 +80,15 @@ interface ShowAlertModalOptions {
   onConfirm?: () => void;
 }
 
-// 🟢 SUBCOMPONENTE DE SKELETON PARA A TELA DE EXECUÇÃO
 function WorkoutExecutionSkeleton() {
   return (
     <View className="flex-1">
-      {/* Skeleton do Cabeçalho */}
       <View className="flex-row items-center justify-between mb-4 border-b border-[#e2dfe1] dark:border-zinc-800 pb-3">
         <Skeleton width={40} height={40} borderRadius={12} />
         <Skeleton width={160} height={20} borderRadius={6} />
         <Skeleton width={90} height={36} borderRadius={12} />
       </View>
 
-      {/* Skeleton do Cronômetro Geral */}
       <View className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl mb-4 border border-[#e2dfe1] dark:border-zinc-800 items-center">
         <Skeleton width={130} height={12} borderRadius={4} className="mb-2" />
         <Skeleton width={170} height={36} borderRadius={8} className="my-1" />
@@ -100,7 +98,6 @@ function WorkoutExecutionSkeleton() {
         </View>
       </View>
 
-      {/* Skeleton da Lista de Exercícios */}
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
         {Array.from({ length: 3 }).map((_, index) => (
           <View
@@ -115,7 +112,6 @@ function WorkoutExecutionSkeleton() {
               </View>
             </View>
 
-            {/* Checklist de Séries */}
             <View className="gap-2 mt-1">
               <Skeleton width="100%" height={44} borderRadius={12} />
               <Skeleton width="100%" height={44} borderRadius={12} />
@@ -128,9 +124,6 @@ function WorkoutExecutionSkeleton() {
   );
 }
 
-/**
- * Busca os dados da ficha de treino no Supabase (Customizada ou Prescrita) com sanitização de campos
- */
 async function fetchWorkoutExecutionData(
   id?: string,
   type?: string
@@ -140,8 +133,7 @@ async function fetchWorkoutExecutionData(
   if (type === "custom") {
     const { data, error } = await supabase
       .from("custom_workouts")
-      .select(
-        `
+      .select(`
         title,
         custom_workout_exercises (
           id,
@@ -151,16 +143,13 @@ async function fetchWorkoutExecutionData(
           weight,
           exercises ( name )
         )
-      `
-      )
+      `)
       .eq("id", id)
       .single();
 
     if (error) throw new Error(error.message);
 
-    const formatted: ExerciseItem[] = (
-      data.custom_workout_exercises || []
-    ).map((item: any) => ({
+    const formatted: ExerciseItem[] = (data.custom_workout_exercises || []).map((item: any) => ({
       id: item.id,
       exercise_id: item.exercise_id,
       name: sanitizeInput(item.exercises?.name || "Exercício"),
@@ -176,8 +165,7 @@ async function fetchWorkoutExecutionData(
   } else {
     const { data, error } = await supabase
       .from("workout_plans")
-      .select(
-        `
+      .select(`
         name,
         plan_exercises (
           id,
@@ -188,16 +176,13 @@ async function fetchWorkoutExecutionData(
           notes,
           order_index
         )
-      `
-      )
+      `)
       .eq("id", id)
       .single();
 
     if (error) throw new Error(error.message);
 
-    const sorted = (data.plan_exercises || []).sort(
-      (a: any, b: any) => a.order_index - b.order_index
-    );
+    const sorted = (data.plan_exercises || []).sort((a: any, b: any) => a.order_index - b.order_index);
 
     const formatted: ExerciseItem[] = sorted.map((item: any) => ({
       id: item.id,
@@ -216,6 +201,9 @@ async function fetchWorkoutExecutionData(
 }
 
 export default function ExecuteWorkoutScreen() {
+  // 🟢 IMPEDE QUE A TELA DO CELULAR APAGUE DURANTE O TREINO
+  useKeepAwake();
+
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme();
@@ -224,18 +212,21 @@ export default function ExecuteWorkoutScreen() {
 
   const { id, type } = useLocalSearchParams<{ id?: string; type?: string }>();
 
-  // --- CRONÔMETRO PRINCIPAL DO TREINO ---
+  // --- CRONÔMETRO PRINCIPAL BASEADO EM TIMESTAMP ---
   const [elapsedSeconds, setElapsedSeconds] = useState<number>(0);
   const [isTimerPaused, setIsTimerPaused] = useState<boolean>(true);
 
+  const startTimeRef = useRef<number | null>(null);
+  const accumulatedSecondsRef = useRef<number>(0);
+  const appState = useRef<AppStateStatus>((AppState.currentState as AppStateStatus) || 'active');
+
   // --- CONTROLE DE SÉRIES E EXERCÍCIOS CONCLUÍDOS ---
   const [completedSets, setCompletedSets] = useState<Set<string>>(new Set());
-  const [completedExercises, setCompletedExercises] = useState<Set<string>>(
-    new Set()
-  );
+  const [completedExercises, setCompletedExercises] = useState<Set<string>>(new Set());
 
-  // --- CRONÔMETRO DE DESCANSO ---
+  // --- CRONÔMETRO DE DESCANSO LOCAL ---
   const [isResting, setIsResting] = useState<boolean>(false);
+  const [restEndTime, setRestEndTime] = useState<number | null>(null);
   const [restSecondsLeft, setRestSecondsLeft] = useState<number>(60);
   const DEFAULT_REST_TIME = 60;
 
@@ -243,9 +234,7 @@ export default function ExecuteWorkoutScreen() {
   const [demoModalVisible, setDemoModalVisible] = useState<boolean>(false);
   const [loadingDemo, setLoadingDemo] = useState<boolean>(false);
   const [isGifLoading, setIsGifLoading] = useState<boolean>(true);
-  const [demoExercise, setDemoExercise] = useState<DemoExerciseData | null>(
-    null
-  );
+  const [demoExercise, setDemoExercise] = useState<DemoExerciseData | null>(null);
 
   // --- ESTADO DO MODAL PERSONALIZADO DE ALERTA ---
   const [modalConfig, setModalConfig] = useState<{
@@ -265,11 +254,10 @@ export default function ExecuteWorkoutScreen() {
     confirmText: "Entendi",
     cancelText: "Cancelar",
     showCancelButton: false,
-    onConfirm: () => {},
+    onConfirm: () => { },
   });
 
   const workoutTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const restTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   function showAlertModal({
     title,
@@ -306,6 +294,85 @@ export default function ExecuteWorkoutScreen() {
   const workoutName = workoutData?.workoutName || "Treino";
   const exercises = workoutData?.exercises || [];
 
+  // 🟢 RECALCULA O TEMPO DE TREINO COM BASE NO RELÓGIO NATIVO
+  const updateElapsedSeconds = useCallback(() => {
+    if (!isTimerPaused && startTimeRef.current !== null) {
+      const now = Date.now();
+      const sessionSeconds = Math.floor((now - startTimeRef.current) / 1000);
+      setElapsedSeconds(accumulatedSecondsRef.current + sessionSeconds);
+    }
+  }, [isTimerPaused]);
+
+  // 🟢 RECALCULA O TEMPO DE DESCANSO LOCAL AO VOLTAR DO BACKGROUND
+  const updateRestSeconds = useCallback(() => {
+    if (isResting && restEndTime !== null) {
+      const now = Date.now();
+      const remaining = Math.max(0, Math.ceil((restEndTime - now) / 1000));
+      setRestSecondsLeft(remaining);
+
+      if (remaining <= 0) {
+        setIsResting(false);
+        setRestEndTime(null);
+      }
+    }
+  }, [isResting, restEndTime]);
+
+  // 🟢 MONITOR DE BACKGROUND / FOREGROUND DO APP
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
+      if (
+        appState.current.match(/inactive|background/) &&
+        nextAppState === 'active'
+      ) {
+        updateElapsedSeconds();
+        updateRestSeconds();
+      }
+      appState.current = nextAppState;
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [updateElapsedSeconds, updateRestSeconds]);
+
+  // 🟢 LOOP DO CRONÔMETRO DE TREINO
+  useEffect(() => {
+    if (!isLoading && !isTimerPaused) {
+      if (startTimeRef.current === null) {
+        startTimeRef.current = Date.now();
+      }
+
+      workoutTimerRef.current = setInterval(() => {
+        updateElapsedSeconds();
+      }, 500);
+    } else {
+      if (workoutTimerRef.current) {
+        clearInterval(workoutTimerRef.current);
+        workoutTimerRef.current = null;
+      }
+    }
+
+    return () => {
+      if (workoutTimerRef.current) clearInterval(workoutTimerRef.current);
+    };
+  }, [isLoading, isTimerPaused, updateElapsedSeconds]);
+
+  // 🟢 LOOP DO CRONÔMETRO DE DESCANSO LOCAL
+  useEffect(() => {
+    let restInterval: ReturnType<typeof setInterval> | null = null;
+
+    if (isResting && restEndTime !== null) {
+      updateRestSeconds();
+      restInterval = setInterval(() => {
+        updateRestSeconds();
+      }, 500);
+    }
+
+    return () => {
+      if (restInterval) clearInterval(restInterval);
+    };
+  }, [isResting, restEndTime, updateRestSeconds]);
+
   const finishWorkoutMutation = useMutation({
     mutationFn: async (duration: number) => {
       const {
@@ -324,12 +391,12 @@ export default function ExecuteWorkoutScreen() {
 
       const { data: studentProfile } = await supabase
         .from("profiles")
-        .select("name, personal_id")
+        .select("full_name, personal_id")
         .eq("id", user.id)
         .single();
 
       if (studentProfile?.personal_id) {
-        const studentName = studentProfile.name || "Seu aluno";
+        const studentName = studentProfile.full_name || "Seu aluno";
 
         await sendNotificationToUser({
           targetUserId: studentProfile.personal_id,
@@ -351,7 +418,7 @@ export default function ExecuteWorkoutScreen() {
 
       showAlertModal({
         title: "Treino Concluído! 🎉",
-        message: `Parabéns! Você completou o "${workoutName}" em ${formatTime(
+        message: `Parabéns! Você completou o "${workoutName}" em ${formatDurationSummary(
           finalTime
         )}.`,
         type: "success",
@@ -383,15 +450,14 @@ export default function ExecuteWorkoutScreen() {
       clearInterval(workoutTimerRef.current);
       workoutTimerRef.current = null;
     }
-    if (restTimerRef.current) {
-      clearInterval(restTimerRef.current);
-      restTimerRef.current = null;
-    }
+    startTimeRef.current = null;
+    accumulatedSecondsRef.current = 0;
     setElapsedSeconds(0);
     setIsTimerPaused(true);
     setCompletedSets(new Set());
     setCompletedExercises(new Set());
     setIsResting(false);
+    setRestEndTime(null);
     setRestSecondsLeft(DEFAULT_REST_TIME);
   }, []);
 
@@ -404,39 +470,21 @@ export default function ExecuteWorkoutScreen() {
     }, [id, type, resetWorkoutState])
   );
 
-  // Cronômetro Geral do Treino
-  useEffect(() => {
-    if (!isLoading && !isTimerPaused) {
-      workoutTimerRef.current = setInterval(() => {
-        setElapsedSeconds((prev) => prev + 1);
-      }, 1000);
+  const toggleTimerPause = () => {
+    if (isTimerPaused) {
+      // Dando play
+      startTimeRef.current = Date.now();
+      setIsTimerPaused(false);
     } else {
-      if (workoutTimerRef.current) {
-        clearInterval(workoutTimerRef.current);
-        workoutTimerRef.current = null;
+      // Dando pause
+      if (startTimeRef.current !== null) {
+        const sessionSeconds = Math.floor((Date.now() - startTimeRef.current) / 1000);
+        accumulatedSecondsRef.current += sessionSeconds;
       }
+      startTimeRef.current = null;
+      setIsTimerPaused(true);
     }
-
-    return () => {
-      if (workoutTimerRef.current) clearInterval(workoutTimerRef.current);
-    };
-  }, [isLoading, isTimerPaused]);
-
-  // Timer de Descanso
-  useEffect(() => {
-    if (isResting && restSecondsLeft > 0) {
-      restTimerRef.current = setInterval(() => {
-        setRestSecondsLeft((prev) => prev - 1);
-      }, 1000);
-    } else if (restSecondsLeft === 0) {
-      setIsResting(false);
-      if (restTimerRef.current) clearInterval(restTimerRef.current);
-    }
-
-    return () => {
-      if (restTimerRef.current) clearInterval(restTimerRef.current);
-    };
-  }, [isResting, restSecondsLeft]);
+  };
 
   function handleExitWorkout() {
     const hasStarted = elapsedSeconds > 0 || completedSets.size > 0;
@@ -449,8 +497,7 @@ export default function ExecuteWorkoutScreen() {
 
     showAlertModal({
       title: "Sair do Treino",
-      message:
-        "Deseja cancelar o treino em andamento? O tempo e progresso atual não serão salvos.",
+      message: "Deseja cancelar o treino em andamento? O tempo e progresso atual não serão salvos.",
       type: "danger",
       confirmText: "Sair sem Salvar",
       cancelText: "Continuar Treinando",
@@ -563,29 +610,52 @@ export default function ExecuteWorkoutScreen() {
   }
 
   function startRestTimer(seconds: number) {
+    setRestEndTime(Date.now() + seconds * 1000);
     setRestSecondsLeft(seconds);
     setIsResting(true);
   }
 
   function addRestTime(secondsToAdd: number) {
+    const newEndTime = (restEndTime || Date.now()) + secondsToAdd * 1000;
+    setRestEndTime(newEndTime);
     setRestSecondsLeft((prev) => prev + secondsToAdd);
   }
 
   function skipRest() {
     setIsResting(false);
+    setRestEndTime(null);
     setRestSecondsLeft(0);
   }
 
-  function formatTime(seconds: number) {
+  // ============================================================================
+  // UTILITÁRIOS DE FORMATAÇÃO DE TEMPO
+  // ============================================================================
+
+  /**
+   * Formata os segundos em formato digital contínuo de Horas, Minutos e Segundos (HH:MM:SS)
+   * Exemplo: 00:45:12 (45 min e 12 seg) | 01:15:30 (1 hora, 15 min e 30 seg)
+   */
+  function formatTime(seconds: number): string {
     const hrs = Math.floor(seconds / 3600);
     const mins = Math.floor((seconds % 3600) / 60);
     const secs = seconds % 60;
     const pad = (num: number) => String(num).padStart(2, "0");
 
+    return `${pad(hrs)}:${pad(mins)}:${pad(secs)}`;
+  }
+
+  /**
+   * Formata os segundos em texto amigável de Resumo de Tempo em Horas e Minutos
+   * Exemplo: 1h 15min | 45min | 0min
+   */
+  function formatDurationSummary(seconds: number): string {
+    const hrs = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+
     if (hrs > 0) {
-      return `${pad(hrs)}:${pad(mins)}:${pad(secs)}`;
+      return `${hrs}h ${mins}min`;
     }
-    return `${pad(mins)}:${pad(secs)}`;
+    return `${mins}min`;
   }
 
   function handleFinishWorkout() {
@@ -617,11 +687,7 @@ export default function ExecuteWorkoutScreen() {
           <MotiView
             from={{ opacity: 0, translateY: -8 }}
             animate={{ opacity: 1, translateY: 0 }}
-            transition={{
-              type: "spring",
-              damping: 24,
-              stiffness: 160,
-            } as any}
+            transition={{ type: "spring", damping: 24, stiffness: 160 } as any}
             className="flex-row items-center justify-between mb-4 border-b border-[#e2dfe1] dark:border-zinc-800 pb-3"
           >
             <TouchableOpacity
@@ -660,20 +726,15 @@ export default function ExecuteWorkoutScreen() {
           <MotiView
             from={{ opacity: 0, scale: 0.96, translateY: 10 }}
             animate={{ opacity: 1, scale: 1, translateY: 0 }}
-            transition={{
-              type: "spring",
-              damping: 22,
-              stiffness: 150,
-              delay: 30,
-            } as any}
+            transition={{ type: "spring", damping: 22, stiffness: 150, delay: 30 } as any}
             className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl mb-4 border border-[#e2dfe1] dark:border-zinc-800 items-center justify-center"
           >
             <Text className="text-[10px] font-sans-bold text-[#59C83A] uppercase tracking-wider mb-1">
               {elapsedSeconds === 0 && isTimerPaused
                 ? "Pronto para Iniciar"
                 : isTimerPaused
-                ? "Treino Pausado"
-                : "Treino em Andamento"}
+                  ? "Treino Pausado"
+                  : "Treino em Andamento"}
             </Text>
 
             <View className="flex-row items-center justify-center my-1">
@@ -689,7 +750,7 @@ export default function ExecuteWorkoutScreen() {
 
             <View className="flex-row items-center gap-3 mt-3">
               <TouchableOpacity
-                onPress={() => setIsTimerPaused((prev) => !prev)}
+                onPress={toggleTimerPause}
                 className="flex-row items-center bg-[#59C83A] px-4 py-2 rounded-xl"
               >
                 {isTimerPaused ? (
@@ -711,6 +772,8 @@ export default function ExecuteWorkoutScreen() {
 
               <TouchableOpacity
                 onPress={() => {
+                  startTimeRef.current = isTimerPaused ? null : Date.now();
+                  accumulatedSecondsRef.current = 0;
                   setElapsedSeconds(0);
                   setIsTimerPaused(true);
                 }}
@@ -738,8 +801,7 @@ export default function ExecuteWorkoutScreen() {
               const setsArray = Array.from({ length: totalSetsCount });
               const isExerciseDone = completedExercises.has(exercise.id);
 
-              const originalIndex =
-                exercises.findIndex((e) => e.id === exercise.id) + 1;
+              const originalIndex = exercises.findIndex((e) => e.id === exercise.id) + 1;
 
               return (
                 <MotiView
@@ -750,24 +812,18 @@ export default function ExecuteWorkoutScreen() {
                     scale: 1,
                     translateY: 0,
                   }}
-                  transition={{
-                    type: "spring",
-                    damping: 22,
-                    stiffness: 150,
-                  } as any}
-                  className={`p-4 rounded-2xl mb-4 border ${
-                    isExerciseDone
-                      ? "bg-zinc-100/70 dark:bg-zinc-900/40 border-dashed border-zinc-300 dark:border-zinc-800"
-                      : "bg-[#f8f9fa] dark:bg-zinc-900 border-[#e2dfe1] dark:border-zinc-800"
-                  }`}
+                  transition={{ type: "spring", damping: 22, stiffness: 150 } as any}
+                  className={`p-4 rounded-2xl mb-4 border ${isExerciseDone
+                    ? "bg-zinc-100/70 dark:bg-zinc-900/40 border-dashed border-zinc-300 dark:border-zinc-800"
+                    : "bg-[#f8f9fa] dark:bg-zinc-900 border-[#e2dfe1] dark:border-zinc-800"
+                    }`}
                 >
                   <View className="flex-row items-center justify-between mb-2">
                     <Text
-                      className={`text-base font-outfit flex-1 mr-2 ${
-                        isExerciseDone
-                          ? "text-[#71717a] dark:text-zinc-500 line-through"
-                          : "text-[#1b1b1d] dark:text-white"
-                      }`}
+                      className={`text-base font-outfit flex-1 mr-2 ${isExerciseDone
+                        ? "text-[#71717a] dark:text-zinc-500 line-through"
+                        : "text-[#1b1b1d] dark:text-white"
+                        }`}
                     >
                       {originalIndex}. {exercise.name}
                     </Text>
@@ -784,32 +840,20 @@ export default function ExecuteWorkoutScreen() {
                       </TouchableOpacity>
 
                       <TouchableOpacity
-                        onPress={() =>
-                          toggleExerciseCompletion(exercise.id, totalSetsCount)
-                        }
-                        className={`px-2.5 py-1 rounded-lg flex-row items-center border ${
-                          isExerciseDone
-                            ? "bg-[#59C83A] border-[#59C83A]"
-                            : "bg-zinc-200 dark:bg-zinc-800 border-zinc-300 dark:border-zinc-700"
-                        }`}
+                        onPress={() => toggleExerciseCompletion(exercise.id, totalSetsCount)}
+                        className={`px-2.5 py-1 rounded-lg flex-row items-center border ${isExerciseDone
+                          ? "bg-[#59C83A] border-[#59C83A]"
+                          : "bg-zinc-200 dark:bg-zinc-800 border-zinc-300 dark:border-zinc-700"
+                          }`}
                       >
                         <CheckCircle
                           size={14}
-                          color={
-                            isExerciseDone
-                              ? "#FFFFFF"
-                              : isDark
-                              ? "#A1A1AA"
-                              : "#71717A"
-                          }
+                          color={isExerciseDone ? "#FFFFFF" : isDark ? "#A1A1AA" : "#71717A"}
                           weight="bold"
                         />
                         <Text
-                          className={`text-[11px] font-sans-bold ml-1 ${
-                            isExerciseDone
-                              ? "text-white"
-                              : "text-[#71717a] dark:text-zinc-400"
-                          }`}
+                          className={`text-[11px] font-sans-bold ml-1 ${isExerciseDone ? "text-white" : "text-[#71717a] dark:text-zinc-400"
+                            }`}
                         >
                           {isExerciseDone ? "Concluído" : "Finalizar"}
                         </Text>
@@ -833,26 +877,16 @@ export default function ExecuteWorkoutScreen() {
                         <TouchableOpacity
                           key={setIndex}
                           activeOpacity={0.8}
-                          onPress={() =>
-                            toggleSetCompletion(
-                              exercise.id,
-                              setIndex,
-                              totalSetsCount
-                            )
-                          }
-                          className={`p-3 rounded-xl border flex-row items-center justify-between ${
-                            isDone
-                              ? "bg-[#59C83A]/10 border-[#59C83A]"
-                              : "bg-white dark:bg-zinc-950 border-[#e2dfe1] dark:border-zinc-800"
-                          }`}
+                          onPress={() => toggleSetCompletion(exercise.id, setIndex, totalSetsCount)}
+                          className={`p-3 rounded-xl border flex-row items-center justify-between ${isDone
+                            ? "bg-[#59C83A]/10 border-[#59C83A]"
+                            : "bg-white dark:bg-zinc-950 border-[#e2dfe1] dark:border-zinc-800"
+                            }`}
                         >
                           <View className="flex-row items-center">
                             <View
-                              className={`w-6 h-6 rounded-lg items-center justify-center mr-3 ${
-                                isDone
-                                  ? "bg-[#59C83A]"
-                                  : "bg-zinc-200 dark:bg-zinc-800"
-                              }`}
+                              className={`w-6 h-6 rounded-lg items-center justify-center mr-3 ${isDone ? "bg-[#59C83A]" : "bg-zinc-200 dark:bg-zinc-800"
+                                }`}
                             >
                               {isDone ? (
                                 <Check size={14} color="#FFFFFF" weight="bold" />
@@ -863,22 +897,18 @@ export default function ExecuteWorkoutScreen() {
                               )}
                             </View>
                             <Text
-                              className={`text-xs font-sans-bold ${
-                                isDone
-                                  ? "text-[#59C83A] line-through"
-                                  : "text-[#1b1b1d] dark:text-white"
-                              }`}
+                              className={`text-xs font-sans-bold ${isDone
+                                ? "text-[#59C83A] line-through"
+                                : "text-[#1b1b1d] dark:text-white"
+                                }`}
                             >
                               Série {setIndex + 1}
                             </Text>
                           </View>
 
                           <Text
-                            className={`text-xs font-sans-bold ${
-                              isDone
-                                ? "text-[#59C83A]"
-                                : "text-[#71717a] dark:text-zinc-400"
-                            }`}
+                            className={`text-xs font-sans-bold ${isDone ? "text-[#59C83A]" : "text-[#71717a] dark:text-zinc-400"
+                              }`}
                           >
                             {exercise.reps} reps
                           </Text>
@@ -901,10 +931,7 @@ export default function ExecuteWorkoutScreen() {
             style={{ paddingBottom: safeBottomPadding }}
           >
             <View className="flex-row items-center justify-between mb-3 border-b border-[#e2dfe1] dark:border-zinc-800 pb-3">
-              <Text
-                className="text-base font-outfit text-[#1b1b1d] dark:text-white flex-1 mr-2"
-                numberOfLines={1}
-              >
+              <Text className="text-base font-outfit text-[#1b1b1d] dark:text-white flex-1 mr-2" numberOfLines={1}>
                 {demoExercise?.name}
               </Text>
               <TouchableOpacity
@@ -923,12 +950,7 @@ export default function ExecuteWorkoutScreen() {
                 </Text>
               </View>
             ) : (
-              <ScrollView
-                showsVerticalScrollIndicator={false}
-                className="flex-1"
-                contentContainerStyle={{ paddingBottom: 16 }}
-              >
-                {/* CONTAINER DO GIF */}
+              <ScrollView showsVerticalScrollIndicator={false} className="flex-1" contentContainerStyle={{ paddingBottom: 16 }}>
                 <View className="w-full h-60 bg-white dark:bg-white rounded-3xl overflow-hidden mb-4 items-center justify-center p-2 border border-[#e2dfe1] dark:border-zinc-800 relative">
                   {isGifLoading && (
                     <View className="absolute inset-0 justify-center items-center bg-white dark:bg-white z-10">
@@ -951,50 +973,31 @@ export default function ExecuteWorkoutScreen() {
                   />
                 </View>
 
-                {/* CARDS DE MÉTRICAS */}
                 <View className="flex-row justify-between mb-4">
                   <View className="w-[31%] bg-[#f8f9fa] dark:bg-zinc-800/80 p-3 rounded-2xl items-center border border-[#e2dfe1] dark:border-zinc-700">
                     <Stack size={20} color="#59C83A" weight="bold" />
-                    <Text className="text-[10px] font-sans-bold text-[#414755] dark:text-zinc-400 mt-1">
-                      Séries
-                    </Text>
-                    <Text className="text-base font-outfit-extrabold text-[#1b1b1d] dark:text-white mt-0.5">
-                      {demoExercise?.sets || "3"}
-                    </Text>
+                    <Text className="text-[10px] font-sans-bold text-[#414755] dark:text-zinc-400 mt-1">Séries</Text>
+                    <Text className="text-base font-outfit-extrabold text-[#1b1b1d] dark:text-white mt-0.5">{demoExercise?.sets || "3"}</Text>
                   </View>
 
                   <View className="w-[31%] bg-[#f8f9fa] dark:bg-zinc-800/80 p-3 rounded-2xl items-center border border-[#e2dfe1] dark:border-zinc-700">
                     <Repeat size={20} color="#59C83A" weight="bold" />
-                    <Text className="text-[10px] font-sans-bold text-[#414755] dark:text-zinc-400 mt-1">
-                      Reps
-                    </Text>
-                    <Text className="text-base font-outfit-extrabold text-[#1b1b1d] dark:text-white mt-0.5">
-                      {demoExercise?.reps || "10"}
-                    </Text>
+                    <Text className="text-[10px] font-sans-bold text-[#414755] dark:text-zinc-400 mt-1">Reps</Text>
+                    <Text className="text-base font-outfit-extrabold text-[#1b1b1d] dark:text-white mt-0.5">{demoExercise?.reps || "10"}</Text>
                   </View>
 
                   <View className="w-[31%] bg-[#f8f9fa] dark:bg-zinc-800/80 p-3 rounded-2xl items-center border border-[#e2dfe1] dark:border-zinc-700">
                     <Barbell size={20} color="#59C83A" weight="bold" />
-                    <Text className="text-[10px] font-sans-bold text-[#414755] dark:text-zinc-400 mt-1">
-                      Carga
-                    </Text>
-                    <Text
-                      className="text-base font-outfit-extrabold text-[#1b1b1d] dark:text-white mt-0.5"
-                      numberOfLines={1}
-                    >
-                      {demoExercise?.notes
-                        ? demoExercise.notes.replace("Carga: ", "")
-                        : "Livre"}
+                    <Text className="text-[10px] font-sans-bold text-[#414755] dark:text-zinc-400 mt-1">Carga</Text>
+                    <Text className="text-base font-outfit-extrabold text-[#1b1b1d] dark:text-white mt-0.5" numberOfLines={1}>
+                      {demoExercise?.notes ? demoExercise.notes.replace("Carga: ", "") : "Livre"}
                     </Text>
                   </View>
                 </View>
 
-                <Text className="text-xs font-outfit text-[#1b1b1d] dark:text-white mb-1">
-                  Postura e Execução:
-                </Text>
+                <Text className="text-xs font-outfit text-[#1b1b1d] dark:text-white mb-1">Postura e Execução:</Text>
                 <Text className="text-xs font-sans-medium text-[#71717a] dark:text-zinc-400 leading-5 mb-2">
-                  {demoExercise?.description ||
-                    "Execute o movimento de forma controlada, mantendo a postura firme e respeitando a cadência recomendada pelo seu personal trainer."}
+                  {demoExercise?.description || "Execute o movimento de forma controlada, mantendo a postura firme e respeitando a cadência recomendada pelo seu personal trainer."}
                 </Text>
               </ScrollView>
             )}
@@ -1004,9 +1007,7 @@ export default function ExecuteWorkoutScreen() {
               className="bg-[#59C83A] py-4 rounded-xl items-center mt-2"
               activeOpacity={0.8}
             >
-              <Text className="text-xs font-sans-bold text-white">
-                Voltar para o Treino
-              </Text>
+              <Text className="text-xs font-sans-bold text-white">Voltar para o Treino</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -1023,9 +1024,7 @@ export default function ExecuteWorkoutScreen() {
               <Timer size={28} color="#59C83A" weight="bold" />
             </View>
 
-            <Text className="text-sm font-sans-bold text-[#71717a] dark:text-zinc-400">
-              Tempo de Descanso
-            </Text>
+            <Text className="text-sm font-sans-bold text-[#71717a] dark:text-zinc-400">Tempo de Descanso</Text>
             <Text className="text-5xl font-outfit-extrabold text-[#1b1b1d] dark:text-white my-2">
               {formatTime(restSecondsLeft)}
             </Text>
@@ -1035,18 +1034,14 @@ export default function ExecuteWorkoutScreen() {
                 onPress={() => addRestTime(30)}
                 className="flex-1 bg-zinc-100 dark:bg-zinc-800 py-3.5 rounded-xl items-center border border-zinc-200 dark:border-zinc-700"
               >
-                <Text className="text-xs font-sans-bold text-[#1b1b1d] dark:text-white">
-                  +30 Segundos
-                </Text>
+                <Text className="text-xs font-sans-bold text-[#1b1b1d] dark:text-white">+30 Segundos</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 onPress={skipRest}
                 className="flex-1 bg-[#59C83A] py-3.5 rounded-xl items-center"
               >
-                <Text className="text-xs font-sans-bold text-white">
-                  Pular Descanso
-                </Text>
+                <Text className="text-xs font-sans-bold text-white">Pular Descanso</Text>
               </TouchableOpacity>
             </View>
           </View>

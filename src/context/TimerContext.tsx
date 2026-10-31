@@ -1,11 +1,12 @@
 // ============================================================================
-// DOCUMENTAÇÃO: CONTEXTO GLOBAL DO TEMPORIZADOR
+// DOCUMENTAÇÃO: CONTEXTO GLOBAL DO TEMPORIZADOR (VERSÃO CORRIGIDA TS2304)
 // ============================================================================
-// Gerencia o estado do timer globalmente. Inicializa em 0s para não exibir
-// a bolinha flutuante sem que um tempo tenha sido configurado.
+// Gerencia o temporizador global utilizando amostragem de 200ms e timestamps
+// precisos para evitar travamentos visuais e persistir em background.
 // ============================================================================
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, ReactNode, useCallback } from 'react';
+import { AppState, AppStateStatus } from 'react-native';
 
 interface TimerContextData {
   timeLeft: number;
@@ -25,40 +26,74 @@ const TimerContext = createContext<TimerContextData>({} as TimerContextData);
 const MAX_TIMER_SECONDS = 3600; // 60 minutos
 
 export function TimerProvider({ children }: { children: ReactNode }) {
-  // 🟢 Inicialização em 0 para não exibir o timer ao abrir o app sem tempo configurado
   const [targetTime, setTargetTime] = useState<number>(0);
   const [timeLeft, setTimeLeft] = useState<number>(0);
   const [isRunning, setIsRunning] = useState<boolean>(false);
   const [exerciseName, setExerciseName] = useState<string | null>(null);
   const [endTime, setEndTime] = useState<number | null>(null);
 
+  const appState = useRef<AppStateStatus>((AppState.currentState as AppStateStatus) || 'active');
+
+  // 🟢 RECALCULA O TEMPO RESTANTE COM BASE NO RELÓGIO DO SISTEMA
+  const updateTimerFromTimestamp = useCallback(() => {
+    if (isRunning && endTime) {
+      const now = Date.now();
+      const differenceInSeconds = Math.max(0, Math.ceil((endTime - now) / 1000));
+
+      setTimeLeft((prevTime) => {
+        if (prevTime !== differenceInSeconds) {
+          return differenceInSeconds;
+        }
+        return prevTime;
+      });
+
+      if (differenceInSeconds <= 0) {
+        setIsRunning(false);
+        setEndTime(null);
+      }
+    }
+  }, [isRunning, endTime]);
+
+  // 🟢 MONITOR DE BACKGROUND / FOREGROUND DO APLICATIVO
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
+      if (
+        appState.current.match(/inactive|background/) &&
+        nextAppState === 'active'
+      ) {
+        updateTimerFromTimestamp();
+      }
+      appState.current = nextAppState;
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [updateTimerFromTimestamp]);
+
+  // 🟢 LOOP DE CHECAGEM DE ALTA FREQUÊNCIA (200ms)
   useEffect(() => {
     let interval: ReturnType<typeof setInterval> | null = null;
 
     if (isRunning && endTime) {
+      updateTimerFromTimestamp();
       interval = setInterval(() => {
-        const now = Date.now();
-        const differenceInSeconds = Math.max(0, Math.ceil((endTime - now) / 1000));
-
-        setTimeLeft(differenceInSeconds);
-
-        if (differenceInSeconds <= 0) {
-          setIsRunning(false);
-          setEndTime(null);
-        }
-      }, 500);
+        updateTimerFromTimestamp();
+      }, 200);
     }
 
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [isRunning, endTime]);
+  }, [isRunning, endTime, updateTimerFromTimestamp]);
 
   function startTimer(seconds: number, name?: string) {
     const validSeconds = Math.min(MAX_TIMER_SECONDS, seconds);
+    const calculatedEndTime = Date.now() + validSeconds * 1000;
+
     setTargetTime(validSeconds);
     setTimeLeft(validSeconds);
-    setEndTime(Date.now() + validSeconds * 1000);
+    setEndTime(calculatedEndTime);
     setIsRunning(true);
     if (name) setExerciseName(name);
   }
@@ -70,7 +105,8 @@ export function TimerProvider({ children }: { children: ReactNode }) {
 
   function resumeTimer() {
     if (timeLeft > 0) {
-      setEndTime(Date.now() + timeLeft * 1000);
+      const calculatedEndTime = Date.now() + timeLeft * 1000;
+      setEndTime(calculatedEndTime);
       setIsRunning(true);
     }
   }
@@ -78,7 +114,7 @@ export function TimerProvider({ children }: { children: ReactNode }) {
   function resetTimer() {
     setIsRunning(false);
     setEndTime(null);
-    setTimeLeft(0); // 🟢 Zerar faz o widget ocultar
+    setTimeLeft(0);
     setTargetTime(0);
   }
 
@@ -102,7 +138,7 @@ export function TimerProvider({ children }: { children: ReactNode }) {
     );
 
     setTimeLeft(newTime);
-    setTargetTime(newTime);
+    setTargetTime(newTime); // 🟢 CORRIGIDO: Passando newTime em vez do antigo newTarget
 
     if (isRunning) {
       setEndTime(Date.now() + newTime * 1000);

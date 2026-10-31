@@ -3,16 +3,10 @@
     "name": "Treino Pesado",
     "slug": "treino-pesado",
     "scheme": "treinopesado",
-    "version": "1.2.7",
+    "version": "1.2.8",
     "orientation": "portrait",
-    "icon": "src/assets/icon.png",
+    "icon": "./src/assets/icon.png",
     "userInterfaceStyle": "automatic",
-    "jsEngine": "hermes",
-    "splash": {
-      "image": "src/assets/splash.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#09090b"
-    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.daviniccacio.treinopesado",
@@ -22,17 +16,16 @@
       }
     },
     "android": {
-      "jsEngine": "hermes",
       "versionCode": 8,
       "adaptiveIcon": {
-        "foregroundImage": "src/assets/logo-treino-pesado-icon.png",
+        "foregroundImage": "./src/assets/logo-treino-pesado-icon.png",
         "backgroundColor": "#1b1b1d"
       },
       "package": "com.daviniccacio.treinopesado",
       "backgroundColor": "#09090b"
     },
     "web": {
-      "favicon": "src/assets/icon.png"
+      "favicon": "./src/assets/icon.png"
     },
     "extra": {
       "eas": {
@@ -55,7 +48,7 @@
       [
         "expo-notifications",
         {
-          "icon": "src/assets/logo-treino-pesado-icon.png",
+          "icon": "./src/assets/logo-treino-pesado-icon.png",
           "color": "#59C83A"
         }
       ],
