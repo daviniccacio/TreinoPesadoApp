@@ -46,6 +46,7 @@ import { useThrottledCallback } from "@/lib/useThrottle";
 import { CustomModal } from "@/components/CustomModal";
 import { sendNotificationToUser } from "@/lib/notifications";
 import { Skeleton } from "@/components/SkeletonLoading";
+import { WorkoutCompletionModal } from "@/components/WorkoutCompletionModal";
 
 interface ExerciseItem {
   id: string;
@@ -236,6 +237,9 @@ export default function ExecuteWorkoutScreen() {
   const [isGifLoading, setIsGifLoading] = useState<boolean>(true);
   const [demoExercise, setDemoExercise] = useState<DemoExerciseData | null>(null);
 
+  const [completionModalVisible, setCompletionModalVisible] = useState(false);
+  const [finalWorkoutDuration, setFinalWorkoutDuration] = useState(0);
+
   // --- ESTADO DO MODAL PERSONALIZADO DE ALERTA ---
   const [modalConfig, setModalConfig] = useState<{
     visible: boolean;
@@ -415,17 +419,10 @@ export default function ExecuteWorkoutScreen() {
       queryClient.invalidateQueries({ queryKey: ["student-home-data"] });
 
       resetWorkoutState();
-
-      showAlertModal({
-        title: "Treino Concluído! 🎉",
-        message: `Parabéns! Você completou o "${workoutName}" em ${formatDurationSummary(
-          finalTime
-        )}.`,
-        type: "success",
-        confirmText: "Voltar",
-        showCancelButton: false,
-        onConfirm: () => handleNavigateBack(),
-      });
+      
+      // 🟢 Abre o novo modal estilo Strava em vez do alerta comum
+      setFinalWorkoutDuration(finalTime);
+      setCompletionModalVisible(true);
     },
     onError: (error: any) => {
       showAlertModal({
@@ -1060,6 +1057,18 @@ export default function ExecuteWorkoutScreen() {
         onConfirm={modalConfig.onConfirm}
         onClose={() => setModalConfig((prev) => ({ ...prev, visible: false }))}
       />
+      {/* MODAL DE CONCLUSÃO ESTILO STRAVA */}
+      <WorkoutCompletionModal
+        visible={completionModalVisible}
+        onClose={() => {
+          setCompletionModalVisible(false);
+          handleNavigateBack();
+        }}
+        workoutName={workoutName}
+        durationSeconds={finalWorkoutDuration}
+      />
     </View>
+
+    
   );
 }
