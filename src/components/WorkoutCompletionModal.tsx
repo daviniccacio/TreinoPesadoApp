@@ -47,12 +47,60 @@ const CONFETTI_COLORS = [
 ];
 
 // Frases motivacionais dinâmicas
-const MOTIVATIONAL_QUOTES = [
-  "Mais um para a conta! Mente sã, corpo blindado. 💥",
+// ============================================================================
+// LISTA EXPANDIDA DE FRASES MOTIVACIONAIS (50 OPÇÕES)
+// ============================================================================
+const MOTIVATIONAL_QUOTES: string[] = [
+  "Mais um pra conta! Mente sã, corpo blindado. 💥",
   "A constância constrói resultados extraordinários! 🚀",
   "Orgulho do processo! Cada repetição importa. 🏋️‍♂️",
   "Superando limites todos os dias. Meta cumprida! 🔥",
   "Treino pago com sucesso. O descanso é merecido! 🏆",
+  "Sem desculpas, apenas resultados. Parabéns pela dedicação! 💪",
+  "O suor de hoje é a vitória de amanhã. Continue firme! ⚡",
+  "A dor é temporária, o orgulho de concluir é para sempre! 🦾",
+  "Menos conversa, mais carga! Treino finalizado com maestria. 🔥",
+  "Você venceu a preguiça e conquistou mais um dia de evolução! 🚀",
+  "Disciplina é fazer o que precisa ser feito, mesmo sem vontade. 💥",
+  "Sua única competição é contra a sua versão de ontem! 🏆",
+  "Treino Pesado cumprido! O seu futuro agradece o esforço de hoje. 🏋️‍♂️",
+  "Mais forte do que ontem, mais preparado do que nunca! ⚡",
+  "Foco no objetivo, fé no processo e peso na barra! 🔥",
+  "A sensação de dever cumprido é o melhor combustível! 🦾",
+  "Cada treino é um tijolo na construção da sua melhor versão. 🧱",
+  "Nenhum resultado expressivo vem sem suor e dedicação! 💥",
+  "Você dominou os pesos hoje. Orgulhe-se da jornada! 🚀",
+  "Constância é a chave que abre a porta dos grandes resultados. 🗝️",
+  "Desistir não faz parte do plano. Treino finalizado! 🏆",
+  "O corpo alcança o que a mente acredita. Excelente treino! 🧠💪",
+  "A meta era treinar pesado, a missão foi cumprida! 🔥",
+  "Não diminua a carga, aumente o seu esforço! ⚡",
+  "Resultados extraordinários exigem disciplina diária. 🦾",
+  "Mais um dia vencido com garra e determinação! 💥",
+  "O topo é construído com um treino pesado de cada vez. 🏔️",
+  "Suportou a carga e superou seus limites. Parabéns! 🏋️‍♂️",
+  "Nada supera a consistência de quem sabe onde quer chegar. 🚀",
+  "Corpo cansado, alma lavada e dever cumprido! 🔥",
+  "A evolução não para. Treino concluído com sucesso! 🏆",
+  "Fazer o simples com excelência diária gera gigantes! ⚡",
+  "Quem tem foco não procura desculpas, busca resultados. 💥",
+  "A força não vem da vitória, vem da luta diária! 🦾",
+  "Hoje você provou que é mais forte do que qualquer desculpa. 🚀",
+  "Foco total, zero mimimi e treino concluído! 🔥",
+  "Treinar pesado é o estilo de vida dos fortes! 🏋️‍♂️",
+  "A batalha de hoje está ganha. Amanhã tem mais! 🏆",
+  "Superar a si mesmo é a maior das vitórias! ⚡",
+  "Coragem para começar, disciplina para terminar! 💥",
+  "O progresso é silencioso, mas os resultados aparecem! 🦾",
+  "Treinou forte, descansará em paz. Meta atingida! 🚀",
+  "A mente domina, o corpo obedece. Treinaço! 🔥",
+  "Construindo uma versão indomável a cada repetição. 🏋️‍♂️",
+  "Nada resiste ao trabalho duro feito todos os dias! 🏆",
+  "Excelência é um hábito, não um ato isolado. ⚡",
+  "Você deu o seu melhor hoje e isso é o que importa! 💥",
+  "Treino Pesado concluído: missão dada é missão cumprida! 🦾",
+  "A transformação começa quando a zona de conforto termina. 🚀",
+  "Orgulhe-se! Você está cada dia mais perto do seu objetivo. 🏆",
 ];
 
 function formatDuration(seconds: number): string {
