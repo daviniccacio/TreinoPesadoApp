@@ -144,9 +144,28 @@ function PersonalProfileSkeleton({ isDark }: { isDark: boolean }) {
 }
 
 /** Componente do botão da Política de Privacidade com abertura externa */
+// ============================================================================
+// DOCUMENTAÇÃO: BOTÃO DE POLÍTICA DE PRIVACIDADE COM SINCRONIZAÇÃO DE TEMA
+// ============================================================================
+// Consome a variável `isDark` diretamente do `useTheme()` para garantir que
+// a troca de cor ocorra no mesmo frame do restante da tela, eliminando o flicker.
+// ============================================================================
+
+interface PrivacyButtonProps {
+  policyUrl?: string;
+  isDark?: boolean; // Permite passar via prop ou consumir do contexto
+}
+
 export function PrivacyPolicyButton({
   policyUrl = 'https://treinopesadoacademia.com.br/politica-de-privacidade/app',
+  isDark: propIsDark,
 }: PrivacyButtonProps) {
+  // Consome o tema do contexto global
+  const { isDark: contextIsDark } = useTheme();
+  
+  // Utiliza a prop se informada, caso contrário utiliza o valor do contexto
+  const activeIsDark = propIsDark ?? contextIsDark;
+
   const handleOpenLink = async () => {
     const supported = await Linking.canOpenURL(policyUrl);
     if (supported) {
@@ -162,11 +181,21 @@ export function PrivacyPolicyButton({
     >
       <View className="flex-row items-center gap-3">
         <ShieldCheck size={20} color="#59C83A" weight="bold" />
-        <Text className="font-outfit text-sm text-[#1b1b1d] dark:text-white">
+        {/* 🟢 CORREÇÃO: Interpolação síncrona com base no activeIsDark */}
+        <Text
+          className={`font-outfit text-sm ${
+            activeIsDark ? 'text-white' : 'text-[#1b1b1d]'
+          }`}
+        >
           Política de Privacidade
         </Text>
       </View>
-      <ArrowSquareOut size={16} color="#a1a1aa" />
+
+      {/* 🟢 Ícone ajustado para mudar de cor síncronamente */}
+      <ArrowSquareOut
+        size={16}
+        color={activeIsDark ? '#a1a1aa' : '#71717a'}
+      />
     </TouchableOpacity>
   );
 }
