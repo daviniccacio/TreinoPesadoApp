@@ -1,8 +1,8 @@
 // ============================================================================
-// DOCUMENTAÇÃO: TELA DE CRIAÇÃO / EDIÇÃO DE TREINO CUSTOMIZADO COM SANITIZAÇÃO
+// DOCUMENTAÇÃO: TELA DE CRIAÇÃO / EDIÇÃO DE TREINO CUSTOMIZADO (MULTI-DIAS)
 // ============================================================================
-// Permite ao aluno criar ou editar uma ficha personalizada com proteção
-// de dados, animações fluidas e esqueletos visuais durante o carregamento.
+// Permite ao aluno criar ou editar uma ficha personalizada escolhendo um ou
+// MÚLTIPLOS dias da semana com proteção de dados e salvamento otimizado.
 // ============================================================================
 
 import React, { useState, useEffect, useMemo, useCallback } from "react";
@@ -40,8 +40,7 @@ import { supabase } from "@/lib/supabase";
 import { getExerciseGif } from "@/lib/exerciseGifs";
 import { CustomModal } from "@/components/CustomModal";
 import { Skeleton } from "@/components/SkeletonLoading";
-import { sanitizeInput } from "@/lib/security"; // 🟢 Importação do módulo de sanitização
-import { createWorkoutPlanSchema } from '@/lib/validations/workout'
+import { sanitizeInput } from "@/lib/security";
 
 const DAYS_OF_WEEK = [
   "Livre",
@@ -50,9 +49,10 @@ const DAYS_OF_WEEK = [
   "Quarta",
   "Quinta",
   "Sexta",
+  "Sábado",
+  "Domingo",
 ];
 
-// SUBCOMPONENTE DE SKELETON PARA O FORMULÁRIO DE TREINO
 function CreateWorkoutSkeleton() {
   return (
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
@@ -161,7 +161,10 @@ export default function CreateOrEditWorkoutScreen() {
   // ESTADOS DO FORMULÁRIO
   const [workoutTitle, setWorkoutTitle] = useState("");
   const [workoutDescription, setWorkoutDescription] = useState("");
-  const [selectedDay, setSelectedDay] = useState("Livre");
+
+  // 🟢 1. ESTADO ALTERADO PARA SUPORTAR MÚLTIPLOS DIAS (ARRAY)
+  const [selectedDays, setSelectedDays] = useState<string[]>(["Livre"]);
+  
   const [selectedExercises, setSelectedExercises] = useState<SelectedExercise[]>([]);
   const [isLoadingWorkout, setIsLoadingWorkout] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -222,6 +225,27 @@ export default function CreateOrEditWorkoutScreen() {
     });
   }
 
+  // 🟢 2. FUNÇÃO DE ALTERNÂNCIA (TOGGLE) DE MULTI-DIAS
+  function handleToggleDay(day: string) {
+    if (day === "Livre") {
+      setSelectedDays(["Livre"]);
+      return;
+    }
+
+    setSelectedDays((prev) => {
+      // Remove "Livre" se qualquer outro dia for selecionado
+      const filtered = prev.filter((d) => d !== "Livre");
+
+      if (filtered.includes(day)) {
+        const next = filtered.filter((d) => d !== day);
+        // Se desmarcar tudo, volta para "Livre" por padrão
+        return next.length === 0 ? ["Livre"] : next;
+      } else {
+        return [...filtered, day];
+      }
+    });
+  }
+
   const isFormDirty =
     selectedExercises.length > 0 ||
     workoutTitle.trim().length > 0 ||
@@ -252,6 +276,7 @@ export default function CreateOrEditWorkoutScreen() {
     return unsubscribe;
   }, [navigation, isFormDirty, isSaved]);
 
+  // 🟢 3. CARREGAMENTO DOS DADOS PARA EDIÇÃO (PARSING DE TEXTO PARA ARRAY)
   useEffect(() => {
     async function loadWorkoutForEditing() {
       if (!planId) return;
@@ -288,7 +313,17 @@ export default function CreateOrEditWorkoutScreen() {
         if (data) {
           setWorkoutTitle(data.title || "");
           setWorkoutDescription(data.description || "");
-          setSelectedDay(data.day_of_week || "Livre");
+
+          // Converte a string do Supabase (ex: "Segunda, Quarta") de volta para Array
+          if (data.day_of_week) {
+            const daysArray = data.day_of_week
+              .split(",")
+              .map((d: string) => d.trim())
+              .filter(Boolean);
+            setSelectedDays(daysArray.length > 0 ? daysArray : ["Livre"]);
+          } else {
+            setSelectedDays(["Livre"]);
+          }
 
           const formattedExercises: SelectedExercise[] = (
             data.custom_workout_exercises || []
@@ -354,7 +389,6 @@ export default function CreateOrEditWorkoutScreen() {
     return ["TODOS", ...uniqueCategories];
   }, [availableExercises]);
 
-  // FILTRAGEM COM BUSCA SANITIZADA
   const filteredExercises = useMemo(() => {
     const cleanSearch = sanitizeInput(searchQuery).toLowerCase().trim();
 
@@ -405,7 +439,6 @@ export default function CreateOrEditWorkoutScreen() {
     field: "sets" | "reps" | "weight",
     value: string
   ) {
-    // Sanitiza valores numéricos de séries e carga para evitar caracteres de controle
     const cleanVal = sanitizeInput(value);
     setSelectedExercises((prev) => {
       const updated = [...prev];
@@ -477,11 +510,11 @@ export default function CreateOrEditWorkoutScreen() {
     [selectedExercises, expandedModalExerciseId]
   );
 
-  // SALVAMENTO SEGURO COM DADOS SANITIZADOS
+  // 🟢 4. ENVIANDO DIAS FORMATADOS (JOIN COM VÍRGULAS)
   async function handleSaveWorkout() {
-    // 🟢 SANITIZAÇÃO DAS ENTRADAS ANTES DO ENVIO AO SUPABASE
     const cleanTitle = sanitizeInput(workoutTitle);
     const cleanDescription = sanitizeInput(workoutDescription);
+    const formattedDaysString = selectedDays.join(", ");
 
     if (!cleanTitle) {
       showAlertModal({
@@ -514,7 +547,7 @@ export default function CreateOrEditWorkoutScreen() {
       const payload = {
         title: cleanTitle,
         description: cleanDescription,
-        day_of_week: selectedDay,
+        day_of_week: formattedDaysString,
       };
 
       if (isEditing && planId) {
@@ -526,7 +559,7 @@ export default function CreateOrEditWorkoutScreen() {
         if (updateError) {
           const { error: fallbackUpdateError } = await supabase
             .from("custom_workouts")
-            .update({ title: cleanTitle })
+            .update({ title: cleanTitle, day_of_week: formattedDaysString })
             .eq("id", planId);
 
           if (fallbackUpdateError) throw new Error(fallbackUpdateError.message);
@@ -561,6 +594,7 @@ export default function CreateOrEditWorkoutScreen() {
             .from("custom_workouts")
             .insert({
               title: cleanTitle,
+              day_of_week: formattedDaysString,
               user_id: user.id,
               student_id: user.id,
             })
@@ -719,9 +753,11 @@ export default function CreateOrEditWorkoutScreen() {
             <View className="flex-row items-center mb-2">
               <Calendar size={14} color="#59C83A" weight="bold" />
               <Text className="text-xs font-sans-bold text-[#71717a] dark:text-zinc-400 uppercase ml-1">
-                Dia Sugerido / Frequência
+                Dia Sugerido / Frequência (Multi-Seleção)
               </Text>
             </View>
+
+            {/* 🟢 5. INTERFACE DE COMPONENTES CHIP (MULTI-SELEÇÃO) */}
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
@@ -729,17 +765,18 @@ export default function CreateOrEditWorkoutScreen() {
               className="mb-6"
             >
               {DAYS_OF_WEEK.map((day) => {
-                const isActive = selectedDay === day;
+                const isActive = selectedDays.includes(day);
                 return (
                   <TouchableOpacity
                     key={day}
-                    onPress={() => setSelectedDay(day)}
-                    className={`px-4 py-2 rounded-xl border ${
+                    onPress={() => handleToggleDay(day)}
+                    className={`px-4 py-2 rounded-xl border flex-row items-center gap-1.5 ${
                       isActive
                         ? "bg-[#59C83A] border-[#59C83A]"
                         : "bg-[#f8f9fa] dark:bg-zinc-900 border-[#e2dfe1] dark:border-zinc-800"
                     }`}
                   >
+                    {isActive && <Check size={14} color="#FFFFFF" weight="bold" />}
                     <Text
                       className={`text-xs font-sans-bold ${
                         isActive ? "text-white" : "text-[#71717a] dark:text-zinc-400"
@@ -935,7 +972,6 @@ export default function CreateOrEditWorkoutScreen() {
                   </TouchableOpacity>
                 </View>
 
-                {/* CAMPO DE BUSCA SANITIZADO */}
                 <View className="flex-row items-center bg-[#f8f9fa] dark:bg-zinc-950 border border-[#e2dfe1] dark:border-zinc-800 rounded-xl px-3 py-2.5 mb-3">
                   <MagnifyingGlass size={18} color={isDark ? "#71717a" : "#a1a1aa"} />
                   <TextInput
