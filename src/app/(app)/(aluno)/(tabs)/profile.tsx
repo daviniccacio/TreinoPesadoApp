@@ -18,6 +18,7 @@ import {
   Platform,
   TouchableWithoutFeedback,
   Keyboard,
+  RefreshControl,
   Linking,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -97,6 +98,25 @@ function maskPhone(value: string): string {
     .replace(/(\d{2})(\d)/, '($1) $2')
     .replace(/(\d{5})(\d)/, '$1-$2')
     .replace(/(-\d{4})\d+?$/, '$1');
+}
+
+// ============================================================================
+// DOCUMENTAÇÃO: MÁSCARA AUTOMÁTICA DE CÓDIGO DE CONVITE (PERS-XXXX)
+// ============================================================================
+// Remove caracteres inválidos, força caixa alta e adiciona hífen após 4 letras.
+// ============================================================================
+
+function maskInviteCode(value: string): string {
+  // 1. Remove qualquer caractere que não seja letra ou número e converte para maiúsculo
+  const cleanValue = value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+
+  // 2. Se tiver 4 ou menos caracteres, retorna apenas o texto limpo
+  if (cleanValue.length <= 4) {
+    return cleanValue;
+  }
+
+  // 3. Se tiver mais de 4 caracteres, formata como XXXX-XXXX (máximo 8 caracteres alfanuméricos)
+  return `${cleanValue.slice(0, 4)}-${cleanValue.slice(4, 8)}`;
 }
 
 /** Converte datas no formato YYYY-MM-DD para DD/MM/AAAA */
@@ -266,9 +286,8 @@ export function PrivacyPolicyButton({
       <View className="flex-row items-center gap-3">
         <ShieldCheck size={20} color="#59C83A" weight="bold" />
         <Text
-          className={`font-outfit text-sm ${
-            activeIsDark ? 'text-white' : 'text-[#1b1b1d]'
-          }`}
+          className={`font-outfit text-sm ${activeIsDark ? 'text-white' : 'text-[#1b1b1d]'
+            }`}
         >
           Política de Privacidade
         </Text>
@@ -315,7 +334,7 @@ export default function StudentProfileScreen() {
     confirmText: 'Entendi',
     cancelText: 'Cancelar',
     showCancelButton: true,
-    onConfirm: () => {},
+    onConfirm: () => { },
   });
 
   function showAlertModal({
@@ -586,14 +605,12 @@ export default function StudentProfileScreen() {
       <MotiView
         from={{ opacity: 0, translateY: -8 }}
         animate={{ opacity: 1, translateY: 0 }}
-        className={`py-4 flex-row justify-between items-center border-b ${
-          isDark ? 'border-zinc-800' : 'border-[#e2dfe1]'
-        }`}
+        className={`py-4 flex-row justify-between items-center border-b ${isDark ? 'border-zinc-800' : 'border-[#e2dfe1]'
+          }`}
       >
         <Text
-          className={`text-xl font-outfit-extrabold ${
-            isDark ? 'text-white' : 'text-[#1b1b1d]'
-          }`}
+          className={`text-xl font-outfit-extrabold ${isDark ? 'text-white' : 'text-[#1b1b1d]'
+            }`}
         >
           Meu Perfil
         </Text>
@@ -613,16 +630,14 @@ export default function StudentProfileScreen() {
           >
             <WarningCircle size={48} color="#ef4444" />
             <Text
-              className={`text-base font-outfit-bold mt-3 text-center ${
-                isDark ? 'text-white' : 'text-[#1b1b1d]'
-              }`}
+              className={`text-base font-outfit-bold mt-3 text-center ${isDark ? 'text-white' : 'text-[#1b1b1d]'
+                }`}
             >
               Não foi possível carregar seu perfil
             </Text>
             <Text
-              className={`text-xs font-sans-medium text-center mt-1 mb-5 ${
-                isDark ? 'text-zinc-400' : 'text-[#71717a]'
-              }`}
+              className={`text-xs font-sans-medium text-center mt-1 mb-5 ${isDark ? 'text-zinc-400' : 'text-[#71717a]'
+                }`}
             >
               {(error as Error)?.message || 'Ocorreu um problema ao conectar com os serviços.'}
             </Text>
@@ -642,6 +657,16 @@ export default function StudentProfileScreen() {
           className="flex-1 pt-6"
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: 120 }}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefetching}
+              onRefresh={async () => {
+                await refetch();
+              }}
+              colors={['#59C83A']} // Cor do spinner no Android
+              tintColor="#59C83A"  // Cor do spinner no iOS
+            />
+          }
         >
           {/* CARTÃO DO ALUNO */}
           <MotiView
@@ -657,16 +682,14 @@ export default function StudentProfileScreen() {
             </View>
 
             <Text
-              className={`text-2xl font-outfit-extrabold text-center ${
-                isDark ? 'text-white' : 'text-[#1b1b1d]'
-              }`}
+              className={`text-2xl font-outfit-extrabold text-center ${isDark ? 'text-white' : 'text-[#1b1b1d]'
+                }`}
             >
               {fullName}
             </Text>
             <Text
-              className={`text-sm font-sans-medium mt-0.5 ${
-                isDark ? 'text-zinc-400' : 'text-[#414755]'
-              }`}
+              className={`text-sm font-sans-medium mt-0.5 ${isDark ? 'text-zinc-400' : 'text-[#414755]'
+                }`}
             >
               {email}
             </Text>
@@ -682,9 +705,8 @@ export default function StudentProfileScreen() {
           <TouchableOpacity
             onPress={handleOpenInfoModal}
             activeOpacity={0.7}
-            className={`p-4 rounded-2xl mb-5 border flex-row items-center justify-between ${
-              isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-[#e2dfe1]'
-            }`}
+            className={`p-4 rounded-2xl mb-5 border flex-row items-center justify-between ${isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-[#e2dfe1]'
+              }`}
           >
             <View className="flex-row items-center gap-3">
               <View className="w-10 h-10 rounded-xl bg-[#59C83A]/10 items-center justify-center border border-[#59C83A]/30">
@@ -692,16 +714,14 @@ export default function StudentProfileScreen() {
               </View>
               <View>
                 <Text
-                  className={`font-outfit text-base ${
-                    isDark ? 'text-white' : 'text-[#1b1b1d]'
-                  }`}
+                  className={`font-outfit text-base ${isDark ? 'text-white' : 'text-[#1b1b1d]'
+                    }`}
                 >
                   Informações Pessoais
                 </Text>
                 <Text
-                  className={`text-xs font-sans-medium ${
-                    isDark ? 'text-zinc-400' : 'text-[#71717a]'
-                  }`}
+                  className={`text-xs font-sans-medium ${isDark ? 'text-zinc-400' : 'text-[#71717a]'
+                    }`}
                 >
                   Toque para ver ou editar seus dados
                 </Text>
@@ -716,19 +736,17 @@ export default function StudentProfileScreen() {
             animate={{ opacity: 1, translateY: 0 }}
           >
             <Text
-              className={`text-lg font-outfit mb-3 ${
-                isDark ? 'text-white' : 'text-[#1b1b1d]'
-              }`}
+              className={`text-lg font-outfit mb-3 ${isDark ? 'text-white' : 'text-[#1b1b1d]'
+                }`}
             >
               Instrutor
             </Text>
 
             <View
-              className={`rounded-2xl overflow-hidden mb-5 border ${
-                isDark
+              className={`rounded-2xl overflow-hidden mb-5 border ${isDark
                   ? 'bg-zinc-900 border-zinc-800'
                   : 'bg-white border-[#e2dfe1]'
-              }`}
+                }`}
             >
               <TouchableOpacity
                 onPress={() => setIsLinkModalOpen(true)}
@@ -741,16 +759,14 @@ export default function StudentProfileScreen() {
                   </View>
                   <View>
                     <Text
-                      className={`font-outfit text-sm ${
-                        isDark ? 'text-white' : 'text-[#1b1b1d]'
-                      }`}
+                      className={`font-outfit text-sm ${isDark ? 'text-white' : 'text-[#1b1b1d]'
+                        }`}
                     >
                       Conectar com meu Personal
                     </Text>
                     <Text
-                      className={`text-xs font-sans-medium ${
-                        isDark ? 'text-zinc-400' : 'text-[#71717a]'
-                      }`}
+                      className={`text-xs font-sans-medium ${isDark ? 'text-zinc-400' : 'text-[#71717a]'
+                        }`}
                     >
                       {personalName
                         ? 'Trocar ou redefinir seu instrutor'
@@ -770,52 +786,46 @@ export default function StudentProfileScreen() {
             className="flex-row justify-between mb-6"
           >
             <View
-              className={`w-[48%] p-4 rounded-2xl border items-center ${
-                isDark
+              className={`w-[48%] p-4 rounded-2xl border items-center ${isDark
                   ? 'bg-zinc-900 border-zinc-800'
                   : 'bg-white border-[#e2dfe1]'
-              }`}
+                }`}
             >
               <View className="w-10 h-10 rounded-xl bg-[#59C83A]/10 items-center justify-center mb-2 border border-[#59C83A]/30">
                 <Barbell size={22} color="#59C83A" weight="bold" />
               </View>
               <Text
-                className={`text-xs font-sans-bold ${
-                  isDark ? 'text-zinc-400' : 'text-[#71717a]'
-                }`}
+                className={`text-xs font-sans-bold ${isDark ? 'text-zinc-400' : 'text-[#71717a]'
+                  }`}
               >
                 Treinos Realizados
               </Text>
               <Text
-                className={`text-xl font-outfit-extrabold mt-0.5 ${
-                  isDark ? 'text-white' : 'text-[#1b1b1d]'
-                }`}
+                className={`text-xl font-outfit-extrabold mt-0.5 ${isDark ? 'text-white' : 'text-[#1b1b1d]'
+                  }`}
               >
                 {totalWorkoutsCompleted}
               </Text>
             </View>
 
             <View
-              className={`w-[48%] p-4 rounded-2xl border items-center ${
-                isDark
+              className={`w-[48%] p-4 rounded-2xl border items-center ${isDark
                   ? 'bg-zinc-900 border-zinc-800'
                   : 'bg-white border-[#e2dfe1]'
-              }`}
+                }`}
             >
               <View className="w-10 h-10 rounded-xl bg-[#59C83A]/10 items-center justify-center mb-2 border border-[#59C83A]/30">
                 <Timer size={22} color="#59C83A" weight="bold" />
               </View>
               <Text
-                className={`text-xs font-sans-bold ${
-                  isDark ? 'text-zinc-400' : 'text-[#71717a]'
-                }`}
+                className={`text-xs font-sans-bold ${isDark ? 'text-zinc-400' : 'text-[#71717a]'
+                  }`}
               >
                 Tempo de Treino
               </Text>
               <Text
-                className={`text-xl font-outfit-extrabold mt-0.5 ${
-                  isDark ? 'text-white' : 'text-[#1b1b1d]'
-                }`}
+                className={`text-xl font-outfit-extrabold mt-0.5 ${isDark ? 'text-white' : 'text-[#1b1b1d]'
+                  }`}
               >
                 {formatWorkoutTime(totalWorkoutMinutes)}
               </Text>
@@ -828,35 +838,31 @@ export default function StudentProfileScreen() {
             animate={{ opacity: 1, translateY: 0 }}
           >
             <Text
-              className={`text-lg font-outfit mb-3 ${
-                isDark ? 'text-white' : 'text-[#1b1b1d]'
-              }`}
+              className={`text-lg font-outfit mb-3 ${isDark ? 'text-white' : 'text-[#1b1b1d]'
+                }`}
             >
               Aparência
             </Text>
 
             <View
-              className={`rounded-2xl p-2 mb-6 border flex-row ${
-                isDark
+              className={`rounded-2xl p-2 mb-6 border flex-row ${isDark
                   ? 'bg-zinc-900 border-zinc-800'
                   : 'bg-white border-[#e2dfe1]'
-              }`}
+                }`}
             >
               <TouchableOpacity
                 onPress={() => {
                   if (isDark) toggleTheme();
                 }}
-                className={`flex-1 py-3 rounded-xl flex-row items-center justify-center gap-1.5 ${
-                  !isDark
+                className={`flex-1 py-3 rounded-xl flex-row items-center justify-center gap-1.5 ${!isDark
                     ? 'bg-[#f8f9fa] border border-[#e2dfe1]'
                     : 'bg-transparent'
-                }`}
+                  }`}
               >
                 <Sun size={16} color={!isDark ? '#59C83A' : '#9ca3af'} weight="bold" />
                 <Text
-                  className={`font-sans-bold text-xs ${
-                    !isDark ? 'text-[#59C83A]' : 'text-zinc-400'
-                  }`}
+                  className={`font-sans-bold text-xs ${!isDark ? 'text-[#59C83A]' : 'text-zinc-400'
+                    }`}
                 >
                   Claro
                 </Text>
@@ -866,17 +872,15 @@ export default function StudentProfileScreen() {
                 onPress={() => {
                   if (!isDark) toggleTheme();
                 }}
-                className={`flex-1 py-3 rounded-xl flex-row items-center justify-center gap-1.5 ${
-                  isDark
+                className={`flex-1 py-3 rounded-xl flex-row items-center justify-center gap-1.5 ${isDark
                     ? 'bg-zinc-800 border border-zinc-700'
                     : 'bg-transparent'
-                }`}
+                  }`}
               >
                 <Moon size={16} color={isDark ? '#59C83A' : '#9ca3af'} weight="bold" />
                 <Text
-                  className={`font-sans-bold text-xs ${
-                    isDark ? 'text-[#59C83A]' : 'text-[#71717a]'
-                  }`}
+                  className={`font-sans-bold text-xs ${isDark ? 'text-[#59C83A]' : 'text-[#71717a]'
+                    }`}
                 >
                   Escuro
                 </Text>
@@ -890,26 +894,23 @@ export default function StudentProfileScreen() {
             animate={{ opacity: 1, translateY: 0 }}
           >
             <Text
-              className={`text-lg font-outfit mb-3 ${
-                isDark ? 'text-white' : 'text-[#1b1b1d]'
-              }`}
+              className={`text-lg font-outfit mb-3 ${isDark ? 'text-white' : 'text-[#1b1b1d]'
+                }`}
             >
               Configurações
             </Text>
 
             <View
-              className={`rounded-2xl overflow-hidden mb-6 border ${
-                isDark
+              className={`rounded-2xl overflow-hidden mb-6 border ${isDark
                   ? 'bg-zinc-900 border-zinc-800'
                   : 'bg-white border-[#e2dfe1]'
-              }`}
+                }`}
             >
               {/* NOTIFICAÇÕES */}
               <TouchableOpacity
                 onPress={handleOpenNotifications}
-                className={`flex-row items-center justify-between p-4 border-b ${
-                  isDark ? 'border-zinc-800' : 'border-[#e2dfe1]'
-                }`}
+                className={`flex-row items-center justify-between p-4 border-b ${isDark ? 'border-zinc-800' : 'border-[#e2dfe1]'
+                  }`}
                 activeOpacity={0.7}
               >
                 <View className="flex-row items-center gap-3">
@@ -919,21 +920,20 @@ export default function StudentProfileScreen() {
                       hasUnreadNotifications
                         ? '#59C83A'
                         : isDark
-                        ? '#ffffff'
-                        : '#1b1b1d'
+                          ? '#ffffff'
+                          : '#1b1b1d'
                     }
                     weight={hasUnreadNotifications ? 'bold' : 'regular'}
                   />
 
                   <View className="flex-row items-center">
                     <Text
-                      className={`font-outfit ${
-                        hasUnreadNotifications
+                      className={`font-outfit ${hasUnreadNotifications
                           ? 'text-[#59C83A] font-bold'
                           : isDark
-                          ? 'text-white'
-                          : 'text-[#1b1b1d]'
-                      }`}
+                            ? 'text-white'
+                            : 'text-[#1b1b1d]'
+                        }`}
                     >
                       Notificações
                     </Text>
@@ -950,8 +950,8 @@ export default function StudentProfileScreen() {
                     hasUnreadNotifications
                       ? '#59C83A'
                       : isDark
-                      ? '#a1a1aa'
-                      : '#414755'
+                        ? '#a1a1aa'
+                        : '#414755'
                   }
                 />
               </TouchableOpacity>
@@ -1020,20 +1020,18 @@ export default function StudentProfileScreen() {
                 behavior={Platform.OS === 'ios' ? 'padding' : undefined}
               >
                 <View
-                  className={`rounded-t-3xl p-6 border-t ${
-                    isDark
+                  className={`rounded-t-3xl p-6 border-t ${isDark
                       ? 'bg-zinc-900 border-zinc-800'
                       : 'bg-white border-[#e2dfe1]'
-                  }`}
+                    }`}
                   style={{ paddingBottom: safeModalBottomPadding }}
                 >
                   <View className="flex-row items-center justify-between mb-5 pb-3 border-b border-[#e2dfe1] dark:border-zinc-800">
                     <View className="flex-row items-center gap-2">
                       <ShieldCheck size={22} color="#59C83A" weight="bold" />
                       <Text
-                        className={`text-lg font-outfit-extrabold ${
-                          isDark ? 'text-white' : 'text-[#1b1b1d]'
-                        }`}
+                        className={`text-lg font-outfit-extrabold ${isDark ? 'text-white' : 'text-[#1b1b1d]'
+                          }`}
                       >
                         Informações Pessoais
                       </Text>
@@ -1056,9 +1054,8 @@ export default function StudentProfileScreen() {
                         <User size={18} color="#59C83A" weight="bold" />
                       </View>
                       <TextInput
-                        className={`flex-1 text-sm font-sans-medium ${
-                          isDark ? 'text-white' : 'text-[#1b1b1d]'
-                        }`}
+                        className={`flex-1 text-sm font-sans-medium ${isDark ? 'text-white' : 'text-[#1b1b1d]'
+                          }`}
                         value={editName}
                         onChangeText={setEditName}
                         placeholder="Seu nome"
@@ -1081,9 +1078,8 @@ export default function StudentProfileScreen() {
                         />
                       </View>
                       <Text
-                        className={`flex-1 text-sm font-sans-medium ${
-                          isDark ? 'text-zinc-300' : 'text-zinc-700'
-                        }`}
+                        className={`flex-1 text-sm font-sans-medium ${isDark ? 'text-zinc-300' : 'text-zinc-700'
+                          }`}
                       >
                         {profile?.email || ''}
                       </Text>
@@ -1100,9 +1096,8 @@ export default function StudentProfileScreen() {
                         <Phone size={18} color="#59C83A" weight="bold" />
                       </View>
                       <TextInput
-                        className={`flex-1 text-sm font-sans-medium ${
-                          isDark ? 'text-white' : 'text-[#1b1b1d]'
-                        }`}
+                        className={`flex-1 text-sm font-sans-medium ${isDark ? 'text-white' : 'text-[#1b1b1d]'
+                          }`}
                         value={editPhone}
                         onChangeText={(val) => setEditPhone(maskPhone(val))}
                         placeholder="(99) 99999-9999"
@@ -1127,9 +1122,8 @@ export default function StudentProfileScreen() {
                         />
                       </View>
                       <Text
-                        className={`flex-1 text-sm font-sans-medium ${
-                          isDark ? 'text-zinc-300' : 'text-zinc-700'
-                        }`}
+                        className={`flex-1 text-sm font-sans-medium ${isDark ? 'text-zinc-300' : 'text-zinc-700'
+                          }`}
                       >
                         {formatISOToDate(profile?.birthDate)}
                       </Text>
@@ -1170,29 +1164,26 @@ export default function StudentProfileScreen() {
             >
               <View
                 style={{ paddingBottom: safeModalBottomPadding }}
-                className={`rounded-t-3xl p-6 border-t ${
-                  isDark
+                className={`rounded-t-3xl p-6 border-t ${isDark
                     ? 'bg-zinc-900 border-zinc-800'
                     : 'bg-white border-[#e2dfe1]'
-                }`}
+                  }`}
               >
                 <ScrollView
                   showsVerticalScrollIndicator={false}
                   keyboardShouldPersistTaps="handled"
                 >
                   <View
-                    className={`flex-row items-center justify-between mb-4 pb-3 border-b ${
-                      isDark ? 'border-zinc-800' : 'border-[#e2dfe1]'
-                    }`}
+                    className={`flex-row items-center justify-between mb-4 pb-3 border-b ${isDark ? 'border-zinc-800' : 'border-[#e2dfe1]'
+                      }`}
                   >
                     <View className="flex-row items-center gap-2">
                       <View className="w-9 h-9 rounded-xl bg-[#59C83A]/10 items-center justify-center border border-[#59C83A]/30">
                         <Key size={20} color="#59C83A" weight="bold" />
                       </View>
                       <Text
-                        className={`text-lg font-outfit-extrabold ${
-                          isDark ? 'text-white' : 'text-[#1b1b1d]'
-                        }`}
+                        className={`text-lg font-outfit-extrabold ${isDark ? 'text-white' : 'text-[#1b1b1d]'
+                          }`}
                       >
                         Código do Personal
                       </Text>
@@ -1200,34 +1191,32 @@ export default function StudentProfileScreen() {
 
                     <TouchableOpacity
                       onPress={() => setIsLinkModalOpen(false)}
-                      className={`w-8 h-8 rounded-full items-center justify-center ${
-                        isDark ? 'bg-zinc-800' : 'bg-zinc-100'
-                      }`}
+                      className={`w-8 h-8 rounded-full items-center justify-center ${isDark ? 'bg-zinc-800' : 'bg-zinc-100'
+                        }`}
                     >
                       <X size={18} color={isDark ? '#ffffff' : '#1b1b1d'} />
                     </TouchableOpacity>
                   </View>
 
                   <Text
-                    className={`text-xs font-sans-medium mb-4 leading-5 ${
-                      isDark ? 'text-zinc-400' : 'text-[#71717a]'
-                    }`}
+                    className={`text-xs font-sans-medium mb-4 leading-5 ${isDark ? 'text-zinc-400' : 'text-[#71717a]'
+                      }`}
                   >
                     Peça o código exclusivo de convite ao seu Personal Trainer para permitir a prescrição de suas fichas.
                   </Text>
 
                   <TextInput
-                    className={`border rounded-2xl px-4 py-3.5 text-lg font-outfit-extrabold tracking-widest uppercase mb-5 text-center ${
-                      isDark
+                    className={`border rounded-2xl px-4 py-3.5 text-lg font-outfit-extrabold tracking-widest uppercase mb-5 text-center ${isDark
                         ? 'bg-zinc-950 border-zinc-800 text-white'
                         : 'bg-[#f8f9fa] border-[#e2dfe1] text-[#1b1b1d]'
-                    }`}
+                      }`}
                     placeholder="PERS-XXXX"
                     placeholderTextColor={isDark ? '#71717a' : '#a09da1'}
                     value={inviteCodeInput}
-                    onChangeText={setInviteCodeInput}
+                    onChangeText={(val) => setInviteCodeInput(maskInviteCode(val))}
                     autoCapitalize="characters"
                     autoCorrect={false}
+                    maxLength={9}
                   />
 
                   <TouchableOpacity
