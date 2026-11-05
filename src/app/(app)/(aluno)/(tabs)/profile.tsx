@@ -1,9 +1,8 @@
 // ============================================================================
-// DOCUMENTAÇÃO: TELA DE PERFIL DO ALUNO COM MODAL DE DADOS E SKELETON
+// DOCUMENTAÇÃO: TELA DE PERFIL DO ALUNO COM MODAL DE DADOS E VÍNCULO RPC
 // ============================================================================
-// Inclui gerenciamento de perfil, estatísticas, vínculo com personal, notificações,
-// modal de informações pessoais (visualização/edição), exclusão de conta,
-// revalidação automática de dados, sanitização de entradas e proteção contra erros do TypeScript.
+// Inclui gerenciamento de perfil, estatísticas, vínculo com personal via RPC,
+// notificações, modal de informações pessoais, exclusão de conta e suporte a temas.
 // ============================================================================
 
 import React, { useState, useCallback } from 'react';
@@ -49,7 +48,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { MotiView } from 'moti';
 
 import { supabase } from '@/lib/supabase';
-import { sanitizeInput } from '@/lib/security'; // 🟢 Importação do módulo de segurança
+import { sanitizeInput } from '@/lib/security';
 import { CustomModal } from '@/components/CustomModal';
 import { UserNotificationModal } from '@/components/UserNotificationModal';
 import { useTheme } from '@/context/ThemeContext';
@@ -78,10 +77,11 @@ interface ShowAlertModalOptions {
 
 interface PrivacyButtonProps {
   policyUrl?: string;
+  isDark?: boolean;
 }
 
 // ============================================================================
-// FUNÇÕES AUXILIARES DE FORMATAÇÃO E MÁSCARA
+// FUNÇÕES AUXILIARES DE FORMATAÇÃO
 // ============================================================================
 
 /** Formata número de telefone em tempo real: (XX) XXXXX-XXXX */
@@ -148,7 +148,7 @@ function ProfileSkeleton() {
   );
 }
 
-/** Busca os dados do perfil do aluno no Supabase */
+/** Busca os dados do perfil do aluno no Supabase via consulta relacional */
 async function fetchStudentProfileData(): Promise<StudentProfileData> {
   const {
     data: { user },
@@ -157,11 +157,24 @@ async function fetchStudentProfileData(): Promise<StudentProfileData> {
 
   if (authError || !user) throw new Error('Usuário não autenticado ou sessão expirada.');
 
-  const { data: profile } = await supabase
+  // Consulta relacional: Traz o perfil e o nome do personal vinculado em uma única busca
+  const { data: profile, error: profileError } = await supabase
     .from('profiles')
-    .select('full_name, personal_id, phone, birth_date')
+    .select(`
+      full_name,
+      personal_id,
+      phone,
+      birth_date,
+      personal:personal_id (
+        full_name
+      )
+    `)
     .eq('id', user.id)
     .maybeSingle();
+
+  if (profileError) {
+    console.log('Erro ao carregar perfil:', profileError.message);
+  }
 
   let fullName = profile?.full_name ? sanitizeInput(profile.full_name.trim()) : 'Atleta';
   if (fullName === 'Atleta' && user.email) {
@@ -169,17 +182,9 @@ async function fetchStudentProfileData(): Promise<StudentProfileData> {
   }
 
   let personalName: string | null = null;
-
-  if (profile?.personal_id) {
-    const { data: personalProfile } = await supabase
-      .from('profiles')
-      .select('full_name')
-      .eq('id', profile.personal_id)
-      .maybeSingle();
-
-    if (personalProfile?.full_name) {
-      personalName = sanitizeInput(personalProfile.full_name.trim());
-    }
+  const personalData = profile?.personal as unknown as { full_name: string } | null;
+  if (personalData?.full_name) {
+    personalName = sanitizeInput(personalData.full_name.trim());
   }
 
   let totalWorkoutsCompleted = 0;
@@ -216,65 +221,33 @@ async function fetchStudentProfileData(): Promise<StudentProfileData> {
   };
 }
 
-/** Realiza o vínculo do aluno com o Personal Trainer pelo código */
-async function linkStudentToPersonalByCode(inviteCode: string) {
+/** Realiza o vínculo do aluno com o Personal Trainer via RPC */
+async function linkStudentToPersonalByCode(inviteCode: string): Promise<string> {
   const cleanCode = sanitizeInput(inviteCode).trim().toUpperCase();
 
-  if (!cleanCode) {
-    throw new Error('Por favor, digite o código de acesso do seu Personal.');
+  console.log('--------------------------------------------------');
+  console.log('🟢 [VÍNCULO] 1. Código de convite enviado:', cleanCode);
+
+  const { data: personalName, error } = await supabase.rpc(
+    'link_student_to_personal',
+    { p_invite_code: cleanCode }
+  );
+
+  if (error) {
+    console.log('🔴 [VÍNCULO] 2. Erro RPC retornado:', error.message);
+    throw new Error(error.message || 'Código inválido. Nenhum Personal Trainer foi encontrado.');
   }
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) throw new Error('Sessão expirada. Faça login novamente.');
-
-  const { data: personalProfile, error: searchError } = await supabase
-    .from('profiles')
-    .select('id, full_name')
-    .eq('invite_code', cleanCode)
-    .single();
-
-  if (searchError || !personalProfile) {
-    throw new Error('Código inválido. Nenhum Personal Trainer foi encontrado.');
-  }
-
-  const foundPersonalName = personalProfile.full_name
-    ? sanitizeInput(personalProfile.full_name.trim())
-    : 'Personal Trainer';
-
-  const { error: updateError } = await supabase
-    .from('profiles')
-    .update({ personal_id: personalProfile.id })
-    .eq('id', user.id);
-
-  if (updateError) throw new Error(updateError.message);
-
-  return foundPersonalName;
+  console.log('🟢 [VÍNCULO] 3. Sucesso! Personal vinculado:', personalName);
+  return (personalName as string) || 'Personal Trainer';
 }
 
-/** Botão da Política de Privacidade */
-// ============================================================================
-// DOCUMENTAÇÃO: BOTÃO DE POLÍTICA DE PRIVACIDADE COM SINCRONIZAÇÃO DE TEMA
-// ============================================================================
-// Consome a variável `isDark` diretamente do `useTheme()` para garantir que
-// a troca de cor ocorra no mesmo frame do restante da tela, eliminando o flicker.
-// ============================================================================
-
-interface PrivacyButtonProps {
-  policyUrl?: string;
-  isDark?: boolean; // Permite passar via prop ou consumir do contexto
-}
-
+/** Componente de Botão da Política de Privacidade */
 export function PrivacyPolicyButton({
   policyUrl = 'https://treinopesadoacademia.com.br/politica-de-privacidade/app',
   isDark: propIsDark,
 }: PrivacyButtonProps) {
-  // Consome o tema do contexto global
   const { isDark: contextIsDark } = useTheme();
-  
-  // Utiliza a prop se informada, caso contrário utiliza o valor do contexto
   const activeIsDark = propIsDark ?? contextIsDark;
 
   const handleOpenLink = async () => {
@@ -292,7 +265,6 @@ export function PrivacyPolicyButton({
     >
       <View className="flex-row items-center gap-3">
         <ShieldCheck size={20} color="#59C83A" weight="bold" />
-        {/* 🟢 CORREÇÃO: Interpolação síncrona com base no activeIsDark */}
         <Text
           className={`font-outfit text-sm ${
             activeIsDark ? 'text-white' : 'text-[#1b1b1d]'
@@ -302,7 +274,6 @@ export function PrivacyPolicyButton({
         </Text>
       </View>
 
-      {/* 🟢 Ícone ajustado para mudar de cor síncronamente */}
       <ArrowSquareOut
         size={16}
         color={activeIsDark ? '#a1a1aa' : '#71717a'}
@@ -414,7 +385,7 @@ export default function StudentProfileScreen() {
     staleTime: 1000 * 10,
   });
 
-  // MUTAÇÃO PARA ATUALIZAR NOME E TELEFONE DO ALUNO COM SANITIZAÇÃO
+  // MUTAÇÃO PARA ATUALIZAR DADOS DO PERFIL
   const updateProfileMutation = useMutation({
     mutationFn: async ({ name, phone }: { name: string; phone: string }) => {
       const {
@@ -486,28 +457,38 @@ export default function StudentProfileScreen() {
     queryClient.setQueryData(['user-unread-notifications-status'], false);
   }
 
+  // MUTAÇÃO DE VÍNCULO COM GERENCIAMENTO DE MODAIS
   const linkMutation = useMutation({
     mutationFn: linkStudentToPersonalByCode,
     onSuccess: (personalName) => {
+      console.log('🎉 [VÍNCULO] Mutação concluída com sucesso!');
       setIsLinkModalOpen(false);
       setInviteCodeInput('');
+
       queryClient.invalidateQueries({ queryKey: ['student-profile-data'] });
       queryClient.invalidateQueries({ queryKey: ['student-home-data'] });
 
-      showAlertModal({
-        title: 'Sucesso! 🎉',
-        message: `Você foi vinculado com sucesso ao Personal Trainer ${personalName}!`,
-        type: 'success',
-        showCancelButton: false,
-      });
+      setTimeout(() => {
+        showAlertModal({
+          title: 'Sucesso! 🎉',
+          message: `Você foi vinculado com sucesso ao Personal Trainer ${personalName}!`,
+          type: 'success',
+          showCancelButton: false,
+        });
+      }, 200);
     },
     onError: (err: any) => {
-      showAlertModal({
-        title: 'Erro ao Vincular',
-        message: err.message || 'Não foi possível realizar o vínculo.',
-        type: 'danger',
-        showCancelButton: false,
-      });
+      console.log('🚨 [VÍNCULO] Erro na mutação:', err.message);
+      setIsLinkModalOpen(false);
+
+      setTimeout(() => {
+        showAlertModal({
+          title: 'Erro ao Vincular',
+          message: err.message || 'Não foi possível realizar o vínculo.',
+          type: 'danger',
+          showCancelButton: false,
+        });
+      }, 200);
     },
   });
 
@@ -697,7 +678,7 @@ export default function StudentProfileScreen() {
             </View>
           </MotiView>
 
-          {/* 🟢 CARD CLICÁVEL: INFORMAÇÕES PESSOAIS */}
+          {/* CARD CLICÁVEL: INFORMAÇÕES PESSOAIS */}
           <TouchableOpacity
             onPress={handleOpenInfoModal}
             activeOpacity={0.7}
@@ -1025,7 +1006,7 @@ export default function StudentProfileScreen() {
         </ScrollView>
       )}
 
-      {/* 🟢 MODAL DE INFORMAÇÕES PESSOAIS E EDIÇÃO */}
+      {/* MODAL DE INFORMAÇÕES PESSOAIS E EDIÇÃO */}
       <Modal
         visible={isInfoModalOpen}
         transparent
