@@ -20,7 +20,6 @@ Notifications.setNotificationHandler({
 
 /**
  * 🟢 FUNÇÃO AUXILIAR: Tenta salvar o token no Supabase com retentativas automáticas.
- * Resolve falhas rápidas de perda de conexão de rede no arranque do aplicativo.
  */
 async function savePushTokenWithRetry(
   userId: string,
@@ -37,7 +36,7 @@ async function savePushTokenWithRetry(
 
       if (!error) {
         console.log('[Push Notifications] Token salvo com sucesso:', token);
-        return; // Sucesso: encerra a função
+        return;
       }
 
       console.warn(
@@ -50,7 +49,6 @@ async function savePushTokenWithRetry(
       );
     }
 
-    // Aguarda o tempo estipulado antes da próxima tentativa
     if (attempt < retries) {
       await new Promise((resolve) => setTimeout(resolve, delayMs));
     }
@@ -95,7 +93,6 @@ export async function registerForPushNotificationsAsync(userId: string) {
     const token = pushTokenData?.data;
 
     if (token && userId) {
-      // 🟢 Chamada resiliente com o mecanismo de retry integrado
       await savePushTokenWithRetry(userId, token);
     }
 
@@ -116,7 +113,22 @@ export async function registerForPushNotificationsAsync(userId: string) {
 }
 
 /**
- * Envia notificações Push via API do Expo (Funciona em Expo Go e Build nativa)
+ * Removes o token push ao realizar Logout para evitar notificações cruzadas em dev.
+ */
+export async function clearPushTokenOnSignOut(userId: string): Promise<void> {
+  try {
+    await supabase
+      .from('profiles')
+      .update({ push_token: null })
+      .eq('id', userId);
+    console.log('[Push Notifications] Token removido do perfil no logout.');
+  } catch (error) {
+    console.error('Erro ao limpar push_token no logout:', error);
+  }
+}
+
+/**
+ * Envia notificações Push via API do Expo
  */
 export async function sendExpoPushNotification(
   pushTokens: string[],
@@ -126,7 +138,7 @@ export async function sendExpoPushNotification(
   const uniqueTokens = Array.from(
     new Set(pushTokens.filter((t) => !!t && t.trim() !== ''))
   );
-  
+
   if (uniqueTokens.length === 0) {
     console.warn('[Expo Push] Nenhum token válido fornecido para envio.');
     return;
@@ -158,99 +170,74 @@ export async function sendExpoPushNotification(
   }
 }
 
+// ============================================================================
+// 🎯 NOVA FUNÇÃO DEDICADA: NOTIFICAR APENAS O PERSONAL DO ALUNO
+// ============================================================================
 /**
- * Envia um Comunicado Geral (In-App + Push) apenas para Alunos e Personais Ativos
+ * Notifica EXCLUSIVAMENTE o Personal Trainer vinculado ao aluno que concluiu o treino.
  */
-export async function sendBroadcastNotification(
-  senderId: string,
-  title: string,
-  message: string
-) {
-  try {
-    const { data: profiles, error } = await supabase
-      .from('profiles')
-      .select('id, push_token')
-      .eq('is_blocked', false)
-      .neq('role', 'admin');
-
-    if (error) {
-      console.error('Erro ao buscar perfis para broadcast:', error.message);
-      return;
-    }
-
-    if (!profiles || profiles.length === 0) {
-      console.warn('Nenhum perfil encontrado para broadcast.');
-      return;
-    }
-
-    const notificationsRecords = profiles.map((profile) => ({
-      user_id: profile.id,
-      sender_id: senderId,
-      title,
-      message,
-      type: 'ANNOUNCEMENT',
-    }));
-
-    const { error: insertError } = await supabase.from('notifications').insert(notificationsRecords);
-    if (insertError) {
-      console.error('Erro ao inserir registros de notificação no banco:', insertError.message);
-      return;
-    }
-
-    const tokens = profiles
-      .map((p) => p.push_token)
-      .filter((token): token is string => !!token);
-
-    console.log(`Disparando broadcast push para ${tokens.length} dispositivos.`);
-    await sendExpoPushNotification(tokens, title, message);
-  } catch (err) {
-    console.error('Erro em sendBroadcastNotification:', err);
-  }
-}
-
-/**
- * Envia uma notificação (In-App + Push) para um usuário específico
- */
-export async function sendNotificationToUser({
-  targetUserId,
-  senderId,
-  title,
-  message,
-  type = 'SYSTEM',
+export async function notifyPersonalOnWorkoutCompletion({
+  studentId,
+  workoutTitle,
 }: {
-  targetUserId: string;
-  senderId?: string;
-  title: string;
-  message: string;
-  type?: string;
+  studentId: string;
+  workoutTitle: string;
 }) {
   try {
+    // 1. Busca os dados do aluno para obter o nome e o personal_id
+    const { data: studentProfile, error: studentError } = await supabase
+      .from('profiles')
+      .select('full_name, personal_id')
+      .eq('id', studentId)
+      .single();
+
+    if (studentError || !studentProfile) {
+      console.warn('[Push Personal] Não foi possível encontrar o perfil do aluno:', studentId);
+      return;
+    }
+
+    // Se o aluno não tiver personal vinculado, encerra
+    if (!studentProfile.personal_id) {
+      console.log('[Push Personal] O aluno não possui Personal Trainer vinculado.');
+      return;
+    }
+
+    const personalId = studentProfile.personal_id;
+    const studentName = studentProfile.full_name || 'Seu aluno';
+    const title = 'Treino Finalizado! 🏋️';
+    const message = `${studentName} acabou de concluir o treino "${workoutTitle}".`;
+
+    // 2. Insere a notificação na tabela 'notifications' do banco apenas para o Personal
     const { error: insertError } = await supabase.from('notifications').insert({
-      user_id: targetUserId,
-      sender_id: senderId || null,
+      user_id: personalId,
+      sender_id: studentId,
       title,
       message,
-      type,
+      type: 'WORKOUT_COMPLETED',
     });
 
     if (insertError) {
-      console.error('Erro ao inserir notificação individual no banco:', insertError.message);
+      console.error('[Push Personal] Erro ao salvar notificação no banco:', insertError.message);
+    }
+
+    // 3. Busca o push_token do Personal Trainer
+    const { data: personalProfile, error: personalError } = await supabase
+      .from('profiles')
+      .select('push_token')
+      .eq('id', personalId)
+      .single();
+
+    if (personalError || !personalProfile?.push_token) {
+      console.warn(
+        `[Push Personal] O Personal (${personalId}) não tem um 'push_token' ativo registrado.`
+      );
       return;
     }
 
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('push_token')
-      .eq('id', targetUserId)
-      .single();
-
-    if (profile?.push_token) {
-      console.log(`Disparando push direto para o token: ${profile.push_token}`);
-      await sendExpoPushNotification([profile.push_token], title, message);
-    } else {
-      console.warn(`O usuário ${targetUserId} não possui 'push_token' cadastrado no perfil.`);
-    }
+    // 4. Dispara a notificação Push exclusivamente para o token do Personal
+    console.log(`[Push Personal] Enviando notificação para o Personal (${personalId})...`);
+    await sendExpoPushNotification([personalProfile.push_token], title, message);
   } catch (error) {
-    console.error('Erro ao enviar notificação para usuário:', error);
+    console.error('Erro em notifyPersonalOnWorkoutCompletion:', error);
   }
 }

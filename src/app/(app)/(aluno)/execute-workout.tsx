@@ -44,7 +44,7 @@ import { sanitizeInput } from "@/lib/security";
 import { getExerciseGif } from "@/lib/exerciseGifs";
 import { useThrottledCallback } from "@/lib/useThrottle";
 import { CustomModal } from "@/components/CustomModal";
-import { sendNotificationToUser } from "@/lib/notifications";
+import { notifyPersonalOnWorkoutCompletion } from "@/lib/notifications";
 import { Skeleton } from "@/components/SkeletonLoading";
 import { WorkoutCompletionModal } from "@/components/WorkoutCompletionModal";
 
@@ -385,6 +385,7 @@ export default function ExecuteWorkoutScreen() {
 
       if (!user) throw new Error("Usuário não autenticado.");
 
+      // 1. Salva o histórico de treino concluído na tabela workout_logs
       const { error } = await supabase.from("workout_logs").insert({
         student_id: user.id,
         workout_title: workoutName,
@@ -393,23 +394,11 @@ export default function ExecuteWorkoutScreen() {
 
       if (error) throw new Error(error.message);
 
-      const { data: studentProfile } = await supabase
-        .from("profiles")
-        .select("full_name, personal_id")
-        .eq("id", user.id)
-        .single();
-
-      if (studentProfile?.personal_id) {
-        const studentName = studentProfile.full_name || "Seu aluno";
-
-        await sendNotificationToUser({
-          targetUserId: studentProfile.personal_id,
-          senderId: user.id,
-          title: "Treino Finalizado! 🏋️‍♂️",
-          message: `${studentName} acabou de concluir o treino "${workoutName}".`,
-          type: "WORKOUT_COMPLETED",
-        });
-      }
+      // 2. Dispara a notificação Push EXCLUSIVAMENTE para o Personal do aluno
+      await notifyPersonalOnWorkoutCompletion({
+        studentId: user.id,
+        workoutTitle: workoutName,
+      });
 
       return duration;
     },
@@ -419,8 +408,8 @@ export default function ExecuteWorkoutScreen() {
       queryClient.invalidateQueries({ queryKey: ["student-home-data"] });
 
       resetWorkoutState();
-      
-      // 🟢 Abre o novo modal estilo Strava em vez do alerta comum
+
+      // Abre o modal de conquista ao finalizar
       setFinalWorkoutDuration(finalTime);
       setCompletionModalVisible(true);
     },
@@ -1069,6 +1058,6 @@ export default function ExecuteWorkoutScreen() {
       />
     </View>
 
-    
+
   );
 }
