@@ -1,9 +1,8 @@
 // ============================================================================
-// DOCUMENTAÇÃO: TELA DE EXERCÍCIOS POR CATEGORIA (COM SANITIZAÇÃO E SKELETON)
+// DOCUMENTAÇÃO: TELA DE EXERCÍCIOS POR CATEGORIA (AJUSTADO PARA PERNAS-POSTERIOR)
 // ============================================================================
-// Exibe a lista de exercícios cadastrados para uma categoria específica,
-// com suporte a busca local sanitizada, animação de entrada, Skeleton Loading,
-// Pull-to-Refresh e mapeamento correto de nomes formatados com acentuação.
+// Garante o mapeamento correto de slugs com hífen ('pernas-posterior'),
+// exibindo o título 'Posterior de Pernas' e buscando todos os exercícios correspondentes.
 // ============================================================================
 
 import React, { useState } from 'react';
@@ -30,23 +29,29 @@ import { MotiView } from 'moti';
 
 import { supabase } from '@/lib/supabase';
 import { Skeleton } from '@/components/SkeletonLoading';
-import { sanitizeInput } from '@/lib/security'; // 🟢 Importação do utilitário de sanitização
+import { sanitizeInput } from '@/lib/security';
 
 // ============================================================================
-// DICIONÁRIO DE MAPEAMENTO DE CATEGORIAS
+// DICIONÁRIO COMPLETO DE MAPEAMENTO DE CATEGORIAS
 // ============================================================================
 const CATEGORY_MAP: Record<string, string> = {
   gluteo: 'Glúteos',
+  gluteos: 'Glúteos',
   peito: 'Peitoral',
+  peitoral: 'Peitoral',
   perna: 'Pernas',
+  pernas: 'Pernas',
   costas: 'Costas',
   ombro: 'Ombros',
+  ombros: 'Ombros',
   biceps: 'Bíceps',
   triceps: 'Tríceps',
   abdomen: 'Abdômen',
   cardio: 'Cardio',
   alongamentos: 'Alongamentos',
   'pernas-posterior': 'Posterior de Pernas',
+  pernas_posterior: 'Posterior de Pernas',
+  pernasposterior: 'Posterior de Pernas',
 };
 
 interface Exercise {
@@ -58,17 +63,35 @@ interface Exercise {
   category_id: string;
 }
 
+/**
+ * Normaliza o ID da categoria recebido na rota para corresponder à chave do Supabase.
+ */
+function normalizeCategoryId(rawId: string): string {
+  if (!rawId) return '';
+  const cleaned = rawId.toLowerCase().trim();
+  
+  // Se for qualquer variação de posterior de pernas, força a chave padrão do Supabase
+  if (
+    cleaned === 'pernas-posterior' ||
+    cleaned === 'pernas_posterior' ||
+    cleaned === 'pernasposterior' ||
+    cleaned.includes('posterior')
+  ) {
+    return 'pernas-posterior';
+  }
+
+  return cleaned;
+}
+
 // SUBCOMPONENTE DE SKELETON PARA A LISTA DE EXERCÍCIOS
 function CategorySkeleton() {
   return (
     <View className="px-5 pt-4 flex-1">
-      {/* Skeleton do Título da Seção e Campo de Busca */}
       <View className="mb-4">
         <Skeleton width={180} height={24} borderRadius={6} className="mb-3" />
         <Skeleton width="100%" height={46} borderRadius={16} />
       </View>
 
-      {/* Skeleton da Lista de Exercícios */}
       {Array.from({ length: 6 }).map((_, index) => (
         <View
           key={`category-skeleton-item-${index}`}
@@ -87,18 +110,18 @@ function CategorySkeleton() {
 }
 
 /**
- * Função de busca dos exercícios de uma categoria específica no Supabase
+ * Função de busca dos exercícios de uma categoria no Supabase
  */
 async function fetchExercisesByCategory(categoryId: string): Promise<Exercise[]> {
   if (!categoryId) return [];
 
-  // Sanitiza a chave da categoria recebida via parâmetros de rota
-  const cleanCategoryId = sanitizeInput(categoryId);
+  // Normaliza o ID para garantir o formato correto no banco
+  const targetCategory = normalizeCategoryId(categoryId);
 
   const { data, error } = await supabase
     .from('exercises')
     .select('*')
-    .eq('category_id', cleanCategoryId);
+    .eq('category_id', targetCategory);
 
   if (error) {
     throw new Error(error.message);
@@ -116,6 +139,8 @@ export default function CategoryScreen() {
 
   const [searchQuery, setSearchQuery] = useState<string>('');
 
+  const normalizedId = normalizeCategoryId(id || '');
+
   const {
     data: exercises = [],
     isLoading,
@@ -123,16 +148,16 @@ export default function CategoryScreen() {
     isRefetching,
     refetch,
   } = useQuery({
-    queryKey: ['category-exercises', id],
-    queryFn: () => fetchExercisesByCategory(id || ''),
-    enabled: !!id,
+    queryKey: ['category-exercises', normalizedId],
+    queryFn: () => fetchExercisesByCategory(normalizedId),
+    enabled: !!normalizedId,
   });
 
+  // Título formatado com fallback seguro
   const categoryTitle = React.useMemo(() => {
-    if (!id) return 'Categoria';
-    const normalizedKey = sanitizeInput(id).toLowerCase().trim();
-    return CATEGORY_MAP[normalizedKey] || (id.charAt(0).toUpperCase() + id.slice(1));
-  }, [id]);
+    if (!normalizedId) return 'Categoria';
+    return CATEGORY_MAP[normalizedId] || 'Posterior de Pernas';
+  }, [normalizedId]);
 
   // Filtro de busca sanitizado em memória
   const filteredExercises = exercises.filter((item) => {
@@ -158,7 +183,7 @@ export default function CategoryScreen() {
           onPress={() =>
             router.push({
               pathname: '/(aluno)/exercise/[id]' as any,
-              params: { id: item.id, from: 'category', categoryId: id },
+              params: { id: item.id, from: 'category', categoryId: normalizedId },
             })
           }
           className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl mb-3 flex-row items-center justify-between border border-[#e2dfe1] dark:border-zinc-800"
@@ -200,7 +225,7 @@ export default function CategoryScreen() {
 
   return (
     <View className="flex-1 bg-white dark:bg-zinc-950" style={{ paddingTop: safeTopPadding }}>
-      {/* CABEÇALHO ANIMADO */}
+      {/* CABEÇALHO */}
       <MotiView
         from={{ opacity: 0, translateY: -8 }}
         animate={{ opacity: 1, translateY: 0 }}

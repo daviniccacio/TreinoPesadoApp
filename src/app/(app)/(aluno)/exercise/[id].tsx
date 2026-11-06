@@ -33,12 +33,12 @@ import { MotiView } from 'moti';
 import { Image } from 'expo-image';
 
 import { supabase } from '@/lib/supabase';
-import { sanitizeInput } from '@/lib/security'; // 🟢 Importação da função de sanitização
+import { sanitizeInput } from '@/lib/security';
 import { getExerciseGif } from '@/lib/exerciseGifs';
 import { useTimer } from '@/context/TimerContext';
 import { Skeleton } from '@/components/SkeletonLoading';
 
-interface ExerciseDetail {
+export interface ExerciseDetail {
   id: string;
   name: string;
   sets: number;
@@ -48,7 +48,38 @@ interface ExerciseDetail {
   gif_key?: string;
 }
 
-// 🟢 SUBCOMPONENTE DE SKELETON PARA OS DETALHES DO EXERCÍCIO
+// ============================================================================
+// DICIONÁRIO DE CATEGORIAS PARA EXIBIÇÃO FORMATADA NA TAG DE GRUPO
+// ============================================================================
+const CATEGORY_LABEL_MAP: Record<string, string> = {
+  gluteo: 'Glúteos',
+  gluteos: 'Glúteos',
+  peito: 'Peitoral',
+  peitoral: 'Peitoral',
+  perna: 'Pernas',
+  pernas: 'Pernas',
+  costas: 'Costas',
+  ombro: 'Ombros',
+  ombros: 'Ombros',
+  biceps: 'Bíceps',
+  triceps: 'Tríceps',
+  abdomen: 'Abdômen',
+  cardio: 'Cardio',
+  alongamentos: 'Alongamentos',
+  'pernas-posterior': 'Posterior de Pernas',
+  pernas_posterior: 'Posterior de Pernas',
+  pernasposterior: 'Posterior de Pernas',
+};
+
+/**
+ * 🟢 Sanitiza textos de repetições e carga mantendo hífens, barras e espaços (ex: "10-12")
+ */
+function sanitizeReps(input: string): string {
+  if (!input) return '';
+  return input.replace(/[^a-zA-Z0-9\s\-_/]/g, '').trim();
+}
+
+// SUBCOMPONENTE DE SKELETON PARA OS DETALHES DO EXERCÍCIO
 function ExerciseDetailSkeleton() {
   return (
     <ScrollView
@@ -56,16 +87,13 @@ function ExerciseDetailSkeleton() {
       contentContainerStyle={{ paddingBottom: 60 }}
       showsVerticalScrollIndicator={false}
     >
-      {/* Skeleton de Título e Categoria */}
       <View className="mb-4">
         <Skeleton width="70%" height={28} borderRadius={8} className="mb-2" />
         <Skeleton width={120} height={24} borderRadius={12} />
       </View>
 
-      {/* Skeleton do GIF Demonstrativo */}
       <Skeleton width="100%" height={288} borderRadius={24} className="mb-6" />
 
-      {/* Skeleton das Métricas (3 colunas) */}
       <View className="flex-row justify-between mb-6">
         <View className="w-[31%]">
           <Skeleton width="100%" height={85} borderRadius={16} />
@@ -78,14 +106,13 @@ function ExerciseDetailSkeleton() {
         </View>
       </View>
 
-      {/* Skeleton do Card do Timer */}
       <Skeleton width="100%" height={180} borderRadius={24} />
     </ScrollView>
   );
 }
 
 /**
- * Busca os detalhes do exercício no Supabase com sanitização de campos
+ * Busca os detalhes do exercício no Supabase com sanitização adequada
  */
 async function fetchExerciseDetail(exerciseId: string): Promise<ExerciseDetail> {
   if (!exerciseId) throw new Error('ID do exercício não fornecido');
@@ -99,13 +126,15 @@ async function fetchExerciseDetail(exerciseId: string): Promise<ExerciseDetail> 
   if (error) throw new Error(error.message);
 
   const rawData = data as ExerciseDetail;
+  const rawCategory = (rawData.category_id || '').toLowerCase().trim();
 
   return {
     ...rawData,
     name: sanitizeInput(rawData.name || 'Exercício'),
-    reps: sanitizeInput(String(rawData.reps || '')),
-    weight: sanitizeInput(String(rawData.weight || '')),
-    category_id: sanitizeInput(rawData.category_id || ''),
+    // 🟢 Utiliza sanitizeReps para PRESERVAR o hífen nas repetições e na carga
+    reps: sanitizeReps(String(rawData.reps || '')),
+    weight: sanitizeReps(String(rawData.weight || '')),
+    category_id: CATEGORY_LABEL_MAP[rawCategory] || rawData.category_id || 'Geral',
   };
 }
 
@@ -118,7 +147,7 @@ export default function ExerciseDetailScreen() {
 
   const [isGifLoading, setIsGifLoading] = useState<boolean>(true);
 
-  // 🟢 CONSUMINDO O TIMER GLOBAL
+  // Consumindo o Timer Global
   const {
     timeLeft,
     targetTime,
@@ -227,7 +256,7 @@ export default function ExerciseDetailScreen() {
               <View className="absolute inset-0 justify-center items-center bg-white dark:bg-white z-10">
                 <ActivityIndicator size="large" color="#59C83A" />
                 <Text className="text-xs font-sans-medium text-[#71717a] mt-2">
-                  Carregando via internet...
+                  Carregando demonstração...
                 </Text>
               </View>
             )}

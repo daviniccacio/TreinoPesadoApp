@@ -1,5 +1,5 @@
 // ============================================================================
-// DOCUMENTAÇÃO: TELA DE DEMONSTRAÇÃO DO EXERCÍCIO (PERSONAL TRAINER) COM SKELETON
+// DOCUMENTAÇÃO: TELA DE DEMONSTRAÇÃO DO EXERCÍCIO (PERSONAL TRAINER)
 // ============================================================================
 // Exibe a execução em GIF animado e as instruções técnicas detalhadas de um
 // exercício específico selecionado no catálogo com sanitização de dados.
@@ -22,7 +22,7 @@ import { Image } from 'expo-image';
 import { MotiView } from 'moti';
 
 import { supabase } from '@/lib/supabase';
-import { sanitizeInput } from '@/lib/security'; // 🟢 Importação da função de sanitização
+import { sanitizeInput } from '@/lib/security';
 import { getExerciseGif } from '@/lib/exerciseGifs';
 import { Skeleton } from '@/components/SkeletonLoading';
 
@@ -34,17 +34,13 @@ interface ExerciseDetail {
   gif_key?: string;
 }
 
-// 🟢 SUBCOMPONENTE DE SKELETON PARA DETALHES DO EXERCÍCIO
+// SUBCOMPONENTE DE SKELETON PARA DETALHES DO EXERCÍCIO
 function ExerciseDetailSkeleton() {
   return (
     <View className="flex-1 px-5 pt-4">
-      {/* Skeleton do Título do Exercício */}
       <Skeleton width="70%" height={28} borderRadius={8} className="mb-4" />
-
-      {/* Skeleton do Container do GIF */}
       <Skeleton width="100%" height={288} borderRadius={24} className="mb-6" />
 
-      {/* Skeleton do Bloco de Instruções */}
       <View className="bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl border border-[#e2dfe1] dark:border-zinc-800">
         <Skeleton width={160} height={16} borderRadius={4} className="mb-3" />
         <Skeleton width="100%" height={14} borderRadius={4} className="mb-2" />
@@ -112,7 +108,7 @@ export default function PersonalExerciseDetailScreen() {
     if (targetCategory) {
       router.replace({
         pathname: '/(personal)/category/[id]' as any,
-        params: { id: targetCategory, title: categoryTitle },
+        params: { id: targetCategory, title: categoryTitle || 'Posterior de Pernas' },
       });
     } else {
       router.replace('/(personal)/exercises' as any);
@@ -149,7 +145,7 @@ export default function PersonalExerciseDetailScreen() {
         <View className="w-10" />
       </MotiView>
 
-      {/* 2. CONTEÚDO PRINCIPAL (SKELETON OU DEMONSTRAÇÃO) */}
+      {/* 2. CONTEÚDO PRINCIPAL */}
       {isLoading ? (
         <ExerciseDetailSkeleton />
       ) : isError ? (
@@ -214,7 +210,7 @@ export default function PersonalExerciseDetailScreen() {
               onLoadStart={() => setIsGifLoading(true)}
               onLoad={() => setIsGifLoading(false)}
               onError={(error) => {
-                console.log('Erro detalhado do GIF:', JSON.stringify(error, null, 2));  
+                console.log('Erro detalhado do GIF:', JSON.stringify(error, null, 2));
               }}
             />
           </MotiView>

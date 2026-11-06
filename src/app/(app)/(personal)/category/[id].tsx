@@ -1,8 +1,9 @@
 // ============================================================================
-// DOCUMENTAÇÃO: TELA DE EXERCÍCIOS POR CATEGORIA (PERSONAL TRAINER) COM SANITIZAÇÃO
+// DOCUMENTAÇÃO: TELA DE EXERCÍCIOS POR CATEGORIA (PERSONAL TRAINER)
 // ============================================================================
 // Exibe a lista de exercícios cadastrados para uma categoria específica do
-// Supabase, permitindo filtragem em tempo real sanitizada e Skeleton Loading.
+// Supabase, permitindo filtragem em tempo real sanitizada, Skeleton Loading
+// e suporte completo a slugs compostos como 'pernas-posterior'.
 // ============================================================================
 
 import React, { useState } from 'react';
@@ -30,13 +31,55 @@ import { MotiView } from 'moti';
 
 import { supabase } from '@/lib/supabase';
 import { Skeleton } from '@/components/SkeletonLoading';
-import { sanitizeInput } from '@/lib/security'; // 🟢 Importação do módulo de sanitização
+import { sanitizeInput } from '@/lib/security';
+
+// ============================================================================
+// DICIONÁRIO COMPLETO DE MAPEAMENTO DE CATEGORIAS
+// ============================================================================
+const CATEGORY_MAP: Record<string, string> = {
+  gluteo: 'Glúteos',
+  gluteos: 'Glúteos',
+  peito: 'Peitoral',
+  peitoral: 'Peitoral',
+  perna: 'Pernas',
+  pernas: 'Pernas',
+  costas: 'Costas',
+  ombro: 'Ombros',
+  ombros: 'Ombros',
+  biceps: 'Bíceps',
+  triceps: 'Tríceps',
+  abdomen: 'Abdômen',
+  cardio: 'Cardio',
+  alongamentos: 'Alongamentos',
+  'pernas-posterior': 'Posterior de Pernas',
+  pernas_posterior: 'Posterior de Pernas',
+  pernasposterior: 'Posterior de Pernas',
+};
 
 // --- TIPAGENS DE DADOS ---
 interface Exercise {
   id: string;
   name: string;
   category_id: string;
+}
+
+/**
+ * Normaliza o ID da categoria vindo dos parâmetros de rota para corresponder à chave do Supabase.
+ */
+function normalizeCategoryId(rawId: string): string {
+  if (!rawId) return '';
+  const cleaned = rawId.toLowerCase().trim();
+
+  if (
+    cleaned === 'pernas-posterior' ||
+    cleaned === 'pernas_posterior' ||
+    cleaned === 'pernasposterior' ||
+    cleaned.includes('posterior')
+  ) {
+    return 'pernas-posterior';
+  }
+
+  return cleaned;
 }
 
 // SUBCOMPONENTE DE SKELETON PARA ITEM DA LISTA DE EXERCÍCIOS
@@ -59,13 +102,12 @@ function CategoryExerciseSkeleton() {
 async function fetchExercisesByCategory(categoryId: string): Promise<Exercise[]> {
   if (!categoryId) return [];
 
-  // Sanitiza a chave da categoria recebida via parâmetros
-  const cleanCategoryId = sanitizeInput(categoryId);
+  const targetCategory = normalizeCategoryId(categoryId);
 
   const { data, error } = await supabase
     .from('exercises')
     .select('*')
-    .eq('category_id', cleanCategoryId)
+    .eq('category_id', targetCategory)
     .order('name');
 
   if (error) {
@@ -85,6 +127,8 @@ export default function PersonalCategoryScreen() {
 
   const [searchQuery, setSearchQuery] = useState<string>('');
 
+  const normalizedId = normalizeCategoryId(id || '');
+
   // --- CONSULTA COM TANSTACK QUERY ---
   const {
     data: exercises = [],
@@ -93,22 +137,25 @@ export default function PersonalCategoryScreen() {
     isRefetching,
     refetch,
   } = useQuery({
-    queryKey: ['personal-category-exercises', id],
-    queryFn: () => fetchExercisesByCategory(id || ''),
-    enabled: !!id,
+    queryKey: ['personal-category-exercises', normalizedId],
+    queryFn: () => fetchExercisesByCategory(normalizedId),
+    enabled: !!normalizedId,
   });
 
-  const categoryTitle =
-    title || (id ? sanitizeInput(id).charAt(0).toUpperCase() + sanitizeInput(id).slice(1) : 'Categoria');
+  const categoryTitle = React.useMemo(() => {
+    if (title && title !== 'Pernas-posterior') return title;
+    if (!normalizedId) return 'Categoria';
+    return CATEGORY_MAP[normalizedId] || 'Posterior de Pernas';
+  }, [title, normalizedId]);
 
-  // 🟢 FILTRAGEM SANITIZADA EM MEMÓRIA
+  // FILTRAGEM SANITIZADA EM MEMÓRIA
   const filteredExercises = exercises.filter((item) => {
     const cleanQuery = sanitizeInput(searchQuery).toLowerCase().trim();
     return item.name.toLowerCase().includes(cleanQuery);
   });
 
   function handleGoBack() {
-    router.replace('/(personal)/exercises');
+    router.replace('/(personal)/exercises' as any);
   }
 
   const safeTopPadding = Math.max(insets?.top || 0, 16);
@@ -141,7 +188,7 @@ export default function PersonalCategoryScreen() {
         <View className="w-10" />
       </MotiView>
 
-      {/* 2. CONTEÚDO PRINCIPAL (SKELETON OU LISTA DE EXERCÍCIOS) */}
+      {/* 2. CONTEÚDO PRINCIPAL */}
       {isLoading ? (
         <View className="flex-1 px-5 pt-4">
           <Skeleton width={180} height={24} borderRadius={6} className="mb-3" />
@@ -248,10 +295,10 @@ export default function PersonalCategoryScreen() {
               <TouchableOpacity
                 onPress={() =>
                   router.push({
-                    pathname: '/(personal)/exercise/[id]',
+                    pathname: '/(personal)/exercise/[id]' as any,
                     params: {
                       id: item.id,
-                      categoryId: id,
+                      categoryId: normalizedId,
                       categoryTitle: categoryTitle,
                     },
                   })
