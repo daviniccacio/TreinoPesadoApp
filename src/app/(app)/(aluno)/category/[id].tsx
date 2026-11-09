@@ -1,8 +1,8 @@
 // ============================================================================
-// DOCUMENTAÇÃO: TELA DE EXERCÍCIOS POR CATEGORIA (AJUSTADO PARA PERNAS-POSTERIOR)
+// DOCUMENTAÇÃO: TELA DE EXERCÍCIOS POR CATEGORIA (COM SUPORTE A CARDIO)
 // ============================================================================
-// Garante o mapeamento correto de slugs com hífen ('pernas-posterior'),
-// exibindo o título 'Posterior de Pernas' e buscando todos os exercícios correspondentes.
+// Exibe a lista de exercícios. Para a categoria 'cardio', oculta as informações
+// de séries, repetições e carga, substituindo por uma tag informativa de tempo.
 // ============================================================================
 
 import React, { useState } from 'react';
@@ -23,6 +23,7 @@ import {
   MagnifyingGlass,
   XCircle,
   WarningCircle,
+  Timer as TimerIcon,
 } from 'phosphor-react-native';
 import { useQuery } from '@tanstack/react-query';
 import { MotiView } from 'moti';
@@ -31,9 +32,6 @@ import { supabase } from '@/lib/supabase';
 import { Skeleton } from '@/components/SkeletonLoading';
 import { sanitizeInput } from '@/lib/security';
 
-// ============================================================================
-// DICIONÁRIO COMPLETO DE MAPEAMENTO DE CATEGORIAS
-// ============================================================================
 const CATEGORY_MAP: Record<string, string> = {
   gluteo: 'Glúteos',
   gluteos: 'Glúteos',
@@ -63,14 +61,10 @@ interface Exercise {
   category_id: string;
 }
 
-/**
- * Normaliza o ID da categoria recebido na rota para corresponder à chave do Supabase.
- */
 function normalizeCategoryId(rawId: string): string {
   if (!rawId) return '';
   const cleaned = rawId.toLowerCase().trim();
   
-  // Se for qualquer variação de posterior de pernas, força a chave padrão do Supabase
   if (
     cleaned === 'pernas-posterior' ||
     cleaned === 'pernas_posterior' ||
@@ -83,7 +77,6 @@ function normalizeCategoryId(rawId: string): string {
   return cleaned;
 }
 
-// SUBCOMPONENTE DE SKELETON PARA A LISTA DE EXERCÍCIOS
 function CategorySkeleton() {
   return (
     <View className="px-5 pt-4 flex-1">
@@ -109,13 +102,9 @@ function CategorySkeleton() {
   );
 }
 
-/**
- * Função de busca dos exercícios de uma categoria no Supabase
- */
 async function fetchExercisesByCategory(categoryId: string): Promise<Exercise[]> {
   if (!categoryId) return [];
 
-  // Normaliza o ID para garantir o formato correto no banco
   const targetCategory = normalizeCategoryId(categoryId);
 
   const { data, error } = await supabase
@@ -141,6 +130,9 @@ export default function CategoryScreen() {
 
   const normalizedId = normalizeCategoryId(id || '');
 
+  // 🟢 VERIFICA SE A CATEGORIA ATUAL É CARDIO
+  const isCardioCategory = normalizedId === 'cardio';
+
   const {
     data: exercises = [],
     isLoading,
@@ -153,13 +145,11 @@ export default function CategoryScreen() {
     enabled: !!normalizedId,
   });
 
-  // Título formatado com fallback seguro
   const categoryTitle = React.useMemo(() => {
     if (!normalizedId) return 'Categoria';
-    return CATEGORY_MAP[normalizedId] || 'Posterior de Pernas';
+    return CATEGORY_MAP[normalizedId] || 'Categoria';
   }, [normalizedId]);
 
-  // Filtro de busca sanitizado em memória
   const filteredExercises = exercises.filter((item) => {
     const cleanQuery = sanitizeInput(searchQuery).toLowerCase().trim();
     return item.name.toLowerCase().includes(cleanQuery);
@@ -194,25 +184,35 @@ export default function CategoryScreen() {
               {item.name}
             </Text>
 
-            <View className="flex-row items-center gap-3">
-              <Text className="text-xs font-sans-medium text-[#414755] dark:text-zinc-400">
-                <Text style={{ color: '#59C83A' }} className="font-sans-bold">
-                  {item.sets}
-                </Text>{' '}
-                séries
-              </Text>
-              <Text className="text-xs font-sans-medium text-[#414755] dark:text-zinc-400">
-                <Text style={{ color: '#59C83A' }} className="font-sans-bold">
-                  {item.reps}
-                </Text>{' '}
-                reps
-              </Text>
-              <Text className="text-xs font-sans-medium text-[#414755] dark:text-zinc-400">
-                <Text style={{ color: '#59C83A' }} className="font-sans-bold">
-                  {item.weight}
+            {/* 🟢 RENDERIZAÇÃO CONDICIONAL NA LISTA */}
+            {isCardioCategory ? (
+              <View className="flex-row items-center">
+                <TimerIcon size={14} color="#59C83A" weight="bold" />
+                <Text className="text-xs font-sans-bold text-[#59C83A] ml-1">
+                  Exercício por Tempo
                 </Text>
-              </Text>
-            </View>
+              </View>
+            ) : (
+              <View className="flex-row items-center gap-3">
+                <Text className="text-xs font-sans-medium text-[#414755] dark:text-zinc-400">
+                  <Text style={{ color: '#59C83A' }} className="font-sans-bold">
+                    {item.sets}
+                  </Text>{' '}
+                  séries
+                </Text>
+                <Text className="text-xs font-sans-medium text-[#414755] dark:text-zinc-400">
+                  <Text style={{ color: '#59C83A' }} className="font-sans-bold">
+                    {item.reps}
+                  </Text>{' '}
+                  reps
+                </Text>
+                <Text className="text-xs font-sans-medium text-[#414755] dark:text-zinc-400">
+                  <Text style={{ color: '#59C83A' }} className="font-sans-bold">
+                    {item.weight}
+                  </Text>
+                </Text>
+              </View>
+            )}
           </View>
 
           <View className="w-9 h-9 rounded-full bg-white dark:bg-zinc-800 items-center justify-center border border-[#e0dddf] dark:border-zinc-700">

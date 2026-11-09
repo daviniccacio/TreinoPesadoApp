@@ -1,11 +1,11 @@
 // ============================================================================
-// DOCUMENTAÇÃO: TELA DE DETALHES DO EXERCÍCIO (COM SKELETON E TIMER GLOBAL)
+// DOCUMENTAÇÃO: TELA DE DETALHES DO EXERCÍCIO (COM RENDERIZAÇÃO CONDICIONAL CARDIO)
 // ============================================================================
-// Exibe o GIF demonstrativo do exercício, métricas de execução (séries, reps e carga)
-// e painel de timer/descanso com estado global, sanitização e esqueletos de carregamento.
+// Exibe o GIF demonstrativo do exercício, métricas de execução (séries, reps e carga
+// APENAS para musculação) e painel de timer/descanso adaptado para exercícios de Cardio.
 // ============================================================================
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -27,6 +27,8 @@ import {
   ArrowCounterClockwise,
   Plus,
   Minus,
+  WarningCircle,
+  Lightning,
 } from 'phosphor-react-native';
 import { useQuery } from '@tanstack/react-query';
 import { MotiView } from 'moti';
@@ -72,7 +74,7 @@ const CATEGORY_LABEL_MAP: Record<string, string> = {
 };
 
 /**
- * 🟢 Sanitiza textos de repetições e carga mantendo hífens, barras e espaços (ex: "10-12")
+ * Sanitiza textos de repetições e carga mantendo hífens, barras e espaços (ex: "10-12")
  */
 function sanitizeReps(input: string): string {
   if (!input) return '';
@@ -131,10 +133,9 @@ async function fetchExerciseDetail(exerciseId: string): Promise<ExerciseDetail> 
   return {
     ...rawData,
     name: sanitizeInput(rawData.name || 'Exercício'),
-    // 🟢 Utiliza sanitizeReps para PRESERVAR o hífen nas repetições e na carga
     reps: sanitizeReps(String(rawData.reps || '')),
     weight: sanitizeReps(String(rawData.weight || '')),
-    category_id: CATEGORY_LABEL_MAP[rawCategory] || rawData.category_id || 'Geral',
+    category_id: rawCategory, // Mantém a chave bruta para comparação de regras
   };
 }
 
@@ -146,6 +147,7 @@ export default function ExerciseDetailScreen() {
   const isDark = colorScheme === 'dark';
 
   const [isGifLoading, setIsGifLoading] = useState<boolean>(true);
+  const [hasGifError, setHasGifError] = useState<boolean>(false);
 
   // Consumindo o Timer Global
   const {
@@ -165,6 +167,11 @@ export default function ExerciseDetailScreen() {
     queryFn: () => fetchExerciseDetail(id || ''),
     enabled: !!id,
   });
+
+  useEffect(() => {
+    setIsGifLoading(true);
+    setHasGifError(false);
+  }, [exercise?.gif_key]);
 
   function formatDisplayTime(totalSeconds: number): string {
     const minutes = Math.floor(totalSeconds / 60);
@@ -193,6 +200,11 @@ export default function ExerciseDetailScreen() {
   }
 
   const safeTopPadding = Math.max(insets?.top || 0, 16);
+
+  // 🟢 IDENTIFICAÇÃO DE EXERCÍCIO DE CARDIO
+  const rawCategoryKey = (exercise?.category_id || '').toLowerCase().trim();
+  const isCardio = rawCategoryKey === 'cardio';
+  const categoryDisplayName = CATEGORY_LABEL_MAP[rawCategoryKey] || exercise?.category_id || 'Geral';
 
   return (
     <View className="flex-1 bg-white dark:bg-zinc-950" style={{ paddingTop: safeTopPadding }}>
@@ -240,7 +252,7 @@ export default function ExerciseDetailScreen() {
 
             <View className="self-start bg-[#59C83A]/10 px-3 py-1 rounded-full border border-[#59C83A]/30">
               <Text style={{ color: '#59C83A' }} className="text-xs font-sans-bold uppercase tracking-wider">
-                Grupo: {exercise.category_id}
+                Grupo: {categoryDisplayName}
               </Text>
             </View>
           </MotiView>
@@ -250,56 +262,90 @@ export default function ExerciseDetailScreen() {
             from={{ opacity: 0, scale: 0.96, translateY: 10 }}
             animate={{ opacity: 1, scale: 1, translateY: 0 }}
             transition={{ type: 'spring', damping: 22, stiffness: 150, delay: 60 } as any}
-            className="w-full h-72 bg-white dark:bg-white rounded-3xl overflow-hidden mb-6 items-center justify-center p-2 border border-[#e2dfe1] dark:border-zinc-800 relative"
+            className="w-full h-72 bg-[#f8f9fa] dark:bg-zinc-900 rounded-3xl overflow-hidden mb-6 items-center justify-center p-2 border border-[#e2dfe1] dark:border-zinc-800 relative"
           >
-            {isGifLoading && (
-              <View className="absolute inset-0 justify-center items-center bg-white dark:bg-white z-10">
+            {isGifLoading && !hasGifError && (
+              <View className="absolute inset-0 justify-center items-center bg-[#f8f9fa] dark:bg-zinc-900 z-10">
                 <ActivityIndicator size="large" color="#59C83A" />
-                <Text className="text-xs font-sans-medium text-[#71717a] mt-2">
+                <Text className="text-xs font-sans-medium text-[#71717a] dark:text-zinc-400 mt-2">
                   Carregando demonstração...
                 </Text>
               </View>
             )}
 
-            <Image
-              source={getExerciseGif(exercise.gif_key)}
-              style={{ width: '100%', height: '100%', borderRadius: 16 }}
-              contentFit="contain"
-              autoplay={true}
-              transition={200}
-              onLoadStart={() => setIsGifLoading(true)}
-              onLoad={() => setIsGifLoading(false)}
-              onError={() => setIsGifLoading(false)}
-            />
+            {hasGifError ? (
+              <View className="justify-center items-center p-4">
+                <WarningCircle size={44} color="#e11d48" />
+                <Text className="text-sm font-outfit-bold text-[#1b1b1d] dark:text-white mt-2 text-center">
+                  Demonstração indisponível
+                </Text>
+              </View>
+            ) : (
+              <Image
+                source={getExerciseGif(exercise.gif_key)}
+                style={{ width: '100%', height: '100%', borderRadius: 16 }}
+                contentFit="contain"
+                autoplay={true}
+                transition={200}
+                onLoadStart={() => {
+                  setIsGifLoading(true);
+                  setHasGifError(false);
+                }}
+                onLoad={() => {
+                  setIsGifLoading(false);
+                  setHasGifError(false);
+                }}
+                onError={() => {
+                  setIsGifLoading(false);
+                  setHasGifError(true);
+                }}
+              />
+            )}
           </MotiView>
 
-          {/* MÉTRICAS */}
-          <MotiView
-            from={{ opacity: 0, translateY: 10 }}
-            animate={{ opacity: 1, translateY: 0 }}
-            transition={{ type: 'spring', damping: 22, stiffness: 150, delay: 90 } as any}
-            className="flex-row justify-between mb-6"
-          >
-            <View className="w-[31%] bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl items-center border border-[#e2dfe1] dark:border-zinc-800">
-              <Stack size={22} color="#59C83A" />
-              <Text className="text-xs font-sans-bold text-[#414755] dark:text-zinc-400 mt-1">Séries</Text>
-              <Text className="text-lg font-outfit-extrabold text-[#1b1b1d] dark:text-white mt-1">{exercise.sets}</Text>
-            </View>
+          {/* 🟢 MÉTRICAS CONDICIONAIS (CARDIO vs MUSCULAÇÃO) */}
+          {isCardio ? (
+            /* BANNER INFORMATIVO DE CARDIO */
+            <MotiView
+              from={{ opacity: 0, translateY: 10 }}
+              animate={{ opacity: 1, translateY: 0 }}
+              transition={{ type: 'spring', damping: 22, stiffness: 150, delay: 90 } as any}
+              className="bg-[#59C83A]/10 p-4 rounded-2xl flex-row items-center justify-center mb-6 border border-[#59C83A]/30"
+            >
+              <Lightning size={22} color="#59C83A" weight="bold" />
+              <Text className="text-sm font-sans-bold text-[#1b1b1d] dark:text-white ml-2.5">
+                Exercício de Cardio (Monitorado por Tempo)
+              </Text>
+            </MotiView>
+          ) : (
+            /* TRÊS CARDS TRADICIONAIS (SÉRIES, REPS, CARGA) */
+            <MotiView
+              from={{ opacity: 0, translateY: 10 }}
+              animate={{ opacity: 1, translateY: 0 }}
+              transition={{ type: 'spring', damping: 22, stiffness: 150, delay: 90 } as any}
+              className="flex-row justify-between mb-6"
+            >
+              <View className="w-[31%] bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl items-center border border-[#e2dfe1] dark:border-zinc-800">
+                <Stack size={22} color="#59C83A" />
+                <Text className="text-xs font-sans-bold text-[#414755] dark:text-zinc-400 mt-1">Séries</Text>
+                <Text className="text-lg font-outfit-extrabold text-[#1b1b1d] dark:text-white mt-1">{exercise.sets}</Text>
+              </View>
 
-            <View className="w-[31%] bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl items-center border border-[#e2dfe1] dark:border-zinc-800">
-              <Repeat size={22} color="#59C83A" />
-              <Text className="text-xs font-sans-bold text-[#414755] dark:text-zinc-400 mt-1">Reps</Text>
-              <Text className="text-lg font-outfit-extrabold text-[#1b1b1d] dark:text-white mt-1">{exercise.reps}</Text>
-            </View>
+              <View className="w-[31%] bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl items-center border border-[#e2dfe1] dark:border-zinc-800">
+                <Repeat size={22} color="#59C83A" />
+                <Text className="text-xs font-sans-bold text-[#414755] dark:text-zinc-400 mt-1">Reps</Text>
+                <Text className="text-lg font-outfit-extrabold text-[#1b1b1d] dark:text-white mt-1">{exercise.reps}</Text>
+              </View>
 
-            <View className="w-[31%] bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl items-center border border-[#e2dfe1] dark:border-zinc-800">
-              <Barbell size={22} color="#59C83A" />
-              <Text className="text-xs font-sans-bold text-[#414755] dark:text-zinc-400 mt-1">Carga</Text>
-              <Text className="text-lg font-outfit-extrabold text-[#1b1b1d] dark:text-white mt-1">{exercise.weight}</Text>
-            </View>
-          </MotiView>
+              <View className="w-[31%] bg-[#f8f9fa] dark:bg-zinc-900 p-4 rounded-2xl items-center border border-[#e2dfe1] dark:border-zinc-800">
+                <Barbell size={22} color="#59C83A" />
+                <Text className="text-xs font-sans-bold text-[#414755] dark:text-zinc-400 mt-1">Carga</Text>
+                <Text className="text-lg font-outfit-extrabold text-[#1b1b1d] dark:text-white mt-1">{exercise.weight}</Text>
+              </View>
+            </MotiView>
+          )}
 
-          {/* CARD DO TIMER CONECTADO AO ESTADO GLOBAL */}
+          {/* CARD DO TIMER */}
           <MotiView
             from={{ opacity: 0, translateY: 12 }}
             animate={{ opacity: 1, translateY: 0 }}
@@ -312,7 +358,7 @@ export default function ExerciseDetailScreen() {
                   <TimerIcon size={18} color="#59C83A" weight="bold" />
                 </View>
                 <Text className="text-base font-outfit-extrabold text-[#1b1b1d] dark:text-white">
-                  Timer / Descanso
+                  {isCardio ? 'Cronômetro / Tempo de Cardio' : 'Timer / Descanso'}
                 </Text>
               </View>
 
