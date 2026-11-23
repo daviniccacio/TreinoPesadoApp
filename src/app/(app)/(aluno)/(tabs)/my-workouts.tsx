@@ -2,7 +2,8 @@
 // DOCUMENTAÇÃO: TELA MEUS TREINOS (ÁREA DO ALUNO) COM SKELETON LOADING
 // ============================================================================
 // Exibe as fichas de treino do personal e do aluno.
-// Inclui esqueletos animados para carregamento da lista e modal de detalhes.
+// Inclui esqueletos animados para carregamento da lista e modal de detalhes,
+// utilizando as relações oficiais 'plan_exercises' e 'custom_workout_exercises'.
 // ============================================================================
 
 import React, { useState } from "react";
@@ -33,7 +34,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { MotiView } from "moti";
 
 import { supabase } from "@/lib/supabase";
-import { sanitizeInput } from "@/lib/security"; // 🟢 Importação da função de sanitização
+import { sanitizeInput } from "@/lib/security"; // Importação da função de sanitização
 import { CustomModal } from "@/components/CustomModal";
 import { Skeleton } from "@/components/SkeletonLoading";
 
@@ -91,7 +92,7 @@ const CATEGORY_FILTERS = [
 
 type FilterType = "all" | "personal" | "custom";
 
-// 🟢 SUBCOMPONENTE DE SKELETON PARA A LISTA DE TREINOS
+// SUBCOMPONENTE DE SKELETON PARA A LISTA DE TREINOS
 function MyWorkoutsSkeleton() {
   return (
     <View className="flex-1">
@@ -123,7 +124,7 @@ function MyWorkoutsSkeleton() {
   );
 }
 
-// 🟢 SUBCOMPONENTE DE SKELETON PARA OS EXERCÍCIOS DO MODAL
+// SUBCOMPONENTE DE SKELETON PARA OS EXERCÍCIOS DO MODAL
 function ModalExercisesSkeleton() {
   return (
     <View className="space-y-2">
@@ -215,15 +216,37 @@ function formatDaysOfWeek(rawDays: any): string {
 }
 
 /**
- * Formata o peso evitando duplicar a unidade "kg"
+ * Formata o peso ou observação de carga evitando duplicar a unidade "kg"
  */
 function formatWeight(rawWeight: any): string {
   if (!rawWeight) return "Carga livre";
   const str = String(rawWeight).trim();
+  if (!str) return "Carga livre";
+
   if (str.toLowerCase().includes("kg")) {
     return str;
   }
-  return `${str}kg`;
+  if (/^\d+([.,]\d+)?$/.test(str)) {
+    return `${str}kg`;
+  }
+  return str;
+}
+
+/**
+ * ============================================================================
+ * DOCUMENTAÇÃO: SANITIZAÇÃO SEGURA PARA FAIXAS DE REPETIÇÕES
+ * ============================================================================
+ * Preserva hífens (-) e barras (/) usados em prescrições de treino
+ * (ex: "10-12", "8-10", "12/10/8"), removendo apenas caracteres perigosos.
+ * ============================================================================
+ */
+function sanitizeReps(rawReps: any): string {
+  if (rawReps === null || rawReps === undefined) return "10-12";
+  const cleaned = String(rawReps)
+    .replace(/\s*reps$/i, "")
+    .replace(/[^a-zA-Z0-9\s\-_/.,]/g, "")
+    .trim();
+  return cleaned || "10-12";
 }
 
 /**
@@ -303,7 +326,17 @@ async function fetchStudentWorkouts(): Promise<WorkoutCardItem[]> {
 }
 
 /**
- * BUSCA DE EXERCÍCIOS UTILIZANDO 'workout_exercises'
+ * ============================================================================
+ * DOCUMENTAÇÃO: BUSCA CORRIGIDA DE EXERCÍCIOS PARA PRÉ-VISUALIZAÇÃO
+ * ============================================================================
+ * 1. Para fichas do Personal ('personal'): consulta 'workout_plans' com a
+ *    relação 'plan_exercises' (ordenando por 'order_index'), igual à tela de
+ *    execução do treino.
+ * 2. Para treinos do Aluno ('custom'): consulta 'custom_workouts' com a
+ *    relação 'custom_workout_exercises'.
+ * 3. Complementa os nomes e grupos musculares consultando a tabela 'exercises'
+ *    através dos 'exercise_id' vinculados.
+ * ============================================================================
  */
 async function fetchWorkoutExercises(
   workoutId: string,
@@ -311,44 +344,91 @@ async function fetchWorkoutExercises(
 ): Promise<ExerciseItem[]> {
   if (!workoutId) return [];
 
-  const primaryTable = type === "personal" ? "workout_exercises" : "custom_workout_exercises";
+  let rawItems: any[] = [];
 
-  let { data, error } = await supabase
-    .from(primaryTable)
-    .select("*, exercises(*)")
-    .or(`workout_id.eq.${workoutId},workout_plan_id.eq.${workoutId},plan_id.eq.${workoutId}`);
+  if (type === "personal") {
+    const { data, error } = await supabase
+      .from("workout_plans")
+      .select(`
+        plan_exercises (
+          id,
+          exercise_id,
+          name,
+          sets,
+          reps,
+          notes,
+          order_index
+        )
+      `)
+      .eq("id", workoutId)
+      .single();
 
-  if (error || !data || data.length === 0) {
-    const fallback = await supabase
-      .from(primaryTable)
-      .select("*")
-      .or(`workout_id.eq.${workoutId},workout_plan_id.eq.${workoutId},plan_id.eq.${workoutId}`);
-
-    data = fallback.data || [];
-    if (fallback.error && (!data || data.length === 0)) {
-      console.warn(`Erro ao carregar exercícios de ${primaryTable}:`, fallback.error);
+    if (error) {
+      console.warn("Erro ao carregar plan_exercises:", error.message);
       return [];
+    }
+
+    rawItems = (data?.plan_exercises || []).sort(
+      (a: any, b: any) => (a.order_index ?? 0) - (b.order_index ?? 0)
+    );
+  } else {
+    const { data, error } = await supabase
+      .from("custom_workouts")
+      .select(`
+        custom_workout_exercises (
+          id,
+          exercise_id,
+          sets,
+          reps,
+          weight
+        )
+      `)
+      .eq("id", workoutId)
+      .single();
+
+    if (error) {
+      console.warn("Erro ao carregar custom_workout_exercises:", error.message);
+      return [];
+    }
+
+    rawItems = data?.custom_workout_exercises || [];
+  }
+
+  if (rawItems.length === 0) return [];
+
+  // Busca nomes e categorias musculares na tabela 'exercises' usando os IDs vinculados
+  const exerciseIds = Array.from(
+    new Set(rawItems.map((item: any) => item.exercise_id).filter(Boolean))
+  );
+
+  const exercisesMap = new Map<string, any>();
+
+  if (exerciseIds.length > 0) {
+    const { data: exercisesData, error: exercisesError } = await supabase
+      .from("exercises")
+      .select("*")
+      .in("id", exerciseIds);
+
+    if (!exercisesError && exercisesData) {
+      exercisesData.forEach((ex: any) => {
+        exercisesMap.set(String(ex.id), ex);
+      });
     }
   }
 
-  return data.map((item: any) => {
+  return rawItems.map((item: any) => {
+    const linkedExercise = exercisesMap.get(String(item.exercise_id)) || {};
+
     const exerciseName =
       item.name ||
-      item.exercise_name ||
-      item.title ||
-      item.exercises?.name ||
-      item.exercises?.title ||
-      item.exercise?.name ||
+      linkedExercise.name ||
+      linkedExercise.title ||
       "Exercício";
 
     const rawCategory =
-      item.category ||
-      item.category_name ||
-      item.category_id ||
-      item.exercises?.category ||
-      item.exercises?.category_name ||
-      item.exercises?.category_id ||
-      item.exercise?.category ||
+      linkedExercise.category ||
+      linkedExercise.category_name ||
+      linkedExercise.category_id ||
       "";
 
     const catKey = String(rawCategory).toLowerCase().trim();
@@ -358,12 +438,17 @@ async function fetchWorkoutExercises(
         ? String(rawCategory).charAt(0).toUpperCase() + String(rawCategory).slice(1)
         : undefined);
 
+    const rawWeight =
+      item.weight ||
+      item.load ||
+      (item.notes ? String(item.notes).replace(/^Carga:\s*/i, "").trim() : null);
+
     return {
       id: item.id,
       name: sanitizeInput(exerciseName),
-      sets: item.sets || 3,
-      reps: sanitizeInput(String(item.reps || "10-12")),
-      weight: formatWeight(item.weight || item.load),
+      sets: Number(item.sets) || 3,
+      reps: sanitizeReps(item.reps),
+      weight: formatWeight(rawWeight),
       category: categoryFormatted,
     };
   });
@@ -434,7 +519,11 @@ export default function MyWorkoutsScreen() {
   });
 
   const { data: exercisesForDetails = [], isLoading: isLoadingExercises } = useQuery({
-    queryKey: ["workout-details-exercises", selectedWorkoutForDetails?.id],
+    queryKey: [
+      "workout-details-exercises",
+      selectedWorkoutForDetails?.id,
+      selectedWorkoutForDetails?.type,
+    ],
     queryFn: () =>
       fetchWorkoutExercises(
         selectedWorkoutForDetails!.id,
