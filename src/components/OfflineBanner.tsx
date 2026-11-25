@@ -6,7 +6,7 @@
 // ============================================================================
 
 import React, { useEffect, useState } from 'react';
-import { Text, View } from 'react-native';
+import { Text } from 'react-native';
 import { useNetInfo } from '@react-native-community/netinfo';
 import { MotiView } from 'moti';
 import { WifiSlash, CheckCircle } from 'phosphor-react-native';
@@ -48,7 +48,7 @@ export function OfflineBanner() {
       from={{ translateY: -100, opacity: 0 }}
       animate={{ translateY: 0, opacity: 1 }}
       exit={{ translateY: -100, opacity: 0 }}
-      transition={{ type: 'spring', damping: 20, stiffness: 180 }}
+      transition={{ type: 'spring', damping: 20, stiffness: 180 } as any}
       style={{
         paddingTop: safeTopPadding + 6,
         backgroundColor: isOffline ? '#ef4444' : '#59C83A',
