@@ -25,7 +25,7 @@ import { X, Megaphone, PaperPlaneTilt, User, Check } from 'phosphor-react-native
 import { supabase } from '../lib/supabase';
 import {
   sendBroadcastNotification,
-  sendNotificationToUser,
+  sendNotificationToUser, 
 } from '../lib/notifications';
 
 interface LinkedStudent {

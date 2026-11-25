@@ -113,7 +113,7 @@ export async function registerForPushNotificationsAsync(userId: string) {
 }
 
 /**
- * Removes o token push ao realizar Logout para evitar notificações cruzadas em dev.
+ * Remove o token push ao realizar Logout para evitar notificações cruzadas em dev.
  */
 export async function clearPushTokenOnSignOut(userId: string): Promise<void> {
   try {
@@ -167,6 +167,94 @@ export async function sendExpoPushNotification(
     console.log('📬 [Expo Push API Resposta]:', result);
   } catch (error) {
     console.error('Erro ao enviar Push via fetch:', error);
+  }
+}
+
+// ============================================================================
+// 📢 ENVIO DE COMUNICADOS DO PERSONAL (TODOS OS ALUNOS OU ALUNO ESPECÍFICO)
+// ============================================================================
+/**
+ * Envia uma notificação em massa para todos os alunos vinculados ao Personal
+ */
+export async function sendBroadcastNotification(
+  senderId: string,
+  title: string,
+  message: string
+): Promise<void> {
+  const { data: students, error: fetchError } = await supabase
+    .from('profiles')
+    .select('id, push_token')
+    .eq('personal_id', senderId);
+
+  if (fetchError) {
+    throw new Error(fetchError.message);
+  }
+
+  if (!students || students.length === 0) {
+    throw new Error('Nenhum aluno vinculado encontrado para receber o comunicado.');
+  }
+
+  const notificationsPayload = students.map((student) => ({
+    user_id: student.id,
+    sender_id: senderId,
+    title,
+    message,
+    type: 'BROADCAST',
+  }));
+
+  const { error: insertError } = await supabase
+    .from('notifications')
+    .insert(notificationsPayload);
+
+  if (insertError) {
+    throw new Error(insertError.message);
+  }
+
+  const pushTokens = students
+    .map((s) => s.push_token)
+    .filter((token): token is string => Boolean(token));
+
+  if (pushTokens.length > 0) {
+    await sendExpoPushNotification(pushTokens, title, message);
+  }
+}
+
+/**
+ * Envia uma notificação direta para um aluno específico
+ */
+export async function sendNotificationToUser({
+  targetUserId,
+  senderId,
+  title,
+  message,
+  type = 'DIRECT_MESSAGE',
+}: {
+  targetUserId: string;
+  senderId: string;
+  title: string;
+  message: string;
+  type?: string;
+}): Promise<void> {
+  const { error: insertError } = await supabase.from('notifications').insert({
+    user_id: targetUserId,
+    sender_id: senderId,
+    title,
+    message,
+    type,
+  });
+
+  if (insertError) {
+    throw new Error(insertError.message);
+  }
+
+  const { data: targetProfile } = await supabase
+    .from('profiles')
+    .select('push_token')
+    .eq('id', targetUserId)
+    .single();
+
+  if (targetProfile?.push_token) {
+    await sendExpoPushNotification([targetProfile.push_token], title, message);
   }
 }
 
