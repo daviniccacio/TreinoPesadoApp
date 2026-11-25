@@ -101,7 +101,7 @@ export function AppEntranceLoading({
           duration: 1200,
           loop: true,
           repeatReverse: true,
-        }}
+        } as any}
         className="absolute w-60 h-60 rounded-full bg-[#38E538]/20"
       />
 
@@ -113,7 +113,7 @@ export function AppEntranceLoading({
           duration: 1000,
           loop: true,
           repeatReverse: true,
-        }}
+        } as any}
         className="items-center justify-center mb-8"
       >
         <Image
@@ -132,7 +132,7 @@ export function AppEntranceLoading({
       >
         <MotiView
           animate={{ width: `${displayProgress}%` }}
-          transition={{ type: 'timing', duration: 100 }}
+          transition={{ type: 'timing', duration: 100 } as any}
           style={{ backgroundColor: '#38E538' }}
           className="h-full rounded-full"
         />
@@ -189,7 +189,7 @@ export function AuthLoadingOverlay({
             type: 'spring',
             damping: 18,
             stiffness: 200,
-          }}
+          } as any}
           className={`w-full max-w-xs p-6 rounded-3xl border items-center shadow-2xl ${
             isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-[#e2dfe1]'
           }`}
@@ -203,7 +203,7 @@ export function AuthLoadingOverlay({
               duration: 800,
               loop: true,
               repeatReverse: true,
-            }}
+            } as any}
             className="w-16 h-16 rounded-2xl bg-[#38E538]/10 border border-[#38E538]/30 items-center justify-center mb-4"
           >
             <LockSimple size={32} color="#38E538" weight="bold" />
