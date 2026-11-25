@@ -6,7 +6,7 @@
 // ============================================================================
 
 import React, { useState } from 'react';
-import { View, Text, Modal, TouchableOpacity, ScrollView, Linking } from 'react-native';
+import { View, Text, Modal, TouchableOpacity, Linking } from 'react-native';
 import { ShieldCheck, ArrowSquareOut, Check } from 'phosphor-react-native';
 import { MotiView } from 'moti';
 
@@ -40,7 +40,7 @@ export function TermsAndPrivacyModal({
         <MotiView
           from={{ opacity: 0, scale: 0.9, translateY: 15 }}
           animate={{ opacity: 1, scale: 1, translateY: 0 }}
-          transition={{ type: 'spring', damping: 20, stiffness: 180 }}
+          transition={{ type: 'spring', damping: 20, stiffness: 180 } as any}
           className={`w-full max-w-md p-6 rounded-3xl border ${
             isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-200'
           }`}
