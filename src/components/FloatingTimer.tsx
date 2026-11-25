@@ -102,7 +102,7 @@ export function FloatingTimer() {
           from={{ translateX: 200, opacity: 0 }}
           animate={{ translateX: 0, opacity: 1 }}
           exit={{ translateX: 350, opacity: 0 }} // 🟢 DESLIZE SUAVE PARA A DIREITA AO SAIR
-          transition={{ type: 'spring', damping: 22, stiffness: 160 }}
+          transition={{ type: 'spring', damping: 22, stiffness: 160 } as any}
           style={{ bottom: bottomOffset }}
           className="absolute right-5 z-50 items-end justify-center"
         >
@@ -114,13 +114,13 @@ export function FloatingTimer() {
                 from={{ scale: 0.7, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0.7, opacity: 0 }}
-                transition={{ type: 'spring', damping: 16, stiffness: 200 }}
+                transition={{ type: 'spring', damping: 16, stiffness: 200 } as any}
                 className="w-20 h-20 rounded-full bg-[#59C83A] items-center justify-center shadow-2xl border-2 border-emerald-400"
               >
                 <MotiView
                   from={{ scale: 0 }}
                   animate={{ scale: 1 }}
-                  transition={{ type: 'spring', damping: 12, stiffness: 200 }}
+                  transition={{ type: 'spring', damping: 12, stiffness: 200 } as any}
                 >
                   <Check size={36} color="#FFFFFF" weight="bold" />
                 </MotiView>
@@ -132,7 +132,7 @@ export function FloatingTimer() {
                 from={{ scale: 0.8, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0.8, opacity: 0 }}
-                transition={{ type: 'spring', damping: 20, stiffness: 180 }}
+                transition={{ type: 'spring', damping: 20, stiffness: 180 } as any}
               >
                 <TouchableOpacity
                   onPress={() => setIsExpanded(true)}
@@ -152,7 +152,7 @@ export function FloatingTimer() {
                 from={{ width: 80, opacity: 0 }}
                 animate={{ width: 340, opacity: 1 }}
                 exit={{ width: 80, opacity: 0 }}
-                transition={{ type: 'spring', damping: 22, stiffness: 170 }}
+                transition={{ type: 'spring', damping: 22, stiffness: 170 } as any}
                 className="bg-white dark:bg-zinc-900 px-4 py-3.5 rounded-3xl flex-row items-center justify-between border-2 border-[#e2dfe1] dark:border-zinc-800 shadow-2xl"
               >
                 {/* BOTÃO FECHAR, NOME DO EXERCÍCIO E TEMPO */}
